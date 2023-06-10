@@ -1,0 +1,43 @@
+[package]
+name = "rpi3"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+#lpu = ["dep:lego-powered-up", "dep:dbus" ]
+logging = ["dep:defmt", "dep:defmt-rtt", "dep:panic-probe" ]
+
+[dependencies]
+grow = { path="../grow" }
+
+#nostd
+anyhow = { version = "1.0", default-features = false }
+time = { version = "0.3.*", default-features = false, features = ["macros", "parsing", "alloc", "serde"]  }
+chrono = "0.4.24"  #replace with time
+
+
+#std
+
+
+# rp 
+simple-signal = "1.1.1"
+rppal = "0.14.1"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"]}
+
+
+
+# commmon hardware
+pcf8591 = "0.1.1"  
+#ssd1306 = ""                                          # oled display
+
+
+# lego-powered-up
+lego-powered-up = { path="../../api/lego-powered-up/lego-powered-up" }
+dbus = {version = "0.9.7", features = ["vendored"]}            
+
+# logging
+defmt = {version = "0.3", optional = true }
+defmt-rtt = {version = "0.4", optional = true } 
+panic-probe = { version = "0.3", features = ["print-defmt"], optional = true }
+
+
