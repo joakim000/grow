@@ -14,7 +14,8 @@ readonly TARGET_PATH=./bin
 readonly TARGET_ARCH=armv7-unknown-linux-gnueabihf
 readonly SOURCE_PATH=./target/${TARGET_ARCH}/debug/${PACKAGE}
 
-cargo build --target=${TARGET_ARCH} ${FEATURE_FLAG} ${FEATURES}
+# cargo build --target=${TARGET_ARCH} ${FEATURE_FLAG} ${FEATURES}
+cargo build --target=${TARGET_ARCH}
 scp ${SOURCE_PATH} ${TARGET_HOST}:${TARGET_PATH}
 
 
