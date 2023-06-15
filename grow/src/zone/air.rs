@@ -4,6 +4,7 @@ use core::error::Error;
 use tokio::sync::broadcast;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use core::fmt::Debug;
 pub type FanMutex = Arc<Mutex<Box<dyn Fan>>>;
 use super::Zone;
 
@@ -15,7 +16,7 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
         msg: None,
     };
     Zone::Air {
-        id: 0,
+        id,
         settings,
         status: Arc::new(Mutex::new(status)),
         // status: Status {
@@ -34,9 +35,9 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Settings {
-    pub temp_fan_low: f64,
-    pub temp_fan_high: f64,
-    pub temp_warning: f64,
+    pub temp_fan_low: f32,
+    pub temp_fan_high: f32,
+    pub temp_warning: f32,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -47,19 +48,22 @@ pub struct Status {
     pub msg: Option<String>,
 }
 
-// #[derive(Clone, Debug, PartialEq)]
+#[derive( Debug, )]
 pub struct Interface {
     pub fan: Option<Box<dyn Fan>>,
     pub thermo: Option<Box<dyn Thermometer>>,
 }
 impl Interface {
-    pub fn set_fan(&mut self, fan: Box<dyn Fan>) -> () {
-        self.fan = Some(fan);
-    }
-    pub fn set_thermo(&mut self, thermo: Box<dyn Thermometer>) -> () {
-        self.thermo = Some(thermo);
-    }
+    // pub fn set_fan(&mut self, fan: Box<dyn Fan>) -> () {
+    //     self.fan = Some(fan);
+    // }
+    // pub fn set_thermo(&mut self, thermo: Box<dyn Thermometer>) -> () {
+    //     self.thermo = Some(thermo);
+    // }
 }
+
+
+
 
 #[async_trait]
 pub trait Fan {
@@ -71,12 +75,22 @@ pub trait Fan {
     fn to_high(&self) -> Result<(), Box<dyn Error + '_>>;
     fn to_low(&self) -> Result<(), Box<dyn Error + '_>>;
 }
+impl Debug for dyn Fan {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Fan: {{{}}}", 0)
+    }
+}
 pub trait Thermometer {
     fn read_temp(&self) -> Result<(i32), Box<dyn Error>>;
     fn init(
         &mut self,
-        tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f64>)>
+        tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f32>)>
     ) -> Result<(), Box<dyn Error>>;
+}
+impl Debug for dyn Thermometer {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Thermometer: {{{}}}", 0)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Ord, PartialOrd, Hash)]
@@ -86,6 +100,7 @@ pub enum FanSetting {
     High,
 }
 
+#[derive(Debug, )]
 pub struct Runner {
     pub fan_control: (
         broadcast::Sender<FanSetting>,
@@ -96,8 +111,8 @@ pub struct Runner {
         broadcast::Receiver<(u8, Option<f32>)>,
     ),
     pub temp: (
-        broadcast::Sender<(u8, Option<f64>)>,
-        broadcast::Receiver<(u8, Option<f64>)>,
+        broadcast::Sender<(u8, Option<f32>)>,
+        broadcast::Receiver<(u8, Option<f32>)>,
     ),
     pub task: tokio::task::JoinHandle<()>,
 }
@@ -121,7 +136,7 @@ impl Runner {
     }
     pub fn channel_for_thermo(
         &self,
-    ) -> broadcast::Sender<(u8, Option<f64>)> {
+    ) -> broadcast::Sender<(u8, Option<f32>)> {
         self.temp.0.clone()
     }
 
@@ -134,13 +149,13 @@ impl Runner {
             loop {
                 tokio::select! {
                     Ok(data) = rx_rpm.recv() => {
-                        println!("Runner says: Fan rpm: {:?}", data);
+                        println!("Fan rpm: {:?}", data);
                     }
                     Ok(data) = rx_temp.recv() => {
-                        println!("Runner says: Temp: {:?}", data);
+                        println!("Temp: {:?}", data);
                         match data.1 {
                             Some(temp) => {
-                                if temp > 25f64 {
+                                if temp > 25f32 {
                                     println!("temp > 25 deg C");
                                     if current_setting != FanSetting::Low {
                                         match tx_fan.send(FanSetting::Low) {

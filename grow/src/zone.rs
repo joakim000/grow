@@ -12,31 +12,46 @@ use tokio::sync::Mutex;
 // #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 // #[derive(Clone, Debug, PartialEq)]
 use irrigation::{pump, tank, arm};
+
+#[derive(Debug, )]
 pub enum Zone {
     Light {
         id: u8,
         settings: light::Settings,
-        status: light::Status,
+        // status: light::Status,
+        status: Arc<Mutex<light::Status>>,
+        interface: light::Interface,
+        runner: light::Runner,
     },
     Tank {
         id: u8,
-        set: tank::Settings,
-        status: tank::Status,
+        settings: tank::Settings,
+        // status: tank::Status,
+        status: Arc<Mutex<tank::Status>>,
+        interface: tank::Interface,
+        runner: tank::Runner,
     },
     Irrigation {
         id: u8,
-        set: irrigation::Settings,
-        status: irrigation::Status,
+        settings: irrigation::Settings,
+        status: Arc<Mutex<irrigation::Status>>,
+        interface: irrigation::Interface,
+        runner: irrigation::Runner,
     },
     Pump {
         id: u8,
-        set: pump::Settings,
-        status: pump::Status,
+        settings: pump::Settings,
+        // status: pump::Status,
+        status: Arc<Mutex<pump::Status>>,
+        interface: pump::Interface,
+        runner: pump::Runner,
     },
     Arm {
         id: u8,
-        set: arm::Settings,
-        status: arm::Status,
+        settings: arm::Settings,
+        status: Arc<Mutex<arm::Status>>,
+        interface: arm::Interface,
+        runner: arm::Runner,
     },
     Air {
         id: u8,

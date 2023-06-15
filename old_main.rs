@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     
         // Get sensor values
         let light_1: u8 = light_from_byte(adc_control.analog_read_byte(LIGHT_SENSOR_1)? as &u8);
-        let temperature_1: f64 = celcius_from_byte(adc_control.analog_read_byte(TEMP_SENSOR_1)? as &f64);
+        let temperature_1: f32 = celcius_from_byte(adc_control.analog_read_byte(TEMP_SENSOR_1)? as &f32);
         let moisture_1: i16 = moist_from_byte(adc_control.analog_read_byte(MOIST_SENSOR_1)? as &i16);
         let moisture_2: i16 = moist_from_byte(adc_control.analog_read_byte(MOIST_SENSOR_2)? as &i16);
 
@@ -165,7 +165,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 // struct HwConf {
 //     activity_led_pin: u8,
 //     fan_1_rpm_pin: u8,
-//     fan_1_pwm_hz: f64,
+//     fan_1_pwm_hz: f32,
 // }
 // impl HwConf {
 //     pub fn test_config() -> Self {
@@ -189,14 +189,14 @@ fn signal_handler() -> Arc<AtomicBool> {
     running
 }
 
-fn celcius_from_byte(value: &f64) -> f64 {
-    let coeff_b: f64 = 3950.0;  // thermistor coefficient
-    let res_r0: f64 = 10000.0;  // resistance @ room temperature
-    let res_r1: f64 = 1000.0;   // resistance of R1
-    let room_temperature_in_kelvin: f64 = 297.15; 
+fn celcius_from_byte(value: &f32) -> f32 {
+    let coeff_b: f32 = 3950.0;  // thermistor coefficient
+    let res_r0: f32 = 10000.0;  // resistance @ room temperature
+    let res_r1: f32 = 1000.0;   // resistance of R1
+    let room_temperature_in_kelvin: f32 = 297.15; 
     
-    let res_r6: f64 = (res_r1*value) / (256.0-value);
-    let kelvin: f64 = 1.0 / ( (1.0/room_temperature_in_kelvin) + (1.0/coeff_b) * ( res_r6/res_r0 ).ln() );
+    let res_r6: f32 = (res_r1*value) / (256.0-value);
+    let kelvin: f32 = 1.0 / ( (1.0/room_temperature_in_kelvin) + (1.0/coeff_b) * ( res_r6/res_r0 ).ln() );
     kelvin - 273.15
 }
 

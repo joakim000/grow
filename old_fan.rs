@@ -14,9 +14,9 @@
 
 
      // Fan data from config file
-    let temperature_fan_low: f64 = 25.0;
-    let temperature_fan_high: f64 = 35.0;
-    let temperature_warning: f64 = 40.0;
+    let temperature_fan_low: f32 = 25.0;
+    let temperature_fan_high: f32 = 35.0;
+    let temperature_warning: f32 = 40.0;
 
  // Control fan
         let mut fan_pulse_detected = true;

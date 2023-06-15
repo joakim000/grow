@@ -22,33 +22,17 @@ impl Conf {
         // Return hardcoded config
         let mut h = House::new();
 
-        h.zones.push(Zone::Air {
-            id: 1,
-            settings: zone::air::Settings {
-                temp_fan_low: 25.0,
-                temp_fan_high: 30.0,
-                temp_warning: 35.0,
-            },
-            status: Arc::new(Mutex::new(zone::air::Status {
-                temp: None,
-                fan_rpm: None,
-                indicator: None,
-                msg: None,
-            })),
-            interface: zone::air::Interface {
-                fan: None,
-                thermo: None,
-            },
-            runner: zone::air::Runner::new(),
-        });
-        h.zones.push(Zone::Light {
-            id: 0,
-            settings: zone::light::Settings {},
-            status: zone::light::Status {},
-        });
-        h.zones.push(Zone::Irrigation {
-            id: 0,
-            set: zone::irrigation::Settings {
+        h.zones.push(zone::air::new(
+                    1,
+                    zone::air::Settings {
+                        temp_fan_low: 25.0,
+                        temp_fan_high: 30.0,
+                        temp_warning: 35.0,
+                    },
+                ));
+        h.zones.push(zone::irrigation::new(
+            1,
+            zone::irrigation::Settings {
                 moisture_limit_water: 50,
                 moisture_limit_low_warning: 30,
                 moisture_limit_high_warning: 70,
@@ -60,26 +44,62 @@ impl Conf {
                     z: 0,
                 }),
             },
-            status: zone::irrigation::Status {},
-        });
-        h.zones.push(Zone::Pump {
-            id: 0,
-            set: zone::irrigation::pump::Settings {
+        )); 
+        h.zones.push(zone::irrigation::new(
+            2,
+            zone::irrigation::Settings {
+                moisture_limit_water: 50,
+                moisture_limit_low_warning: 30,
+                moisture_limit_high_warning: 70,
+                pump_id: 0,
+                position: Some(zone::irrigation::arm::Move {
+                    arm_id: 0,
+                    x: 50,
+                    y: 200,
+                    z: 0,
+                }),
+            },
+        )); 
+        h.zones.push(zone::light::new(
+            1,
+            zone::light::Settings {},
+        ));
+
+        h.zones.push(zone::irrigation::arm::new(
+            1,
+            zone::irrigation::arm::Settings {},
+        ));
+        h.zones.push(zone::irrigation::pump::new(
+            1,
+            zone::irrigation::pump::Settings {
                 run_for_secs: 10,
                 rest_secs: 60,
             },
-            status: zone::irrigation::pump::Status {},
-        });
-        h.zones.push(Zone::Tank {
-            id: 0,
-            set: zone::irrigation::tank::Settings {},
-            status: zone::irrigation::tank::Status {},
-        });
-        h.zones.push(Zone::Arm {
-            id: 0,
-            set: zone::irrigation::arm::Settings {},
-            status: zone::irrigation::arm::Status {},
-        });
+        ));
+        h.zones.push(zone::irrigation::tank::new(
+            1,
+            zone::irrigation::tank::Settings {},
+        ));
+
+      
+        // h.zones.push(Zone::Pump {
+        //     id: 1,
+        //     settings: zone::irrigation::pump::Settings {
+        //         run_for_secs: 10,
+        //         rest_secs: 60,
+        //     },
+        //     status: zone::irrigation::pump::Status {},
+        // });
+        // h.zones.push(Zone::Tank {
+        //     id: 1,
+        //     settings: zone::irrigation::tank::Settings {},
+        //     status: zone::irrigation::tank::Status {},
+        // });
+        // h.zones.push(Zone::Arm {
+        //     id: 1,
+        //     setttings: zone::irrigation::arm::Settings {},
+        //     status: zone::irrigation::arm::Status {},
+        // });
 
         h
     }

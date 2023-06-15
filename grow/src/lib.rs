@@ -12,6 +12,7 @@ pub use tokio::sync::broadcast;
 pub mod ops;
 pub mod zone;
 
+#[derive( Debug, )]
 pub struct House {
     zones: Vec<Zone>,
 }
@@ -38,9 +39,16 @@ impl House {
                     let channels = runner.channels_for_fan();
                     let _ = interface.fan.as_mut().unwrap().init(channels.0, channels.1);
                     let _ = interface.thermo.as_mut().unwrap().init(runner.channel_for_thermo());
-                    // let m = Arc::new(Mutex::new(interface.fan.unwrap()));
-                    // Arc::new(Mutex::new(created_hub)),
-                    // runner.run(m);
+                    runner.run(settings.clone());
+                },
+                Zone::Irrigation {
+                    id: _,
+                    settings,
+                    status: _,
+                    interface,
+                    runner,
+                } => {
+                    let _ = interface.moist.as_mut().unwrap().init(runner.channel_for_moist());
                     runner.run(settings.clone());
                 }
                 _ => (),

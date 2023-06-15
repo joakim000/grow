@@ -27,6 +27,7 @@ pub const LIGHT_SENSOR_1: Pin = Pin::AIN0;
 pub const TEMP_SENSOR_1: Pin = Pin::AIN1;
 pub const MOIST_SENSOR_1: Pin = Pin::AIN2;
 pub const MOIST_SENSOR_2: Pin = Pin::AIN3;
+
 pub const DISPLAY_BUS: &str = "/dev/i2c-1";
 pub const DISPLAY_ADDR: u16 = 0xc3;
 

@@ -33,37 +33,17 @@ use lego_powered_up::{HubMutex, IoDevice, IoTypeId};
 
 use crate::hardware::conf::*;
 
-const PUMP_INTERVAL_SECS: u64 = 20;
-const MOISTURE_1_RUN_PUMP: i16 = 50; // Run pump if moisture below this level
-                                     // const MOISTURE_1_WARNING = 30;  // Warn if moisture below this level
+// const PUMP_INTERVAL_SECS: u64 = 20;
+// const MOISTURE_1_RUN_PUMP: i16 = 50; // Run pump if moisture below this level
+//                                      // const MOISTURE_1_WARNING = 30;  // Warn if moisture below this level
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let keepalive = signal_handler();
 
+    let mut house = init::house_init();
+
     // let run_task = grow::ops::running::Runner::run().await;
-
-    let mut house = ops::conf::Conf::read_test_into_house();
-
-    let adc_1 = crate::hardware::pcf8591::Adc::new();
-
-
-    for zone in house.zones() {
-        match zone {
-            Zone::Air {
-                id,
-                settings: _,
-                status: _,
-                interface,
-                runner,
-            } => {
-                interface.fan = Some(Box::new(crate::hardware::pwmfan::PwmFan::new(*id)));
-                interface.thermo = Some(Box::new(crate::hardware::pcf8591::Thermistor::new(*id, adc_1.new_mutex())));
-            }
-            _ => (),
-        }
-    }
-    house.init();
 
     while keepalive.load(Ordering::SeqCst) {
         let now = Local::now(); // Time when this loop starts
@@ -89,7 +69,9 @@ fn signal_handler() -> Arc<AtomicBool> {
             running.store(false, Ordering::SeqCst);
         }
     });
+
     keepalive
 }
 
 
+mod init;
