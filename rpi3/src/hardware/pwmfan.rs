@@ -38,7 +38,7 @@ impl zone::air::Fan for PwmFan {
         let lock = self.pwm_channel.lock()?;
         Ok(lock.set_duty_cycle(1.0)?)
     }
-    fn to_low(&self) -> Result<(), Box<dyn Error  + '_>> {
+    fn to_low(&self) -> Result<(), Box<dyn Error + '_>> {
         println!("Fan set to low");
         let lock = self.pwm_channel.lock()?;
         Ok(lock.set_duty_cycle(0.5)?)
@@ -67,14 +67,9 @@ impl zone::air::Fan for PwmFan {
 
 impl PwmFan {
     pub fn new(id: u8) -> Self {
-        let pwm_channel = Pwm::with_frequency(
-            PWM_FAN_1,
-            PWM_FREQ_FAN_1,
-            0.0,
-            PWM_POLARITY_FAN_1,
-            true,
-        )
-        .expect("Error setting up pwm");
+        let pwm_channel =
+            Pwm::with_frequency(PWM_FAN_1, PWM_FREQ_FAN_1, 0.0, PWM_POLARITY_FAN_1, true)
+                .expect("Error setting up pwm");
         let pwm_mutex = Arc::new(Mutex::new(pwm_channel));
         Self {
             id,
@@ -83,7 +78,6 @@ impl PwmFan {
             feedback_task: None,
             control_task: None,
         }
-
     }
     pub fn mutex(self) {
         let m: FanMutex = Arc::new(Mutex::new(Box::new(self)));
@@ -149,7 +143,10 @@ impl PwmFan {
         }))
     }
 
-    fn fan_control(&self, mut rx: broadcast::Receiver<FanSetting>) ->  Result<JoinHandle<()>, Box<dyn Error>> {
+    fn fan_control(
+        &self,
+        mut rx: broadcast::Receiver<FanSetting>,
+    ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let pwm = self.pwm_channel.clone();
         Ok(tokio::spawn(async move {
             while let Ok(data) = rx.recv().await {
@@ -157,13 +154,13 @@ impl PwmFan {
                 match data {
                     FanSetting::Off => {
                         let _ = pwm.lock().unwrap().set_duty_cycle(0.0);
-                    },
+                    }
                     FanSetting::Low => {
                         let _ = pwm.lock().unwrap().set_duty_cycle(0.5);
-                    },
+                    }
                     FanSetting::High => {
                         let _ = pwm.lock().unwrap().set_duty_cycle(1.0);
-                    },
+                    }
                 }
                 println!("Current duty cycle: {:?}", pwm.lock().unwrap().duty_cycle());
             }

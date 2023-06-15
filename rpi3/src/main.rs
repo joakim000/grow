@@ -1,5 +1,5 @@
 #![feature(error_in_core)]
-// #![allow(unused)]
+#![allow(unused)]
 mod hardware;
 mod init;
 use crate::hardware::conf::*;
@@ -10,18 +10,16 @@ use std::error::Error;
 // use std::thread;
 use std::time::{Duration, Instant};
 
+use simple_signal::{self, Signal};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use simple_signal::{self, Signal};
 
-use rppal::gpio::{Gpio, Trigger, OutputPin};
+use rppal::gpio::{Gpio, OutputPin, Trigger};
 use rppal::pwm::{Channel, Polarity, Pwm};
 
-
+use drive_74hc595::ShiftRegister;
 use dummy_pin::DummyPin;
-use drive_74hc595::{ShiftRegister};
-use pcf8591::{PCF8591, Pin};
-
+use pcf8591::{Pin, PCF8591};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -49,8 +47,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut btn_1 = Gpio::new()?.get(BUTTON_1_PIN)?.into_input_pulldown();
     let mut btn_2 = Gpio::new()?.get(BUTTON_2_PIN)?.into_input_pulldown();
     println!("Button pins initialized");
-    btn_1.set_async_interrupt(Trigger::Both, |l|println!("Btn 111: {:?}", l));
-    btn_2.set_async_interrupt(Trigger::Both, |l|println!("Btn 222: {:?}", l));
+    btn_1.set_async_interrupt(Trigger::Both, |l| println!("Btn 111: {:?}", l));
+    btn_2.set_async_interrupt(Trigger::Both, |l| println!("Btn 222: {:?}", l));
 
     // OLED
     // oled::test_oled();
@@ -77,13 +75,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     sr.load(led_byte);
     sr.output_clear();
     sr.disable_output();
-    
+
     activity_led.set_low();
 
     Ok(())
-
 }
-
 
 fn signal_handler() -> Arc<AtomicBool> {
     let keepalive = Arc::new(AtomicBool::new(true));
