@@ -36,11 +36,22 @@ impl House {
                     interface,
                     runner,
                 } => {
-                    let channels = runner.channels_for_fan();
+                    let channels = runner.fan_channels();
                     let _ = interface.fan.as_mut().unwrap().init(channels.0, channels.1);
-                    let _ = interface.thermo.as_mut().unwrap().init(runner.channel_for_thermo());
+                    let _ = interface.thermo.as_mut().unwrap().init(runner.thermo_channel());
                     runner.run(settings.clone());
                 },
+                Zone::Light {
+                    id: _,
+                    settings,
+                    status: _,
+                    interface,
+                    runner,
+                } => {
+                    let _ = interface.lightmeter.as_mut().unwrap().init(runner.lightmeter_channel());
+                    let _ = interface.lamp.as_mut().unwrap().init(runner.lamp_channel());
+                    runner.run(settings.clone());
+                }
                 Zone::Irrigation {
                     id: _,
                     settings,
@@ -48,7 +59,7 @@ impl House {
                     interface,
                     runner,
                 } => {
-                    let _ = interface.moist.as_mut().unwrap().init(runner.channel_for_moist());
+                    let _ = interface.moist.as_mut().unwrap().init(runner.channel());
                     runner.run(settings.clone());
                 }
                 _ => (),

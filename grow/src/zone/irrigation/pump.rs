@@ -37,34 +37,33 @@ pub struct Interface {
 
 #[derive(Debug, )]
 pub struct Runner {
-    pub moist: broadcast::Sender<(u8, Option<f32>)>,
+    pub tx: broadcast::Sender<(u8, Option<f32>)>,
     pub task: tokio::task::JoinHandle<()>,
 }
 impl Runner {
     pub fn new() -> Self {
         Self {
-            moist: broadcast::channel(1).0,
+            tx: broadcast::channel(1).0,
             task: tokio::spawn(async move {}),
         }
     }
 
-    pub fn channel_for_moist(
+    pub fn channel(
         &self,
     ) -> broadcast::Sender<(u8, Option<f32>)> {
-        self.moist.clone()
+        self.tx.clone()
     }
 
     pub fn run(&mut self, settings: Settings) {
-        let mut rx_moist = self.moist.subscribe();
-        // let mut current_setting = FanSetting::Off;
+        let mut rx = self.tx.subscribe();
         self.task = tokio::spawn(async move {
             loop {
                 tokio::select! {
-                    Ok(data) = rx_moist.recv() => {
-                        println!("Moisture: {:?}", data);
+                    Ok(data) = rx.recv() => {
+                        println!("Pump: {:?}", data);
                     }
-                    // Ok(data) = rx_moist.recv() => {
-                    //     println!("Temp: {:?}", data);
+                    // Ok(data) = rx_2.recv() => {
+                    //     println!("Secondary:"" {:?}", data);
                     // }
                     else => { break }
                 };

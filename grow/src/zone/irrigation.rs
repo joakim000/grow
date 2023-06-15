@@ -42,7 +42,7 @@ pub struct Status {
 
 #[async_trait]
 pub trait MoistureSensor {
-    // fn init(&self) -> Result<(), Box<dyn Error>>;
+    fn id(&self) -> u8;
     fn init(
         &mut self,
         tx_moist: tokio::sync::broadcast::Sender<(u8, Option<f32>)>
@@ -65,7 +65,7 @@ impl Interface {
 // }
 impl Debug for dyn MoistureSensor {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "MoistureSensor{{{}}}", 0)
+        write!(f, "MoistureSensor {{{}}}", self.id())
     }
 }
 
@@ -76,34 +76,33 @@ pub mod arm;
 
 #[derive(Debug, )]
 pub struct Runner {
-    pub moist: broadcast::Sender<(u8, Option<f32>)>,
+    pub tx: broadcast::Sender<(u8, Option<f32>)>,
     pub task: tokio::task::JoinHandle<()>,
 }
 impl Runner {
     pub fn new() -> Self {
         Self {
-            moist: broadcast::channel(1).0,
+            tx: broadcast::channel(1).0,
             task: tokio::spawn(async move {}),
         }
     }
 
-    pub fn channel_for_moist(
+    pub fn channel(
         &self,
     ) -> broadcast::Sender<(u8, Option<f32>)> {
-        self.moist.clone()
+        self.tx.clone()
     }
 
     pub fn run(&mut self, settings: Settings) {
-        let mut rx_moist = self.moist.subscribe();
-        // let mut current_setting = FanSetting::Off;
+        let mut rx = self.tx.subscribe();
         self.task = tokio::spawn(async move {
             loop {
                 tokio::select! {
-                    Ok(data) = rx_moist.recv() => {
+                    Ok(data) = rx.recv() => {
                         println!("Moisture: {:?}", data);
                     }
-                    // Ok(data) = rx_moist.recv() => {
-                    //     println!("Temp: {:?}", data);
+                    // Ok(data) = rx_2.recv() => {
+                    //     println!("Secondary:"" {:?}", data);
                     // }
                     else => { break }
                 };
@@ -111,4 +110,3 @@ impl Runner {
         });
     }
 }
-

@@ -67,6 +67,7 @@ impl Interface {
 
 #[async_trait]
 pub trait Fan {
+    fn id(&self) -> u8;
     fn init(
         &mut self,
         tx_rpm: tokio::sync::broadcast::Sender<(u8, Option<f32>)>,
@@ -77,10 +78,11 @@ pub trait Fan {
 }
 impl Debug for dyn Fan {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Fan: {{{}}}", 0)
+        write!(f, "Fan: {{{}}}", self.id())
     }
 }
 pub trait Thermometer {
+    fn id(&self) -> u8;
     fn read_temp(&self) -> Result<(i32), Box<dyn Error>>;
     fn init(
         &mut self,
@@ -89,7 +91,7 @@ pub trait Thermometer {
 }
 impl Debug for dyn Thermometer {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Thermometer: {{{}}}", 0)
+        write!(f, "Thermometer: {{{}}}", self.id())
     }
 }
 
@@ -102,48 +104,39 @@ pub enum FanSetting {
 
 #[derive(Debug, )]
 pub struct Runner {
-    pub fan_control: (
-        broadcast::Sender<FanSetting>,
-        broadcast::Receiver<FanSetting>,
-    ),
-    pub fan_rpm: (
-        broadcast::Sender<(u8, Option<f32>)>,
-        broadcast::Receiver<(u8, Option<f32>)>,
-    ),
-    pub temp: (
-        broadcast::Sender<(u8, Option<f32>)>,
-        broadcast::Receiver<(u8, Option<f32>)>,
-    ),
+    pub fan_control: broadcast::Sender<FanSetting>,
+    pub fan_rpm: broadcast::Sender<(u8, Option<f32>)>,
+    pub temp: broadcast::Sender<(u8, Option<f32>)>,
     pub task: tokio::task::JoinHandle<()>,
 }
 impl Runner {
     pub fn new() -> Self {
         Self {
-            fan_control: broadcast::channel(1),
-            fan_rpm: broadcast::channel(1),
-            temp: broadcast::channel(1),
+            fan_control: broadcast::channel(1).0,
+            fan_rpm: broadcast::channel(1).0,
+            temp: broadcast::channel(1).0,
             task: tokio::spawn(async move {}),
         }
     }
 
-    pub fn channels_for_fan(
+    pub fn fan_channels(
         &self,
     ) -> (
         broadcast::Sender<(u8, Option<f32>)>,
         broadcast::Receiver<FanSetting>,
     ) {
-        (self.fan_rpm.0.clone(), self.fan_control.0.subscribe())
+        (self.fan_rpm.clone(), self.fan_control.subscribe())
     }
-    pub fn channel_for_thermo(
+    pub fn thermo_channel(
         &self,
     ) -> broadcast::Sender<(u8, Option<f32>)> {
-        self.temp.0.clone()
+        self.temp.clone()
     }
 
     pub fn run(&mut self, settings: Settings) {
-        let mut rx_rpm = self.fan_rpm.0.subscribe();
-        let mut rx_temp = self.temp.0.subscribe();
-        let tx_fan = self.fan_control.0.clone();
+        let mut rx_rpm = self.fan_rpm.subscribe();
+        let mut rx_temp = self.temp.subscribe();
+        let tx_fan = self.fan_control.clone();
         let mut current_setting = FanSetting::Off;
         self.task = tokio::spawn(async move {
             loop {

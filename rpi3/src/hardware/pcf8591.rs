@@ -1,8 +1,8 @@
 use super::conf::*;
 use pcf8591::{PCF8591, Pin};
 use std::sync::Arc;
-use tokio::sync::Mutex;
-// use std::sync::Mutex;
+// use tokio::sync::Mutex;
+use std::sync::Mutex;
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 use grow::zone;
@@ -38,6 +38,33 @@ impl Adc {
     pub fn new() -> Self {
         let control = PCF8591::new(ADC_1_BUS, ADC_1_ADDR, ADC_1_VREF).unwrap();
         let mutex = Arc::new(Mutex::new(control));
+        let adc = mutex.clone();
+        // tokio::spawn(async move {
+        //     loop {
+        //         let reading: f32;
+        //         {
+        //             println!("ADC lock req for ADC ");
+        //             // let mut lock = adc.lock().await;
+        //             let mut lock = adc.lock().unwrap();
+        //             println!("ADC lock aquired for ADC");
+
+        //             let v0 = lock.analog_read_byte(Pin::AIN0); // photoresistor
+        //             let v1 = lock.analog_read_byte(Pin::AIN1); // thermistor
+        //             let v2 = lock.analog_read_byte(Pin::AIN2); // capacitive soil moisture 1
+        //             let v3 = lock.analog_read_byte(Pin::AIN3); // capacitive soil moisture 2
+        //             println!("Light {:?}  Temp {:?}    Moist 1 {:?}     Moist 2 {:?} ",&v0, &v1, &v2, &v3);
+                                   
+        //             let c0 = light_from_byte(v0.unwrap().into());
+        //             let c1 = celcius_from_byte(v1.unwrap().into());
+        //             let c2 = moist_from_byte(v2.unwrap().into());
+        //             let c3 = moist_from_byte(v3.unwrap().into());
+        //             println!("Light {:?}  Temp {:?}    Moist 1 {:?}     Moist 2 {:?} ",c0, c1, c2, c3);
+        //         }
+        //         println!("ADC lock drop for ADC");
+        //         tokio::time::sleep(Duration::from_millis(10000)).await;
+        //     }
+        // });
+        
         Self {
             mutex: mutex, 
         }
@@ -63,12 +90,60 @@ impl Adc {
 pub struct Led {
     id: u8,
     adc: AdcMutex,
-    feedback_task: Option<JoinHandle<()>>,
+    control_task: Option<JoinHandle<()>>,
 }
 impl zone::light::Lamp for Led {
+    fn id(&self) -> u8 { self.id }
     fn on(&self) -> Result<(), Box<dyn Error>> { Ok(())}
     fn off(&self) -> Result<(), Box<dyn Error>> {Ok(())}
-    fn init(&self) -> Result<(), Box<dyn Error>> {Ok(())}
+    // fn init(&self) -> Result<(), Box<dyn Error>> {Ok(())}
+    fn init(
+        &mut self,
+        rx_control: tokio::sync::broadcast::Receiver<(u8, bool)>,
+    ) -> Result<(), Box<dyn Error>> {
+        self.control_task = Some(
+            self.lamp_control(rx_control)
+                .expect("Error initializing control task"),
+        );
+        Ok(())
+    }
+}
+impl Debug for Led {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "LED:")
+    }
+}
+impl Led {
+    pub fn new(id: u8, adc: AdcMutex) -> Self {
+        Self {
+            id,
+            adc,
+            control_task: None,
+        }
+    }
+    fn lamp_control(&self, mut rx: broadcast::Receiver<(u8, bool)>) ->  Result<JoinHandle<()>, Box<dyn Error>> {
+        let id = self.id.clone();
+        let adc = self.adc.clone();
+        Ok(tokio::spawn(async move {
+            while let Ok(data) = rx.recv().await {
+                println!("Received lamp command: {:?}", data);
+                match data {
+                    (id, true) => {
+                        {
+                            let mut lock = adc.lock().unwrap();
+                            lock.analog_write_byte(255);
+                        }
+                    },
+                    (id, false) => {
+                        {
+                            let mut lock = adc.lock().unwrap();
+                            lock.analog_write_byte(0);
+                        }
+                    },
+                }
+            }
+        }))
+    }
 }
 
 // #[derive( Debug, )]
@@ -78,6 +153,7 @@ pub struct Thermistor {
     feedback_task: Option<JoinHandle<()>>,
 }
 impl zone::air::Thermometer for Thermistor {
+    fn id(&self) -> u8 { self.id }
     fn read_temp(&self) -> Result<(i32), Box<dyn Error>> {Ok(100i32)}
     fn init(&mut self,  tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f32>)>) -> Result<(), Box<dyn Error>> {
         self.feedback_task = Some(
@@ -113,9 +189,14 @@ impl Thermistor {
             loop {
                 let reading: f32;
                 {
-                    let mut lock = adc.lock().await;
-                    reading = celcius_from_byte(lock.analog_read_byte(TEMP_SENSOR_1).unwrap() as f32);
+                    // println!("ADC lock req for temp {}", &id);
+                    let mut lock = adc.lock().unwrap();
+                    // println!("ADC lock aquired for temp {}", &id);
+                    reading = celcius_from_byte(lock.analog_read_byte(TEMP_SENSOR_1).unwrap() as f32); // TODO Check unwrap on reading
                 }
+                // reading = 0f32;
+                // println!("ADC lock drop for temp {}", &id);
+                // println!("Temp {:?}", &id); dbg!(reading);
                 if let Some(p) = previous {
                     if reading != p {
                         tx.send( (id, Some(reading)) );
@@ -124,10 +205,10 @@ impl Thermistor {
                     tx.send( (id, Some(reading)) );
                 }
                 }
-                // Check unwrap on reading
+                // Assumes ok reading, check unwrap on reading 
                 previous = Some(reading);
                 
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                tokio::time::sleep(Duration::from_secs(5)).await;
             }
         }))
     }
@@ -143,6 +224,7 @@ pub struct Photoresistor {
 }
 impl zone::light::Lightmeter for Photoresistor {
     // fn read_light(&self) -> Result<(i32), Box<dyn Error>> {Ok(100i32)}
+    fn id(&self) -> u8 { self.id }
     fn init(&mut self,  tx_light: tokio::sync::broadcast::Sender<(u8, Option<f32>)>) -> Result<(), Box<dyn Error>> {
         self.feedback_task = Some(
             self.light_feedback(tx_light)
@@ -172,7 +254,7 @@ impl Photoresistor {
             loop {
                 let reading: f32;
                 {
-                    let mut lock = adc.lock().await;
+                    let mut lock = adc.lock().unwrap();
                     reading = light_from_byte(lock.analog_read_byte(LIGHT_SENSOR_1).unwrap());
                 }
                 if let Some(p) = previous {
@@ -186,7 +268,7 @@ impl Photoresistor {
                 // Check unwrap on reading
                 previous = Some(reading);
                 
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                tokio::time::sleep(Duration::from_secs(4)).await;
             }
         }))
     }
@@ -202,6 +284,7 @@ pub struct CapacitiveMoistureSensor {
     feedback_task: Option<JoinHandle<()>>,
 }
 impl zone::irrigation::MoistureSensor for CapacitiveMoistureSensor {
+    fn id(&self) -> u8 { self.id }
     // fn read_moist(&self) -> Result<(i32), Box<dyn Error>> {Ok(100i32)}
     fn init(&mut self,  tx_moist: tokio::sync::broadcast::Sender<(u8, Option<f32>)>) -> Result<(), Box<dyn Error>> {
         self.feedback_task = Some(
@@ -235,11 +318,18 @@ impl CapacitiveMoistureSensor {
         Ok(tokio::spawn(async move {
             let mut previous: Option<f32> = None;
             loop {
+                if id == 1 { tokio::time::sleep(Duration::from_millis(4000)).await; }
+                else { tokio::time::sleep(Duration::from_millis(6000)).await; }
                 let reading: f32;
                 {
-                    let mut lock = adc.lock().await;
+                    // println!("ADC lock req for moist {}", &id);
+                    let mut lock = adc.lock().unwrap();
+                    // println!("ADC lock aquired for moist {}", &id);
                     reading = moist_from_byte(lock.analog_read_byte(pin).unwrap());
                 }
+                // reading = 0f32;
+                // println!("ADC lock drop for moist {}", &id);
+                // println!("Moist {:?}", &id); dbg!(reading);
                 if let Some(p) = previous {
                     if reading != p {
                         tx.send( (id, Some(reading)) );
@@ -251,7 +341,7 @@ impl CapacitiveMoistureSensor {
                 // Check unwrap on reading
                 previous = Some(reading);
                 
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                // tokio::time::sleep(Duration::from_millis(2500)).await;
             }
         }))
     }

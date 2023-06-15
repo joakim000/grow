@@ -1,64 +1,91 @@
 #![feature(error_in_core)]
 #![allow(unused)]
+mod hardware;
+mod init;
+use crate::hardware::conf::*;
 use grow::ops;
 use grow::zone::*;
-// use grow::Result;
-mod hardware;
+// use conf::*;
+// mod oled;
 
-extern crate alloc;
-use alloc::collections::BTreeMap;
-use alloc::vec::{IntoIter, Vec};
-use lego_powered_up::iodevice::hubled::HubLed;
-use lego_powered_up::iodevice::motor::EncoderMotor;
-// use anyhow;
-use chrono::{Local, NaiveTime, Timelike}; // deprecated; use time
-use core::error::Error;
-use core::time::Duration;
-use time;
+use std::error::Error;
+use std::thread;
+use std::time::{Duration, Instant};
 
-use alloc::sync::Arc;
-use core::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use simple_signal::{self, Signal};
 
-use std::time::Instant;
-
-use rppal::gpio::{Gpio, Trigger};
-// use rppal::i2c::I2c;
-use pcf8591::{Pin, PCF8591};
+use rppal::gpio::{Gpio, Trigger, OutputPin};
 use rppal::pwm::{Channel, Polarity, Pwm};
-// use ssd1306;
 
-use lego_powered_up::{notifications::Power, PoweredUp};
-use lego_powered_up::{HubMutex, IoDevice, IoTypeId};
 
-use crate::hardware::conf::*;
+use dummy_pin::DummyPin;
+use drive_74hc595::{ShiftRegister};
+use pcf8591::{PCF8591, Pin};
 
-// const PUMP_INTERVAL_SECS: u64 = 20;
-// const MOISTURE_1_RUN_PUMP: i16 = 50; // Run pump if moisture below this level
-//                                      // const MOISTURE_1_WARNING = 30;  // Warn if moisture below this level
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let keepalive = signal_handler();
-
     let mut house = init::house_init();
 
-    // let run_task = grow::ops::running::Runner::run().await;
+    // Activity
+    let mut activity_led = Gpio::new()?.get(ACTIVITY_LED_PIN)?.into_output();
+    println!("LED pin initialized");
+
+    // Shiftreg leds
+    let sr_data = Gpio::new()?.get(INDICATORS_SR_DATA)?.into_output();
+    let sr_enable = Gpio::new()?.get(INDICATORS_SR_ENABLE)?.into_output();
+    let sr_clk = Gpio::new()?.get(INDICATORS_SR_CLK)?.into_output();
+    let sr_latch = Gpio::new()?.get(INDICATORS_SR_LATCH)?.into_output();
+    let sr_reset = Gpio::new()?.get(INDICATORS_SR_RESET)?.into_output();
+    let mut sr = ShiftRegister::new(sr_enable, sr_data, sr_reset, sr_clk, sr_latch);
+    sr.begin();
+    println!("SR initizalied");
+    sr.enable_output();
+    sr.output_clear();
+    let mut led_byte: u8 = 0;
+
+    // Buttons
+    let mut btn_1 = Gpio::new()?.get(BUTTON_1_PIN)?.into_input_pulldown();
+    let mut btn_2 = Gpio::new()?.get(BUTTON_2_PIN)?.into_input_pulldown();
+    println!("Button pins initialized");
+    btn_1.set_async_interrupt(Trigger::Both, |l|println!("Btn 111: {:?}", l));
+    btn_2.set_async_interrupt(Trigger::Both, |l|println!("Btn 222: {:?}", l));
+
+    // OLED
+    // oled::test_oled();
 
     while keepalive.load(Ordering::SeqCst) {
-        let now = Local::now(); // Time when this loop starts
-                                // activity_led.set_high(); // Act led on when loop running
+        activity_led.set_high();
 
-        // activity_led.set_low();
-        tokio::time::sleep(Duration::from_millis(1000)); // main loop interval
+        // Blink all
+        led_byte = 0b11111111;
+        // println!("loading: {:?}", led_byte);
+        sr.load(led_byte);
+        tokio::time::sleep(Duration::from_millis(1000)).await;
+        led_byte = 0b00000000;
+        // println!("loading: {:?}", led_byte);
+        sr.load(led_byte);
+
+        tokio::time::sleep(Duration::from_millis(1000)).await;
+        activity_led.set_low();
     }
 
-    // let shutdown_task = grow::ops::running::Runner::shutdown().await;
+    // Reset pins
 
-    // activity_led.set_low();
-    println!("\nCleanup success");
-    Ok(()) // main() return
+    led_byte = 0b00000000;
+    sr.load(led_byte);
+    sr.output_clear();
+    sr.disable_output();
+    
+    activity_led.set_low();
+
+    Ok(())
+
 }
+
 
 fn signal_handler() -> Arc<AtomicBool> {
     let keepalive = Arc::new(AtomicBool::new(true));
@@ -72,6 +99,3 @@ fn signal_handler() -> Arc<AtomicBool> {
 
     keepalive
 }
-
-
-mod init;

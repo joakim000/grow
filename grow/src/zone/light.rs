@@ -50,13 +50,15 @@ impl Interface {
 
 
 pub trait Lamp {
+    fn id(&self) -> u8;
     fn on(&self) -> Result<(), Box<dyn Error>>;
     fn off(&self) -> Result<(), Box<dyn Error>>;
-    fn init(&self) -> Result<(), Box<dyn Error>>;
-    // fn init(
-    //     &mut self,
-    //     tx_light: tokio::sync::broadcast::Sender<(u8, Option<f32>)>
-    // ) -> Result<(), Box<dyn Error>>;
+    // fn init(&self) -> Result<(), Box<dyn Error>>;
+    fn init(
+        &mut self,
+        rx_lamp: tokio::sync::broadcast::Receiver<(u8, bool)>
+    ) -> Result<(), Box<dyn Error>>;
+        
 }
 impl Debug for dyn Lamp {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -66,7 +68,7 @@ impl Debug for dyn Lamp {
 
 
 pub trait Lightmeter {
-    // fn init(&self) -> Result<(), Box<dyn Error>>;
+    fn id(&self) -> u8;
     fn init(
         &mut self,
         tx_light: tokio::sync::broadcast::Sender<(u8, Option<f32>)>
@@ -82,34 +84,51 @@ impl Debug for dyn Lightmeter {
 
 #[derive(Debug, )]
 pub struct Runner {
-    pub moist: broadcast::Sender<(u8, Option<f32>)>,
+    pub tx_lightmeter: broadcast::Sender<(u8, Option<f32>)>,
+    pub tx_lamp: broadcast::Sender<(u8, bool)>,
     pub task: tokio::task::JoinHandle<()>,
 }
 impl Runner {
     pub fn new() -> Self {
         Self {
-            moist: broadcast::channel(1).0,
+            tx_lightmeter: broadcast::channel(1).0,
+            tx_lamp: broadcast::channel(1).0,
             task: tokio::spawn(async move {}),
         }
     }
 
-    pub fn channel_for_moist(
+    pub fn lightmeter_channel(
         &self,
     ) -> broadcast::Sender<(u8, Option<f32>)> {
-        self.moist.clone()
+        self.tx_lightmeter.clone()
+    }
+    pub fn lamp_channel(
+        &self,
+    ) -> broadcast::Receiver<(u8, bool)> {
+        self.tx_lamp.subscribe()
     }
 
     pub fn run(&mut self, settings: Settings) {
-        let mut rx_moist = self.moist.subscribe();
-        // let mut current_setting = FanSetting::Off;
+        let mut rx = self.tx_lightmeter.subscribe();
+        let tx = self.tx_lamp.clone();
         self.task = tokio::spawn(async move {
             loop {
                 tokio::select! {
-                    Ok(data) = rx_moist.recv() => {
-                        println!("Moisture: {:?}", data);
+                    Ok(data) = rx.recv() => {
+                        println!("Light level: {:?}", data);
+                        match data {
+                            (id, Some(lvl)) => {
+                                if lvl < 20f32 {
+                                    tx.send( (1, true) );
+                                } else {
+                                    tx.send( (1, false) );
+                                }
+                            }
+                            (_, None) => ()
+                        }
                     }
-                    // Ok(data) = rx_moist.recv() => {
-                    //     println!("Temp: {:?}", data);
+                    // Ok(data) = rx_2.recv() => {
+                    //     println!("Secondary:"" {:?}", data);
                     // }
                     else => { break }
                 };
@@ -117,7 +136,6 @@ impl Runner {
         });
     }
 }
-
 
 // struct Lamp {}
 // struct Sensor{}

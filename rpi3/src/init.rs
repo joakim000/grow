@@ -29,25 +29,26 @@ pub fn house_init() -> grow::House {
             } => {
                interface.moist = Some(Box::new(hardware::pcf8591::CapacitiveMoistureSensor::new(*id, adc_1.new_mutex())));
             }
-            // Zone::Light {
-            //     id,
-            //     settings: _,
-            //     status: _,
-            //     interface,
-            //     runner,
-            // } => {
-            //    interface. = Some(Box::new(hardware::pcf8591::CapacitiveMoistureSensor::new(*id, adc_1.new_mutex())));
-            // }  
+            Zone::Light {
+                id,
+                settings: _,
+                status: _,
+                interface,
+                runner,
+            } => {
+               interface.lightmeter = Some(Box::new(hardware::pcf8591::Photoresistor::new(*id, adc_1.new_mutex())));
+               interface.lamp = Some(Box::new(hardware::pcf8591::Led::new(*id, adc_1.new_mutex())));
+            }  
 
             _ => (),
 
         }
     }
     println!("Added hw to house:");
-    dbg!(&house);
+    // dbg!(&house);
     house.init();
     println!("After house init:");
-    dbg!(&house);
+    // dbg!(&house);
 
     house
 }

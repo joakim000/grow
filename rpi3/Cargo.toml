@@ -21,15 +21,18 @@ chrono = "0.4.24"  #replace with time
 
 # rp 
 simple-signal = "1.1.1"
-rppal = "0.14.1"
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"]}
+rppal = { version = "0.14.1", features = ["embedded-hal", "hal"] }
+embedded-hal = "0.2.7"
 
 
 
 # commmon hardware
 pcf8591 = "0.1.1"  
-#ssd1306 = ""                                          # oled display
-
+drive_74hc595 = "0.1.0"
+embedded-graphics = "0.8.0"
+ssd1306 = "0.8.0"
+dummy-pin = "0.1.1"
 
 # lego-powered-up
 lego-powered-up = { path="../../hus_project/api/lego-powered-up/lego-powered-up" }

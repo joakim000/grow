@@ -59,7 +59,12 @@ impl zone::air::Fan for PwmFan {
         );
         Ok(())
     }
+
+    fn id(&self) -> u8 {
+        self.id
+    }
 }
+
 impl PwmFan {
     pub fn new(id: u8) -> Self {
         let pwm_channel = Pwm::with_frequency(
@@ -139,7 +144,7 @@ impl PwmFan {
                 // println!("Fan 1 RPM: {:?}", fan_rpm);
 
                 tx.send((id, fan_rpm));
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                tokio::time::sleep(Duration::from_secs(9)).await;
             }
         }))
     }
