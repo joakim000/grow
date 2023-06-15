@@ -18,6 +18,7 @@
     let temperature_fan_high: f32 = 35.0;
     let temperature_warning: f32 = 40.0;
 
+
  // Control fan
         let mut fan_pulse_detected = true;
         rpm_pulse = fan_1_rpm_in.poll_interrupt(true, Some(Duration::from_millis(500)));
