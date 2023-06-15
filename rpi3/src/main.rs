@@ -59,6 +59,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             } => {
                 interface.fan = Some(Box::new(crate::hardware::pwmfan::PwmFan::new(*id)));
                 interface.thermo = Some(Box::new(crate::hardware::pcf8591::Thermistor::new(*id, adc_1.new_mutex())));
+                // let m = interface.fan;
             }
             _ => (),
         }

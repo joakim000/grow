@@ -30,17 +30,18 @@ impl House {
             match zone {
                 Zone::Air {
                     id: _,
-                    settings: _,
+                    settings,
                     status: _,
                     interface,
                     runner,
                 } => {
                     let channels = runner.channels_for_fan();
-                    let m = interface.fan.as_mut().unwrap().init(channels.0, channels.1);
+                    let _ = interface.fan.as_mut().unwrap().init(channels.0, channels.1);
                     let _ = interface.thermo.as_mut().unwrap().init(runner.channel_for_thermo());
                     // let m = Arc::new(Mutex::new(interface.fan.unwrap()));
                     // Arc::new(Mutex::new(created_hub)),
-                    runner.run(m);
+                    // runner.run(m);
+                    runner.run(settings.clone());
                 }
                 _ => (),
             }

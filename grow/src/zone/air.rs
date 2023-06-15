@@ -42,9 +42,10 @@ pub trait Fan {
         &mut self,
         tx_rpm: tokio::sync::broadcast::Sender<(u8, Option<f32>)>,
         rx_control: tokio::sync::broadcast::Receiver<FanSetting>,
-    ) -> FanMutex;
-    fn to_high(&self) -> Result<(), Box<dyn Error>>;
-    fn to_low(&self) -> Result<(), Box<dyn Error>>;
+    // ) -> FanMutex;
+    ) -> ();
+    fn to_high(&self) -> Result<(), Box<dyn Error + '_>>;
+    fn to_low(&self) -> Result<(), Box<dyn Error + '_>>;
 }
 pub trait Thermometer {
     fn read_temp(&self) -> Result<(i32), Box<dyn Error>>;
@@ -100,14 +101,12 @@ impl Runner {
         self.temp.0.clone()
     }
 
-    pub fn run(&mut self, fan: FanMutex) {
+    pub fn run(&mut self, settings: Settings) {
         let mut rx_rpm = self.fan_rpm.0.subscribe();
         let mut rx_temp = self.temp.0.subscribe();
+        let tx_fan = self.fan_control.0.clone();
+        let mut current_setting = FanSetting::Off;
         self.task = tokio::spawn(async move {
-            // while let Ok(data) = rx_rpm.recv().await {
-            //     println!("Runner says: Fan rpm: {:?}", data);
-            // }
-
             loop {
                 tokio::select! {
                     Ok(data) = rx_rpm.recv() => {
@@ -118,7 +117,17 @@ impl Runner {
                         match data.1 {
                             Some(temp) => {
                                 if temp > 25f64 {
-                                    
+                                    println!("temp > 25 deg C");
+                                    if current_setting != FanSetting::Low {
+                                        match tx_fan.send(FanSetting::Low) {
+                                            Ok(_) => {
+                                                current_setting = FanSetting::Low;
+                                            },
+                                            Err(e) => {
+                                                eprintln!("Fan control error: {:?}", e);
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             _ => ()

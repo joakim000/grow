@@ -17,83 +17,72 @@ use rppal::pwm::{Channel, Polarity, Pwm};
 
 use grow::zone::air::FanSetting;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+// use tokio::sync::Mutex;
+use std::sync::Mutex;
 pub type FanMutex = Arc<Mutex<Box<dyn Fan>>>;
+pub type PwmMutex = Arc<Mutex<Pwm>>;
 use super::conf::*;
 use grow::zone::air::Fan;
 
 pub struct PwmFan {
     id: u8,
-    pwm_channel: Pwm,
+    // pwm_channel: Pwm,
+    pwm_channel: PwmMutex,
     fan_setting: FanSetting,
     feedback_task: Option<JoinHandle<()>>,
     control_task: Option<JoinHandle<()>>,
 }
 impl zone::air::Fan for PwmFan {
-    fn to_high(&self) -> Result<(), Box<dyn Error>> {
+    fn to_high(&self) -> Result<(), Box<dyn Error + '_>> {
         println!("Fan set to high");
-        Ok(self.pwm_channel.set_duty_cycle(1.0)?)
+        let lock = self.pwm_channel.lock()?;
+        Ok(lock.set_duty_cycle(1.0)?)
     }
-    fn to_low(&self) -> Result<(), Box<dyn Error>> {
+    fn to_low(&self) -> Result<(), Box<dyn Error  + '_>> {
         println!("Fan set to low");
-        Ok(self.pwm_channel.set_duty_cycle(0.5)?)
+        let lock = self.pwm_channel.lock()?;
+        Ok(lock.set_duty_cycle(0.5)?)
     }
     // TODO: return result
     fn init(
         &mut self,
         tx_rpm: tokio::sync::broadcast::Sender<(u8, Option<f32>)>,
         rx_control: tokio::sync::broadcast::Receiver<FanSetting>,
-    ) -> FanMutex {
+    ) -> () {
         self.feedback_task = Some(
             self.fan_feedback(tx_rpm)
                 .expect("Error initializing feedback task"),
         );
-        let m: FanMutex = Arc::new(Mutex::new(Box::new(*self)));
-        m
+        self.control_task = Some(
+            self.fan_control(rx_control)
+                .expect("Error initializing control task"),
+        );
     }
 }
 impl PwmFan {
-    // pub fn new(id: u8) -> Self {
-    //     Self {
-    //         id,
-    //         pwm_channel: Pwm::with_frequency(
-    //             PWM_FAN_1,
-    //             PWM_FREQ_FAN_1,
-    //             0.0,
-    //             PWM_POLARITY_FAN_1,
-    //             true,
-    //         )
-    //         .expect("Error setting up pwm"),
-    //         fan_setting: FanSetting::High, // Initial
-    //         feedback_task: None,
-    //         control_task: None,
-    //     }
-    // }
-
-    pub fn new(id: u8) -> FanMutex {
-        let s= Self {
+    pub fn new(id: u8) -> Self {
+        // let s= Self {
+        let pwm_channel = Pwm::with_frequency(
+            PWM_FAN_1,
+            PWM_FREQ_FAN_1,
+            0.0,
+            PWM_POLARITY_FAN_1,
+            true,
+        )
+        .expect("Error setting up pwm");
+        let pwm_mutex = Arc::new(Mutex::new(pwm_channel));
+        Self {
             id,
-            pwm_channel: Pwm::with_frequency(
-                PWM_FAN_1,
-                PWM_FREQ_FAN_1,
-                0.0,
-                PWM_POLARITY_FAN_1,
-                true,
-            )
-            .expect("Error setting up pwm"),
+            pwm_channel: pwm_mutex,
             fan_setting: FanSetting::High, // Initial
             feedback_task: None,
             control_task: None,
-        };
-        Arc::new(Mutex::new(Box::new(s)))
+        }
 
     }
     pub fn mutex(self) {
         let m: FanMutex = Arc::new(Mutex::new(Box::new(self)));
     }
-    // pub fn feedback_rx(&self) -> tokio::sync::broadcast::Receiver<Option<f32>> {
-    //     self.rpm_tx.as_ref().expect("No receiver found").subscribe()
-    // }
 
     fn fan_feedback(
         &self,
@@ -155,22 +144,24 @@ impl PwmFan {
         }))
     }
 
-    // async fn fan_control(&self, rx: mpsc::Receiver<FanSetting>) -> Result<JoinHandle<()>> {
-    //     Ok(tokio::spawn(async move {
-    //         while let Ok(data) = rx.recv().await {
-    //             println!("Received fansetting: {:?}", data);
-    //             match data {
-    //                 FanSetting::Off => {
-    //                     let _ = pwm.set_duty_cycle(0.0)?;
-    //                 },
-    //                 FanSetting::Low => {
-    //                     let _ = pwm.set_duty_cycle(0.5)?;
-    //                 },
-    //                 FanSetting::High => {
-    //                     let _ = pwm.set_duty_cycle(1.0)?;
-    //                 },
-    //             }
-    //         }
-    //     }))
-    // }
+    fn fan_control(&self, mut rx: broadcast::Receiver<FanSetting>) ->  Result<JoinHandle<()>, Box<dyn Error>> {
+        let pwm = self.pwm_channel.clone();
+        Ok(tokio::spawn(async move {
+            while let Ok(data) = rx.recv().await {
+                println!("Received fansetting: {:?}", data);
+                match data {
+                    FanSetting::Off => {
+                        let _ = pwm.lock().unwrap().set_duty_cycle(0.0);
+                    },
+                    FanSetting::Low => {
+                        let _ = pwm.lock().unwrap().set_duty_cycle(0.5);
+                    },
+                    FanSetting::High => {
+                        let _ = pwm.lock().unwrap().set_duty_cycle(1.0);
+                    },
+                }
+                println!("Current fansetting: {:?}", pwm.lock().unwrap().duty_cycle());
+            }
+        }))
+    }
 }
