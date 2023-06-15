@@ -8,6 +8,8 @@ use crate::zone::Zone;
 use alloc::collections::BTreeMap;
 use alloc::vec::{IntoIter, Vec};
 use anyhow::*;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Conf {}
@@ -27,11 +29,12 @@ impl Conf {
                 temp_fan_high: 30.0,
                 temp_warning: 35.0,
             },
-            status: zone::air::Status {
+            status: Arc::new(Mutex::new(zone::air::Status {
                 temp: None,
                 fan_rpm: None,
                 indicator: None,
-            },
+                msg: None,
+            })),
             interface: zone::air::Interface {
                 fan: None,
                 thermo: None,
@@ -50,7 +53,7 @@ impl Conf {
                 moisture_limit_low_warning: 30,
                 moisture_limit_high_warning: 70,
                 pump_id: 0,
-                position: Some(zone::arm::Move {
+                position: Some(zone::irrigation::arm::Move {
                     arm_id: 0,
                     x: 20,
                     y: 100,
@@ -61,79 +64,79 @@ impl Conf {
         });
         h.zones.push(Zone::Pump {
             id: 0,
-            set: zone::pump::Settings {
+            set: zone::irrigation::pump::Settings {
                 run_for_secs: 10,
                 rest_secs: 60,
             },
-            status: zone::pump::Status {},
+            status: zone::irrigation::pump::Status {},
         });
         h.zones.push(Zone::Tank {
             id: 0,
-            set: zone::tank::Settings {},
-            status: zone::tank::Status {},
+            set: zone::irrigation::tank::Settings {},
+            status: zone::irrigation::tank::Status {},
         });
         h.zones.push(Zone::Arm {
             id: 0,
-            set: zone::arm::Settings {},
-            status: zone::arm::Status {},
+            set: zone::irrigation::arm::Settings {},
+            status: zone::irrigation::arm::Status {},
         });
 
         h
     }
 
-    pub fn read_test_into_vec() -> Vec<Zone> {
-        // Return hardcoded config
-        let mut h = Vec::new();
-        h.push(zone::air::new(
-            1,
-            zone::air::Settings {
-                temp_fan_low: 25.0,
-                temp_fan_high: 30.0,
-                temp_warning: 35.0,
-            },
-        ));
-        h.push(Zone::Light {
-            id: 0,
-            settings: zone::light::Settings {},
-            status: zone::light::Status {},
-        });
-        h.push(Zone::Irrigation {
-            id: 0,
-            set: zone::irrigation::Settings {
-                moisture_limit_water: 50,
-                moisture_limit_low_warning: 30,
-                moisture_limit_high_warning: 70,
-                pump_id: 0,
-                position: Some(zone::arm::Move {
-                    arm_id: 0,
-                    x: 20,
-                    y: 100,
-                    z: 0,
-                }),
-            },
-            status: zone::irrigation::Status {},
-        });
-        h.push(Zone::Pump {
-            id: 0,
-            set: zone::pump::Settings {
-                run_for_secs: 10,
-                rest_secs: 60,
-            },
-            status: zone::pump::Status {},
-        });
-        h.push(Zone::Tank {
-            id: 0,
-            set: zone::tank::Settings {},
-            status: zone::tank::Status {},
-        });
-        h.push(Zone::Arm {
-            id: 0,
-            set: zone::arm::Settings {},
-            status: zone::arm::Status {},
-        });
+    // pub fn read_test_into_vec() -> Vec<Zone> {
+    //     // Return hardcoded config
+    //     let mut h = Vec::new();
+    //     h.push(zone::air::new(
+    //         1,
+    //         zone::air::Settings {
+    //             temp_fan_low: 25.0,
+    //             temp_fan_high: 30.0,
+    //             temp_warning: 35.0,
+    //         },
+    //     ));
+    //     h.push(Zone::Light {
+    //         id: 0,
+    //         settings: zone::light::Settings {},
+    //         status: zone::light::Status {},
+    //     });
+    //     h.push(Zone::Irrigation {
+    //         id: 0,
+    //         set: zone::irrigation::Settings {
+    //             moisture_limit_water: 50,
+    //             moisture_limit_low_warning: 30,
+    //             moisture_limit_high_warning: 70,
+    //             pump_id: 0,
+    //             position: Some(zone::arm::Move {
+    //                 arm_id: 0,
+    //                 x: 20,
+    //                 y: 100,
+    //                 z: 0,
+    //             }),
+    //         },
+    //         status: zone::irrigation::Status {},
+    //     });
+    //     h.push(Zone::Pump {
+    //         id: 0,
+    //         set: zone::pump::Settings {
+    //             run_for_secs: 10,
+    //             rest_secs: 60,
+    //         },
+    //         status: zone::pump::Status {},
+    //     });
+    //     h.push(Zone::Tank {
+    //         id: 0,
+    //         set: zone::tank::Settings {},
+    //         status: zone::tank::Status {},
+    //     });
+    //     h.push(Zone::Arm {
+    //         id: 0,
+    //         set: zone::arm::Settings {},
+    //         status: zone::arm::Status {},
+    //     });
 
-        h
-    }
+    //     h
+    // }
 
     // pub fn read_test_into_housemapped() -> HouseMapped {
     //     // Return hardcoded config

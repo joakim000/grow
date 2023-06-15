@@ -48,7 +48,7 @@ impl zone::air::Fan for PwmFan {
         &mut self,
         tx_rpm: tokio::sync::broadcast::Sender<(u8, Option<f32>)>,
         rx_control: tokio::sync::broadcast::Receiver<FanSetting>,
-    ) -> () {
+    ) -> Result<(), Box<dyn Error>> {
         self.feedback_task = Some(
             self.fan_feedback(tx_rpm)
                 .expect("Error initializing feedback task"),
@@ -57,11 +57,11 @@ impl zone::air::Fan for PwmFan {
             self.fan_control(rx_control)
                 .expect("Error initializing control task"),
         );
+        Ok(())
     }
 }
 impl PwmFan {
     pub fn new(id: u8) -> Self {
-        // let s= Self {
         let pwm_channel = Pwm::with_frequency(
             PWM_FAN_1,
             PWM_FREQ_FAN_1,
@@ -160,7 +160,7 @@ impl PwmFan {
                         let _ = pwm.lock().unwrap().set_duty_cycle(1.0);
                     },
                 }
-                println!("Current fansetting: {:?}", pwm.lock().unwrap().duty_cycle());
+                println!("Current duty cycle: {:?}", pwm.lock().unwrap().duty_cycle());
             }
         }))
     }

@@ -7,6 +7,31 @@ use tokio::sync::Mutex;
 pub type FanMutex = Arc<Mutex<Box<dyn Fan>>>;
 use super::Zone;
 
+pub fn new(id: u8, settings: Settings) -> super::Zone {
+    let status = Status {
+        temp: None,
+        fan_rpm: None,
+        indicator: None,
+        msg: None,
+    };
+    Zone::Air {
+        id: 0,
+        settings,
+        status: Arc::new(Mutex::new(status)),
+        // status: Status {
+        //     temp: None,
+        //     fan_rpm: None,
+        //     indicator: None,
+        //     msg: None,
+        // },
+        interface: Interface {
+            fan: None,
+            thermo: None,
+        },
+        runner: Runner::new(),
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Settings {
     pub temp_fan_low: f64,
@@ -14,18 +39,18 @@ pub struct Settings {
     pub temp_warning: f64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Status {
     pub temp: Option<f32>,
     pub fan_rpm: Option<f32>,
     pub indicator: Option<crate::Indicator>,
+    pub msg: Option<String>,
 }
 
 // #[derive(Clone, Debug, PartialEq)]
 pub struct Interface {
     pub fan: Option<Box<dyn Fan>>,
     pub thermo: Option<Box<dyn Thermometer>>,
-    // pub fan_control: FanMutex,
 }
 impl Interface {
     pub fn set_fan(&mut self, fan: Box<dyn Fan>) -> () {
@@ -42,8 +67,7 @@ pub trait Fan {
         &mut self,
         tx_rpm: tokio::sync::broadcast::Sender<(u8, Option<f32>)>,
         rx_control: tokio::sync::broadcast::Receiver<FanSetting>,
-    // ) -> FanMutex;
-    ) -> ();
+    ) -> Result<(), Box<dyn Error>>;
     fn to_high(&self) -> Result<(), Box<dyn Error + '_>>;
     fn to_low(&self) -> Result<(), Box<dyn Error + '_>>;
 }
@@ -140,19 +164,3 @@ impl Runner {
     }
 }
 
-pub fn new(id: u8, settings: Settings) -> super::Zone {
-    Zone::Air {
-        id: 0,
-        settings,
-        status: Status {
-            temp: None,
-            fan_rpm: None,
-            indicator: None,
-        },
-        interface: Interface {
-            fan: None,
-            thermo: None,
-        },
-        runner: Runner::new(),
-    }
-}

@@ -7,9 +7,11 @@ use alloc::vec::{IntoIter, Vec};
 use core::error::Error;
 use core::result::Result;
 use tokio::task::JoinHandle;
-
+use std::sync::Arc;
+use tokio::sync::Mutex;
 // #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 // #[derive(Clone, Debug, PartialEq)]
+use irrigation::{pump, tank, arm};
 pub enum Zone {
     Light {
         id: u8,
@@ -39,17 +41,18 @@ pub enum Zone {
     Air {
         id: u8,
         settings: air::Settings,
-        status: air::Status,
+        // status: air::Status,
+        status: Arc<Mutex<air::Status>>,
         interface: air::Interface,
         runner: air::Runner,
     },
 }
 pub mod air;
-pub mod arm;
+// pub mod arm;
 pub mod irrigation;
 pub mod light;
-pub mod pump;
-pub mod tank;
+// pub mod pump;
+// pub mod tank;
 
 #[derive(Debug)]
 pub struct Handles {

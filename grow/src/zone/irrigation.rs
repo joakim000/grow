@@ -16,3 +16,7 @@ pub struct Status {}
 pub trait MoistureSensor {
     fn init(&self) -> Result<(), Box<dyn Error>>;
 }
+
+pub mod pump;
+pub mod tank;
+pub mod arm;
