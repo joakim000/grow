@@ -98,7 +98,7 @@ impl PwmFan {
         let mut pulse_duration: Duration = pulse_start.elapsed();
         let mut fan_rpm: Option<f32> = Default::default();
 
-        let id = self.id.clone();
+        let id = self.id;
 
         Ok(tokio::spawn(async move {
             loop {

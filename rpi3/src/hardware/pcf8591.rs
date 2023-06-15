@@ -64,7 +64,7 @@ impl Adc {
         //     }
         // });
 
-        Self { mutex: mutex }
+        Self { mutex }
     }
     pub fn new_mutex(&self) -> AdcMutex {
         self.mutex.clone()
@@ -128,7 +128,7 @@ impl Led {
         &self,
         mut rx: broadcast::Receiver<(u8, bool)>,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
-        let id = self.id.clone();
+        let id = self.id;
         let adc = self.adc.clone();
         Ok(tokio::spawn(async move {
             while let Ok(data) = rx.recv().await {
@@ -191,7 +191,7 @@ impl Thermistor {
         &self,
         tx: broadcast::Sender<(u8, Option<f32>)>,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
-        let id = self.id.clone();
+        let id = self.id;
         let adc = self.adc.clone();
         Ok(tokio::spawn(async move {
             let mut previous: Option<f32> = None;
@@ -212,7 +212,7 @@ impl Thermistor {
                     if reading != p {
                         tx.send((id, Some(reading)));
                     } else {
-                        tx.send((id, Some(reading)));
+                        // tx.send((id, Some(reading)));
                     }
                 }
                 // Assumes ok reading, check unwrap on reading
@@ -260,7 +260,7 @@ impl Photoresistor {
         &self,
         tx: broadcast::Sender<(u8, Option<f32>)>,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
-        let id = self.id.clone();
+        let id = self.id;
         let adc = self.adc.clone();
         Ok(tokio::spawn(async move {
             let mut previous: Option<f32> = None;
@@ -274,7 +274,7 @@ impl Photoresistor {
                     if reading != p {
                         tx.send((id, Some(reading)));
                     } else {
-                        tx.send((id, Some(reading)));
+                        // tx.send((id, Some(reading)));
                     }
                 }
                 // Check unwrap on reading
@@ -322,7 +322,7 @@ impl CapacitiveMoistureSensor {
         &self,
         tx: broadcast::Sender<(u8, Option<f32>)>,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
-        let id = self.id.clone();
+        let id = self.id;
         let adc = self.adc.clone();
         let pin = match id {
             1 => MOIST_SENSOR_1,
@@ -351,7 +351,7 @@ impl CapacitiveMoistureSensor {
                     if reading != p {
                         tx.send((id, Some(reading)));
                     } else {
-                        tx.send((id, Some(reading)));
+                        // tx.send((id, Some(reading)));
                     }
                 }
                 // Check unwrap on reading
@@ -378,9 +378,9 @@ fn celcius_from_byte(value: f32) -> f32 {
 }
 fn moist_from_byte(value: u8) -> f32 {
     // 115 = 100% moist, 215 = 0% moist
-    (0f32 - value as f32 + 215f32) as f32
+    (0f32 - value as f32 + 215f32)
 }
 fn light_from_byte(value: u8) -> f32 {
     // 15(240) = dark, 40 = 5v LED up close, 208(47) = very light,
-    (255f32 - value as f32) as f32
+    (255f32 - value as f32)
 }
