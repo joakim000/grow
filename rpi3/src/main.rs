@@ -1,15 +1,13 @@
 #![feature(error_in_core)]
-#![allow(unused)]
+// #![allow(unused)]
 mod hardware;
 mod init;
 use crate::hardware::conf::*;
 use grow::ops;
 use grow::zone::*;
-// use conf::*;
-// mod oled;
 
 use std::error::Error;
-use std::thread;
+// use std::thread;
 use std::time::{Duration, Instant};
 
 use std::sync::atomic::{AtomicBool, Ordering};
