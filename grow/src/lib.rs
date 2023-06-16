@@ -13,6 +13,7 @@ mod error;
 pub use error::ZoneError;
 pub mod ops;
 pub mod zone;
+use zone::light::LampState;
 
 #[derive( Debug, )]
 pub struct House {
@@ -28,37 +29,64 @@ impl House {
         &mut self.zones
     }
 
-    pub fn read_moisture_value(&mut self, zid: &u8) -> Result<f32, ZoneError> { 
-        println!("Get moist value. zones.len = {}", self.zones().len() );
+    pub fn read_moisture_value(&mut self, zid: &u8) -> Result<f32, Box<dyn Error + '_>> { 
         for z in self.zones() {
-            dbg!(&z);
             match z {
                 Zone::Irrigation {id, settings:_, status:_, interface, runner: _} if id == zid => {
-                    return Ok(interface.moist.as_ref().expect("Interface not found").read().expect("Couldn't read value"))
+                    return Ok(interface.moist.as_ref().expect("Interface not found").read()?)
                 }
                 _ => continue
             }
         }
-        return Err(ZoneError::new("Zone not found"));
+        return Err(Box::new(ZoneError::new("Zone not found")))
+    }
+    pub fn read_light_value(&mut self, zid: &u8) -> Result<f32, Box<dyn Error + '_>> { 
+        for z in self.zones() {
+            match z {
+                Zone::Light {id, settings:_, status:_, interface, runner: _} if id == zid => {
+                    return Ok(interface.lightmeter.as_ref().expect("Interface not found").read()?)
+                }
+                _ => continue
+            }
+        }
+        return Err(Box::new(ZoneError::new("Zone not found")))
+    }
+    pub fn read_temperature_value(&mut self, zid: &u8) -> Result<f32, Box<dyn Error + '_>> { 
+        for z in self.zones() {
+            match z {
+                Zone::Air {id, settings:_, status:_, interface, runner: _} if id == zid => {
+                    return Ok(interface.thermo.as_ref().expect("Interface not found").read()?)
+                }
+                _ => continue
+            }
+        }
+        return Err(Box::new(ZoneError::new("Zone not found")))
+    }
+    pub fn set_lamp_state(&mut self, zid: &u8, state:LampState) -> Result<(), Box<dyn Error + '_>> { 
+        for z in self.zones() {
+            match z {
+                Zone::Light {id, settings:_, status:_, interface, runner: _} if id == zid => {
+                    return Ok(interface.lamp.as_ref().expect("Interface not found").set_state(state)?)
+                }
+                _ => continue
+            }
+        }
+        return Err(Box::new(ZoneError::new("Zone not found")))
+    }
+    pub async fn run_pump(&mut self, zid: &u8, secs:u16) -> Result<(), Box<dyn Error + '_>> { 
+        for z in self.zones() {
+            match z {
+                Zone::Pump {id, settings:_, status:_, interface, runner: _} if id == zid => {
+                    // interface.pump.as_ref().expect("Interface not found").run_for_secs(secs).await?;
+                    // return Ok(())
+                    return interface.pump.as_ref().expect("Interface not found").run_for_secs(secs).await
+                }
+                _ => continue
+            }
+        }
+        return Err(Box::new(ZoneError::new("Zone not found")))
     }
 
-    // pub fn read_moisture_value(&mut self, id: &u8) -> Result<f32, Box<dyn Error>> { 
-    //     println!("Get moist value. zones.len = {}", self.zones().len() );
-    //     let mut moist_value = |id: u8| -> Result<f32, Box<dyn Error>> {
-    //         for z in self.zones() {
-    //             dbg!(&z);
-    //             // let id = 1;
-    //             match z {
-    //                 Zone::Irrigation {id, settings:_, status:_, interface, runner: _} => {
-    //                     return Ok(interface.moist.as_ref().unwrap().read().unwrap())
-    //                 }
-    //                 _ => continue
-    //             }
-    //         }
-    //         return Err(Box::new(ZoneError::new("Zone not found")))
-    //     };
-    //     moist_value(&id)
-    // }
 
     pub async fn init(&mut self) -> () {
         for zone in self.zones() {
@@ -133,29 +161,7 @@ impl House {
         }
     }
 
-    // pub fn fan_settings(&self, find_id: &u8) -> Option<zone::air::Settings> {
-    //     for z in &self.zones {
-    //         match z {
-    //             Zone::Air {
-    //                 id,
-    //                 settings: set,
-    //                 status: _,
-    //                 interface: _,
-    //                 runner: _,
-    //             } => {
-    //                 if id == find_id {
-    //                     return Some(set.clone());
-    //                 } else {
-    //                     continue;
-    //                 }
-    //             }
-    //             _ => {
-    //                 continue;
-    //             }
-    //         }
-    //     }
-    //     None
-    // }
+  
 }
 
 impl Default for House {
@@ -164,13 +170,6 @@ impl Default for House {
     }
 }
 
-// use std::ops::Deref;
-// impl Deref for House {
-//     type Target = Vec<Zone>;
-//     fn deref(&self) -> &Vec<Zone> {
-//         &self.zones
-//     }
-// }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Indicator {
@@ -180,37 +179,3 @@ pub enum Indicator {
     Blue,
 }
 
-// pub struct HouseMapped {
-//     air: BTreeMap<u8, Zone>,
-//     arm: BTreeMap<u8, Zone>,
-//     irrigation: BTreeMap<u8, Zone>,
-//     light: BTreeMap<u8, Zone>,
-//     pump: BTreeMap<u8, Zone>,
-//     tank: BTreeMap<u8, Zone>,
-// }
-// impl HouseMapped {
-//     fn new() -> Self {
-//         Self {
-//             air: BTreeMap::new(),
-//             arm: BTreeMap::new(),
-//             irrigation: BTreeMap::new(),
-//             light: BTreeMap::new(),
-//             pump: BTreeMap::new(),
-//             tank: BTreeMap::new(),
-//         }
-//     }
-
-//     pub fn fan_settings(&self, find_id: &u8) -> Option<zone::air::Settings> {
-//         match self.air.get(find_id) {
-//             Some(zone) => match zone {
-//                 Zone::Air {
-//                     id: _,
-//                     set,
-//                     status: _,
-//                 } => Some(set.clone()),
-//                 _ => None,
-//             },
-//             None => None,
-//         }
-//     }
-// }

@@ -188,10 +188,14 @@ impl zone::irrigation::pump::Pump for BrickPump {
     fn id(&self) -> u8 {
         self.id
     }
-    fn run_for_secs(&self, secs: u16) -> Result<(), Box<dyn Error>> {
+    async fn run_for_secs(&self, secs: u16) -> Result<(), Box<dyn Error>> {
+        self.device.start_speed(50, 100).await?;
+        sleep(Duration::from_secs(secs as u64)).await;
+        self.device.start_power(Power::Float).await?;
         Ok(())
     }
-    fn stop(&self) -> Result<(), Box<dyn Error>> {
+    async fn stop(&self) -> Result<(), Box<dyn Error>> {
+        self.device.start_power(Power::Brake).await;
         Ok(())
     }
     async fn init(

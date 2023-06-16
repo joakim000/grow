@@ -44,8 +44,8 @@ pub trait Pump {
         &mut self,
         rx_pump: tokio::sync::broadcast::Receiver<(u8, PumpCmd)>
     ) -> Result<(), Box<dyn Error>>;
-    fn run_for_secs(&self, secs: u16) -> Result<(), Box<dyn Error>>;
-    fn stop(&self) -> Result<(), Box<dyn Error>>;
+    async fn run_for_secs(&self, secs: u16) -> Result<(), Box<dyn Error>>;
+    async fn stop(&self) -> Result<(), Box<dyn Error>>;
    
 }
 impl Debug for dyn Pump {
@@ -97,8 +97,9 @@ impl Runner {
             }
         });
         // Cmd test
-        sleep(Duration::from_secs(10));
-        tx_pumpcmd.send( (1, PumpCmd::RunForSec(5)) );
+        // sleep(Duration::from_secs(15)).await;
+        // println!("Pump run from runner");
+        // tx_pumpcmd.send( (1, PumpCmd::RunForSec(5)) );
 
     }
 }

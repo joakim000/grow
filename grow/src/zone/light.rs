@@ -39,26 +39,21 @@ pub struct Interface {
     pub lamp: Option<Box<dyn Lamp>>,
     pub lightmeter: Option<Box<dyn Lightmeter>>,
 }
-impl Interface {
-    // pub fn set_lamp(&mut self, lamp: Box<dyn Lamp>) -> () {
-    //     self.lamp = Some(lamp);
-    // }
-    // pub fn set_lightmeter(&mut self, lightmeter: Box<dyn Lightmeter>) -> () {
-    //     self.lightmeter = Some(lightmeter);
-    // }
-}
 
+
+pub enum LampState {
+    On,
+    Off,
+}
 
 pub trait Lamp {
     fn id(&self) -> u8;
-    fn on(&self) -> Result<(), Box<dyn Error>>;
-    fn off(&self) -> Result<(), Box<dyn Error>>;
-    // fn init(&self) -> Result<(), Box<dyn Error>>;
     fn init(
         &mut self,
         rx_lamp: tokio::sync::broadcast::Receiver<(u8, bool)>
     ) -> Result<(), Box<dyn Error>>;
-        
+    fn set_state(&self, state: LampState) -> Result<(), Box<dyn Error>>;
+
 }
 impl Debug for dyn Lamp {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {

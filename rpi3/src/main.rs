@@ -44,7 +44,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // };
     // println!("READ MOIST ONETIME: {}", moist_value(1));
 
-    println!("READ MOIST ONETIME: {}", house.read_moisture_value(&1u8).unwrap());
+    println!("READ LIGHT ONETIME: {:?}", house.read_light_value(&1u8));
+    println!("READ TEMP ONETIME: {:?}", house.read_temperature_value(&1u8));
+    println!("READ MOIST ONETIME: {:?}", house.read_moisture_value(&1u8));
+    println!("LAMP ON: {:?}", house.set_lamp_state(&1u8, grow::zone::light::LampState::Off));
+    sleep(Duration::from_secs(15));
+    println!("PUMP RUN ON: {:?}", house.run_pump(&1u8, 5u16).await);
 
     // Activity
     let mut activity_led = Gpio::new()?.get(ACTIVITY_LED_PIN)?.into_output();

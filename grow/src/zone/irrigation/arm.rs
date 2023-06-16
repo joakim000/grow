@@ -41,8 +41,8 @@ pub struct Interface {
 pub struct Status {}
 
 trait Arm {
-    fn goto(&self, x: i32, y: i32) -> anyhow::Result<()>;
-    fn confirm(&self, x: i32, y: i32) -> anyhow::Result<()>;
+    fn goto(&self, x: i32, y: i32) -> Result<(), Box<dyn Error>>;
+    fn confirm(&self, x: i32, y: i32) -> Result<bool, Box<dyn Error>>;
 }
 impl Debug for dyn Arm {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {

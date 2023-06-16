@@ -14,6 +14,7 @@ use core::result::Result;
 use core::time::Duration;
 pub type AdcMutex = Arc<Mutex<PCF8591>>;
 
+
 // let mut adc_control = PCF8591::new(ADC_1_BUS, ADC_1_ADDR, ADC_1_VREF)?;
 // let temperature_1: f32 = celcius_from_byte(adc_control.analog_read_byte(TEMP_SENSOR_1)? as &f32);
 
@@ -93,13 +94,20 @@ impl zone::light::Lamp for Led {
     fn id(&self) -> u8 {
         self.id
     }
-    fn on(&self) -> Result<(), Box<dyn Error>> {
+    fn set_state(&self, state: zone::light::LampState) -> Result<(), Box<dyn Error>> {
+        match state {
+            zone::light::LampState::On => {
+                let mut lock = self.adc.lock().unwrap();
+                lock.analog_write_byte(255);
+            }
+            zone::light::LampState::Off => {
+                let mut lock = self.adc.lock().unwrap();
+                lock.analog_write_byte(0);
+            }
+        }
+        
         Ok(())
     }
-    fn off(&self) -> Result<(), Box<dyn Error>> {
-        Ok(())
-    }
-    // fn init(&self) -> Result<(), Box<dyn Error>> {Ok(())}
     fn init(
         &mut self,
         rx_control: tokio::sync::broadcast::Receiver<(u8, bool)>,
@@ -174,7 +182,7 @@ impl zone::air::Thermometer for Thermistor {
         let reading: f32;
         {
           let mut lock = self.adc.lock()?;
-          reading = moist_from_byte(lock.analog_read_byte(pin)?);
+          reading = celcius_from_byte(lock.analog_read_byte(pin)?.into());
         }
     
         Ok(reading)
