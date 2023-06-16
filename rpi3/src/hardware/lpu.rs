@@ -8,7 +8,7 @@ use async_trait::async_trait;
 
 use core::error::Error;
 use core::time::Duration;
-use tokio::time::sleep;
+use tokio::time::sleep as sleep;
 
 use lego_powered_up::consts::named_port;
 use lego_powered_up::consts::LEGO_COLORS;
@@ -22,8 +22,9 @@ use lego_powered_up::{Hub, HubFilter};
 use lego_powered_up::HubMutex;
 use lego_powered_up::iodevice::visionsensor::DetectedColor;
 
-use grow::zone::tank::TankStatus;
 use grow::zone;
+use grow::zone::tank::TankLevel;
+use grow::zone::pump::PumpCmd;
 
 // #[tokio::main]
 pub async fn init() -> Result<HubMutex, Box<dyn Error>> {
@@ -110,15 +111,15 @@ impl zone::irrigation::tank::TankSensor for Vsensor {
     fn id(&self) -> u8 {
         self.id
     }
-    // fn read_temp(&self) -> Result<(i32), Box<dyn Error>> {
-    //     Ok(100i32)
+    // fn read_level(&self) -> Result<(TankLevel), Box<dyn Error>> {
+    //     Ok(TankLevel::Green)
     // }
     async fn init(
         &mut self,
-        tx_tankstatus: tokio::sync::broadcast::Sender<(u8, Option<TankStatus>)>,
+        tx_tanklevel: tokio::sync::broadcast::Sender<(u8, Option<TankLevel>)>,
     ) -> Result<(), Box<dyn Error>> {
         self.feedback_task = Some(
-            self.tank_feedback(tx_tankstatus)
+            self.tank_feedback(tx_tanklevel)
                 .await
                 .expect("Error initializing feedback task"),
         );
@@ -142,7 +143,7 @@ impl Vsensor {
 
     async fn tank_feedback(
         &self,
-        tx: broadcast::Sender<(u8, Option<TankStatus>)>,
+        tx: broadcast::Sender<(u8, Option<TankLevel>)>,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
         let (mut rx_color, _color_task) = 
@@ -153,20 +154,97 @@ impl Vsensor {
                 // println!("Tank color: {:?} ", data,);
                 match data {
                     DetectedColor::Blue => {
-                        tx.send( (id, Some(TankStatus::Blue)) );
+                        tx.send( (id, Some(TankLevel::Blue)) );
                     }
                     DetectedColor::Green => {
-                        tx.send( (id, Some(TankStatus::Green)) );
+                        tx.send( (id, Some(TankLevel::Green)) );
                     }
                     DetectedColor::Yellow => {
-                        tx.send( (id, Some(TankStatus::Yellow)) );
+                        tx.send( (id, Some(TankLevel::Yellow)) );
                     }
                     DetectedColor::Red => {
-                        tx.send( (id, Some(TankStatus::Red)) );
+                        tx.send( (id, Some(TankLevel::Red)) );
                     }
                     _ =>  {
                         tx.send( (id, None ) );
                     }
+                }
+            }
+
+        }))
+    }
+}
+
+
+pub struct BrickPump {
+    id: u8,
+    device: IoDevice,
+    hub: HubMutex,
+    control_task: Option<JoinHandle<()>>,
+    // feedback_task: Option<JoinHandle<()>>,
+}
+#[async_trait]
+impl zone::irrigation::pump::Pump for BrickPump {
+    fn id(&self) -> u8 {
+        self.id
+    }
+    fn run_for_secs(&self, secs: u16) -> Result<(), Box<dyn Error>> {
+        Ok(())
+    }
+    fn stop(&self) -> Result<(), Box<dyn Error>> {
+        Ok(())
+    }
+    async fn init(
+        &mut self,
+        rx_pumpcmd: tokio::sync::broadcast::Receiver<(u8, PumpCmd)>,
+    ) -> Result<(), Box<dyn Error>> {
+        self.control_task = Some(
+            self.pump_control(rx_pumpcmd)
+                .await
+                .expect("Error initializing control task"),
+        );
+        Ok(())
+    }
+}
+impl BrickPump {
+    pub async fn new(id: u8, hub: HubMutex) -> Self {
+        let device: IoDevice;
+        {
+            let lock = hub.lock().await;
+            device = lock.io_from_port(PUMP_ADDR).await.expect("Error accessing LPU device");
+        }
+        Self {
+            id,
+            hub,
+            device,
+            control_task: None,
+        }
+    }
+
+    async fn pump_control(
+        &self,
+        mut rx_cmd: broadcast::Receiver<(u8, PumpCmd)>,
+    ) -> Result<JoinHandle<()>, Box<dyn Error>> {
+        let id = self.id;
+        let device = self.device.clone();
+        // let (mut rx_color, _color_task) = 
+        //     self.device.visionsensor_color().await.unwrap();  // TODO Speed feedback
+        Ok(tokio::spawn(async move {
+            println!("Spawned pump control");
+            while let Ok(data) = rx_cmd.recv().await {
+                // println!("Tank color: {:?} ", data,);
+                match data {
+                    (_id, PumpCmd::RunForSec(secs)) => { 
+                        device.start_speed(50, 100);
+                        sleep(Duration::from_secs(secs as u64)).await;
+                        device.start_power(Power::Float);
+                    }
+                    (_id, PumpCmd::Stop) => { 
+                        device.start_power(Power::Brake);
+                    }
+                    // _ =>  {
+                    //     tx.send( (id, None ) );
+                    // }
                 }
             }
 

@@ -1,8 +1,9 @@
 use core::error::Error;
+use tokio::time::sleep as sleep;
 use alloc::collections::BTreeMap;
 use async_trait::async_trait;
 use tokio::sync::broadcast;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use core::fmt::Debug;
 use super::Zone;
@@ -35,32 +36,51 @@ pub struct Interface {
     // arm: Option<Box<dyn Arm>>,
 }
 
+#[async_trait]
+pub trait Pump {
+    fn id(&self) -> u8;
+    fn run_for_secs(&self, secs: u16) -> Result<(), Box<dyn Error>>;
+    fn stop(&self) -> Result<(), Box<dyn Error>>;
+    async fn init(
+        &mut self,
+        rx_pump: tokio::sync::broadcast::Receiver<(u8, PumpCmd)>
+    ) -> Result<(), Box<dyn Error>>;
+}
+
+
 #[derive(Debug, )]
 pub struct Runner {
-    pub tx: broadcast::Sender<(u8, Option<f32>)>,
+    pub tx_speed: broadcast::Sender<(u8, Option<f32>)>,
+    pub tx_pumpcmd: broadcast::Sender<(u8, PumpCmd)>,
     pub task: tokio::task::JoinHandle<()>,
 }
 impl Runner {
     pub fn new() -> Self {
         Self {
-            tx: broadcast::channel(1).0,
+            tx_speed: broadcast::channel(1).0,
+            tx_pumpcmd: broadcast::channel(2).0,
             task: tokio::spawn(async move {}),
         }
     }
-
-    pub fn channel(
+    pub fn cmd_channel(
+        &self,
+    ) -> broadcast::Receiver<(u8, PumpCmd)> {
+        self.tx_pumpcmd.subscribe()
+    }
+    pub fn feedback_channel(
         &self,
     ) -> broadcast::Sender<(u8, Option<f32>)> {
-        self.tx.clone()
+        self.tx_speed.clone()
     }
 
     pub fn run(&mut self, settings: Settings) {
-        let mut rx = self.tx.subscribe();
+        let mut rx_speed = self.tx_speed.subscribe();
+        let tx_pumpcmd = self.tx_pumpcmd.clone();
         self.task = tokio::spawn(async move {
             loop {
                 tokio::select! {
-                    Ok(data) = rx.recv() => {
-                        println!("Pump: {:?}", data);
+                    Ok(data) = rx_speed.recv() => {
+                        println!("Pump speed: {:?}", data);
                     }
                     // Ok(data) = rx_2.recv() => {
                     //     println!("Secondary:"" {:?}", data);
@@ -69,5 +89,15 @@ impl Runner {
                 };
             }
         });
+        // Cmd test
+        sleep(Duration::from_secs(10));
+        tx_pumpcmd.send( (1, PumpCmd::RunForSec(5)) );
+
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Ord, PartialOrd, Hash)]
+pub enum PumpCmd {
+    RunForSec(u16),
+    Stop
 }

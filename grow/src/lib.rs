@@ -94,7 +94,7 @@ impl House {
                     // let _ = interface.lamp.as_mut().unwrap().init(runner.lamp_channel());
                     runner.run(settings.clone());
                 }
-                _ => ()
+                // _ => ()
             }
         }
     }

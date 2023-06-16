@@ -38,7 +38,7 @@ pub trait TankSensor {
     fn id(&self) -> u8;
     async fn init(
         &mut self,
-        tx_tank: tokio::sync::broadcast::Sender<(u8, Option<TankStatus>)>
+        tx_tank: tokio::sync::broadcast::Sender<(u8, Option<TankLevel>)>
     ) -> Result<(), Box<dyn Error>>;
 }
 impl Debug for dyn TankSensor {
@@ -50,7 +50,7 @@ impl Debug for dyn TankSensor {
 
 #[derive(Debug, )]
 pub struct Runner {
-    pub tx: broadcast::Sender<(u8, Option<TankStatus>)>,
+    pub tx: broadcast::Sender<(u8, Option<TankLevel>)>,
     pub task: tokio::task::JoinHandle<()>,
 }
 impl Runner {
@@ -63,7 +63,7 @@ impl Runner {
 
     pub fn channel(
         &self,
-    ) -> broadcast::Sender<(u8, Option<TankStatus>)> {
+    ) -> broadcast::Sender<(u8, Option<TankLevel>)> {
         self.tx.clone()
     }
 
@@ -87,7 +87,7 @@ impl Runner {
 }
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Ord, PartialOrd, Hash)]
-pub enum TankStatus {
+pub enum TankLevel {
     Blue,
     Green,
     Yellow,
