@@ -14,7 +14,7 @@ grow = { path="../grow" }
 anyhow = { version = "1.0", default-features = false }
 time = { version = "0.3.*", default-features = false, features = ["macros", "parsing", "alloc", "serde"]  }
 chrono = "0.4.24"  #replace with time
-
+async-trait = "0.1"
 
 #std
 

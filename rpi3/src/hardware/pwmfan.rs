@@ -138,7 +138,7 @@ impl PwmFan {
                 // println!("Fan 1 RPM: {:?}", fan_rpm);
 
                 tx.send((id, fan_rpm));
-                tokio::time::sleep(Duration::from_secs(9)).await;
+                tokio::time::sleep(Duration::from_secs(DELAY_FAN_1)).await;
             }
         }))
     }

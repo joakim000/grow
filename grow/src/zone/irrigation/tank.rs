@@ -16,6 +16,7 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
         settings,
         status: Arc::new(Mutex::new(status)),
         interface: Interface {
+            tank_sensor: None,
         },
         runner: Runner::new(),
     }
@@ -29,31 +30,47 @@ pub struct Status {}
 
 #[derive(Debug, )]
 pub struct Interface {
-    // arm: Option<Box<dyn Arm>>,
+    pub tank_sensor: Option<Box<dyn TankSensor>>,
 }
+
+#[async_trait]
+pub trait TankSensor {
+    fn id(&self) -> u8;
+    async fn init(
+        &mut self,
+        tx_tank: tokio::sync::broadcast::Sender<(u8, Option<TankStatus>)>
+    ) -> Result<(), Box<dyn Error>>;
+}
+impl Debug for dyn TankSensor {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Tanksensor {{{}}}", self.id())
+    }
+}
+
 
 #[derive(Debug, )]
 pub struct Runner {
-    pub tx: broadcast::Sender<(u8, Option<f32>)>,
+    pub tx: broadcast::Sender<(u8, Option<TankStatus>)>,
     pub task: tokio::task::JoinHandle<()>,
 }
 impl Runner {
     pub fn new() -> Self {
         Self {
-            tx: broadcast::channel(1).0,
+            tx: broadcast::channel(8).0,
             task: tokio::spawn(async move {}),
         }
     }
 
     pub fn channel(
         &self,
-    ) -> broadcast::Sender<(u8, Option<f32>)> {
+    ) -> broadcast::Sender<(u8, Option<TankStatus>)> {
         self.tx.clone()
     }
 
     pub fn run(&mut self, settings: Settings) {
         let mut rx = self.tx.subscribe();
         self.task = tokio::spawn(async move {
+            println!("Spawned tank runner");
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {
@@ -67,4 +84,12 @@ impl Runner {
             }
         });
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Ord, PartialOrd, Hash)]
+pub enum TankStatus {
+    Blue,
+    Green,
+    Yellow,
+    Red,
 }

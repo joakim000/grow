@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 // #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 // #[derive(Clone, Debug, PartialEq)]
-use irrigation::{pump, tank, arm};
+pub use irrigation::{pump, tank, arm};
 
 #[derive(Debug, )]
 pub enum Zone {
