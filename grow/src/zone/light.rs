@@ -73,6 +73,7 @@ pub trait Lightmeter {
         &mut self,
         tx_light: tokio::sync::broadcast::Sender<(u8, Option<f32>)>
     ) -> Result<(), Box<dyn Error>>;   
+    fn read(&self) -> Result<(f32), Box<dyn Error  + '_>>;
     
 }
 impl Debug for dyn Lightmeter {
@@ -108,6 +109,8 @@ impl Runner {
         self.tx_lamp.subscribe()
     }
 
+    // This could handle scheudlineg and to that timed lightchecks, only waking manager if warning
+    // Keep lamp channel for runner lamp control
     pub fn run(&mut self, settings: Settings) {
         let mut rx = self.tx_lightmeter.subscribe();
         let tx = self.tx_lamp.clone();
@@ -116,16 +119,16 @@ impl Runner {
                 tokio::select! {
                     Ok(data) = rx.recv() => {
                         println!("Light level: {:?}", data);
-                        match data {
-                            (id, Some(lvl)) => {
-                                if lvl < 20f32 {
-                                    tx.send( (1, true) );
-                                } else {
-                                    tx.send( (1, false) );
-                                }
-                            }
-                            (_, None) => ()
-                        }
+                        // match data {
+                        //     (id, Some(lvl)) => {
+                        //         if lvl < 20f32 {
+                        //             tx.send( (1, true) );
+                        //         } else {
+                        //             tx.send( (1, false) );
+                        //         }
+                        //     }
+                        //     (_, None) => ()
+                        // }
                     }
                     // Ok(data) = rx_2.recv() => {
                     //     println!("Secondary:"" {:?}", data);

@@ -158,9 +158,6 @@ impl zone::air::Thermometer for Thermistor {
     fn id(&self) -> u8 {
         self.id
     }
-    fn read_temp(&self) -> Result<(i32), Box<dyn Error>> {
-        Ok(100i32)
-    }
     fn init(
         &mut self,
         tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f32>)>,
@@ -171,6 +168,16 @@ impl zone::air::Thermometer for Thermistor {
         );
 
         Ok(())
+    }
+    fn read(&self) -> Result<(f32), Box<dyn Error + '_>> {
+        let pin = TEMP_SENSOR[self.id as usize - 1];
+        let reading: f32;
+        {
+          let mut lock = self.adc.lock()?;
+          reading = moist_from_byte(lock.analog_read_byte(pin)?);
+        }
+    
+        Ok(reading)
     }
 }
 impl Debug for Thermistor {
@@ -247,6 +254,16 @@ impl zone::light::Lightmeter for Photoresistor {
 
         Ok(())
     }
+    fn read(&self) -> Result<(f32), Box<dyn Error + '_>> {
+        let pin: Pin; 
+        let pin = LIGHT_SENSOR[self.id as usize - 1];
+        let reading: f32;
+        {
+          let mut lock = self.adc.lock()?;
+          reading = light_from_byte(lock.analog_read_byte(pin)?);
+        }
+        Ok(reading)
+    }
 }
 impl Photoresistor {
     pub fn new(id: u8, adc: AdcMutex) -> Self {
@@ -298,12 +315,7 @@ impl zone::irrigation::MoistureSensor for CapacitiveMoistureSensor {
         self.id
     }
     fn read(&self) -> Result<(f32), Box<dyn Error + '_>> {
-        let pin: Pin; 
-        if self.id == 1 {
-            pin = MOIST_SENSOR_1;
-        } else {
-            pin = MOIST_SENSOR_2;
-        }
+        let pin = MOIST_SENSOR[self.id as usize - 1];
         let reading: f32;
         {
           let mut lock = self.adc.lock()?;

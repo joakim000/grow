@@ -2,13 +2,15 @@
 
 extern crate alloc;
 use core::error::Error;
-pub type Result<T> = core::result::Result<T, Box<dyn Error>>;
+pub type BoxResult<T> = core::result::Result<T, Box<dyn Error>>;
 // use alloc::collections::BTreeMap;
 use zone::Zone;
 // use std::sync::Arc;
 // use tokio::sync::Mutex;
 pub use tokio::sync::broadcast;
 
+mod error;
+pub use error::ZoneError;
 pub mod ops;
 pub mod zone;
 
@@ -25,6 +27,38 @@ impl House {
     pub fn zones(&mut self) -> &mut Vec<Zone> {
         &mut self.zones
     }
+
+    pub fn read_moisture_value(&mut self, zid: &u8) -> Result<f32, ZoneError> { 
+        println!("Get moist value. zones.len = {}", self.zones().len() );
+        for z in self.zones() {
+            dbg!(&z);
+            match z {
+                Zone::Irrigation {id, settings:_, status:_, interface, runner: _} if id == zid => {
+                    return Ok(interface.moist.as_ref().expect("Interface not found").read().expect("Couldn't read value"))
+                }
+                _ => continue
+            }
+        }
+        return Err(ZoneError::new("Zone not found"));
+    }
+
+    // pub fn read_moisture_value(&mut self, id: &u8) -> Result<f32, Box<dyn Error>> { 
+    //     println!("Get moist value. zones.len = {}", self.zones().len() );
+    //     let mut moist_value = |id: u8| -> Result<f32, Box<dyn Error>> {
+    //         for z in self.zones() {
+    //             dbg!(&z);
+    //             // let id = 1;
+    //             match z {
+    //                 Zone::Irrigation {id, settings:_, status:_, interface, runner: _} => {
+    //                     return Ok(interface.moist.as_ref().unwrap().read().unwrap())
+    //                 }
+    //                 _ => continue
+    //             }
+    //         }
+    //         return Err(Box::new(ZoneError::new("Zone not found")))
+    //     };
+    //     moist_value(&id)
+    // }
 
     pub async fn init(&mut self) -> () {
         for zone in self.zones() {

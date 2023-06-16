@@ -83,7 +83,8 @@ impl Debug for dyn Fan {
 }
 pub trait Thermometer {
     fn id(&self) -> u8;
-    fn read_temp(&self) -> Result<(i32), Box<dyn Error>>;
+    // fn read_temp(&self) -> Result<(i32), Box<dyn Error>>;
+    fn read(&self) -> Result<(f32), Box<dyn Error  + '_>>;
     fn init(
         &mut self,
         tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f32>)>
@@ -143,6 +144,7 @@ impl Runner {
                 tokio::select! {
                     Ok(data) = rx_rpm.recv() => {
                         println!("Fan rpm: {:?}", data);
+                        // wake manager if 0
                     }
                     Ok(data) = rx_temp.recv() => {
                         println!("Temp: {:?}", data);
