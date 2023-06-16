@@ -76,10 +76,10 @@ impl House {
                     id: _,
                     settings,
                     status: _,
-                    interface:_,
+                    interface,
                     runner,
                 } => {
-                    // let _ = interface.lightmeter.as_mut().unwrap().init(runner.lightmeter_channel());
+                    let _ = interface.pump.as_mut().unwrap().init(runner.cmd_channel());
                     // let _ = interface.lamp.as_mut().unwrap().init(runner.lamp_channel());
                     runner.run(settings.clone());
                 }

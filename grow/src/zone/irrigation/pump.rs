@@ -17,6 +17,7 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
         settings,
         status: Arc::new(Mutex::new(status)),
         interface: Interface {
+            pump: None,
         },
         runner: Runner::new(),
     }
@@ -33,18 +34,24 @@ pub struct Status {}
 
 #[derive(Debug, )]
 pub struct Interface {
-    // arm: Option<Box<dyn Arm>>,
+    pub pump: Option<Box<dyn Pump>>,
 }
 
 #[async_trait]
 pub trait Pump {
     fn id(&self) -> u8;
-    fn run_for_secs(&self, secs: u16) -> Result<(), Box<dyn Error>>;
-    fn stop(&self) -> Result<(), Box<dyn Error>>;
     async fn init(
         &mut self,
         rx_pump: tokio::sync::broadcast::Receiver<(u8, PumpCmd)>
     ) -> Result<(), Box<dyn Error>>;
+    fn run_for_secs(&self, secs: u16) -> Result<(), Box<dyn Error>>;
+    fn stop(&self) -> Result<(), Box<dyn Error>>;
+   
+}
+impl Debug for dyn Pump {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Pump {{{}}}", self.id())
+    }
 }
 
 
@@ -67,7 +74,7 @@ impl Runner {
     ) -> broadcast::Receiver<(u8, PumpCmd)> {
         self.tx_pumpcmd.subscribe()
     }
-    pub fn feedback_channel(
+    pub fn channel(
         &self,
     ) -> broadcast::Sender<(u8, Option<f32>)> {
         self.tx_speed.clone()

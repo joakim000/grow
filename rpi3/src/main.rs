@@ -9,6 +9,7 @@ use grow::zone::*;
 use std::error::Error;
 // use std::thread;
 use std::time::{Duration, Instant};
+use tokio::time::sleep as sleep;
 
 use simple_signal::{self, Signal};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -25,9 +26,23 @@ use pcf8591::{Pin, PCF8591};
 async fn main() -> Result<(), Box<dyn Error>> {
     let keepalive = signal_handler();
     let lpu_hub = crate::hardware::lpu::init().await.unwrap();
-
     let mut house = init::house_init(lpu_hub.clone()).await;
-
+    
+    sleep(Duration::from_secs(15));
+    let mut moist_value = |id: u8|->f32 {
+            println!("Get moist value. zones.len = {}", house.zones().len() );
+            for z in house.zones() {
+                dbg!(&z);
+                match z {
+                    Zone::Irrigation {id, settings:_, status:_, interface, runner: _} => {
+                        return interface.moist.as_ref().expect("Interface not found").read().expect("Couldn't read value")
+                    }
+                    _ => continue
+                }
+            }
+            return 666f32
+    };
+    println!("READ MOIST ONETIME: {}", moist_value(1));
 
     // Activity
     let mut activity_led = Gpio::new()?.get(ACTIVITY_LED_PIN)?.into_output();

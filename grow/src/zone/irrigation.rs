@@ -47,6 +47,7 @@ pub trait MoistureSensor {
         &mut self,
         tx_moist: tokio::sync::broadcast::Sender<(u8, Option<f32>)>
     ) -> Result<(), Box<dyn Error>>;
+    fn read(&self) -> Result<(f32), Box<dyn Error  + '_>>;
 }
 
 #[derive(Debug,  )] 

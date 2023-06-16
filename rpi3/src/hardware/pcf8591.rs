@@ -297,7 +297,21 @@ impl zone::irrigation::MoistureSensor for CapacitiveMoistureSensor {
     fn id(&self) -> u8 {
         self.id
     }
-    // fn read_moist(&self) -> Result<(i32), Box<dyn Error>> {Ok(100i32)}
+    fn read(&self) -> Result<(f32), Box<dyn Error + '_>> {
+        let pin: Pin; 
+        if self.id == 1 {
+            pin = MOIST_SENSOR_1;
+        } else {
+            pin = MOIST_SENSOR_2;
+        }
+        let reading: f32;
+        {
+          let mut lock = self.adc.lock()?;
+          reading = moist_from_byte(lock.analog_read_byte(pin)?);
+        }
+    
+        Ok(reading)
+    }
     fn init(
         &mut self,
         tx_moist: tokio::sync::broadcast::Sender<(u8, Option<f32>)>,
@@ -340,14 +354,12 @@ impl CapacitiveMoistureSensor {
                 }
                 let reading: f32;
                 {
-                    // println!("ADC lock req for moist {}", &id);
                     let mut lock = adc.lock().unwrap();
-                    // println!("ADC lock aquired for moist {}", &id);
                     reading = moist_from_byte(lock.analog_read_byte(pin).unwrap());
                 }
                 // reading = 0f32;
-                // println!("ADC lock drop for moist {}", &id);
                 // println!("Moist {:?}", &id); dbg!(reading);
+
                 // if let Some(p) = previous {
                     // if reading != p {
                         tx.send((id, Some(reading)));
