@@ -122,7 +122,6 @@ impl zone::irrigation::tank::TankSensor for Vsensor {
                 .await
                 .expect("Error initializing feedback task"),
         );
-
         Ok(())
     }
 }
@@ -151,7 +150,7 @@ impl Vsensor {
         Ok(tokio::spawn(async move {
             println!("Spawned tank feedback");
             while let Ok(data) = rx_color.recv().await {
-                println!("Tank color: {:?} ", data,);
+                // println!("Tank color: {:?} ", data,);
                 match data {
                     DetectedColor::Blue => {
                         tx.send( (id, Some(TankStatus::Blue)) );

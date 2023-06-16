@@ -26,7 +26,7 @@ impl House {
         &mut self.zones
     }
 
-    pub fn init(&mut self) -> () {
+    pub async fn init(&mut self) -> () {
         for zone in self.zones() {
             match zone {
                 Zone::Air {
@@ -62,7 +62,39 @@ impl House {
                     let _ = interface.moist.as_mut().unwrap().init(runner.channel());
                     runner.run(settings.clone());
                 }
-                _ => (),
+                Zone::Tank {
+                    id: _,
+                    settings,
+                    status: _,
+                    interface,
+                    runner,
+                } => {
+                    let _ = interface.tank_sensor.as_mut().unwrap().init(runner.channel()).await;
+                    runner.run(settings.clone());
+                }
+                Zone::Pump {
+                    id: _,
+                    settings,
+                    status: _,
+                    interface:_,
+                    runner,
+                } => {
+                    // let _ = interface.lightmeter.as_mut().unwrap().init(runner.lightmeter_channel());
+                    // let _ = interface.lamp.as_mut().unwrap().init(runner.lamp_channel());
+                    runner.run(settings.clone());
+                }
+                Zone::Arm {
+                    id: _,
+                    settings,
+                    status: _,
+                    interface:_,
+                    runner,
+                } => {
+                    // let _ = interface.lightmeter.as_mut().unwrap().init(runner.lightmeter_channel());
+                    // let _ = interface.lamp.as_mut().unwrap().init(runner.lamp_channel());
+                    runner.run(settings.clone());
+                }
+                _ => ()
             }
         }
     }

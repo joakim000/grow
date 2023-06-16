@@ -24,7 +24,10 @@ use pcf8591::{Pin, PCF8591};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let keepalive = signal_handler();
-    let mut house = init::house_init();
+    let lpu_hub = crate::hardware::lpu::init().await.unwrap();
+
+    let mut house = init::house_init(lpu_hub.clone()).await;
+
 
     // Activity
     let mut activity_led = Gpio::new()?.get(ACTIVITY_LED_PIN)?.into_output();
@@ -71,6 +74,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Reset pins
 
+    lpu_hub.lock().await.disconnect().await;
+
     led_byte = 0b00000000;
     sr.load(led_byte);
     sr.output_clear();
@@ -78,6 +83,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     activity_led.set_low();
 
+    println!("Cleanup successful");
     Ok(())
 }
 
