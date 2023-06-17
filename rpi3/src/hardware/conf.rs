@@ -27,8 +27,6 @@ pub const ADC_1_VREF: f64 = 5.0;
 pub const LIGHT_SENSOR: [Pin; 1] = [Pin::AIN0];
 pub const TEMP_SENSOR: [Pin; 1] = [Pin::AIN1];
 pub const MOIST_SENSOR: [Pin; 2] = [Pin::AIN2, Pin::AIN3];
-// pub const MOIST_SENSOR: Vec<Pin> = vec![Pin::AIN2, Pin::AIN3];
-// pub const TEMP_SENSOR: Vec<Pin> = vec![Pin::AIN1,];
 // Deprecated
 pub const LIGHT_SENSOR_1: Pin = Pin::AIN0;
 pub const TEMP_SENSOR_1: Pin = Pin::AIN1;

@@ -34,52 +34,74 @@ pub struct Move {
 }
 #[derive(Debug, )]
 pub struct Interface {
-    arm: Option<Box<dyn Arm>>,
+    pub arm: Option<Box<dyn Arm>>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Status {}
 
-trait Arm {
-    fn goto(&self, x: i32, y: i32) -> Result<(), Box<dyn Error>>;
-    fn confirm(&self, x: i32, y: i32) -> Result<bool, Box<dyn Error>>;
+#[async_trait]
+pub trait Arm {
+    fn id(&self) -> u8;
+    async fn init(
+        &mut self,
+        tx_axis_x: tokio::sync::broadcast::Sender<((i8, i32))>,
+        tx_axis_y: tokio::sync::broadcast::Sender<((i8, i32))>,
+        tx_axis_z: tokio::sync::broadcast::Sender<((i8, i32))>,
+    ) -> Result<(), Box<dyn Error>>;
+    async fn goto(&self, x: i32, y: i32) -> Result<(), Box<dyn Error>>;
+    async fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>>;
+    async fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>>;
+    async fn confirm(&self, x: i32, y: i32) -> Result<bool, Box<dyn Error>>;
+    async fn stop(&self) -> Result<(), Box<dyn Error>>; 
 }
 impl Debug for dyn Arm {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Arm: {{{}}}", 0)
+        write!(f, "Arm: {{{}}}", self.id())
     }
 }
 
 #[derive(Debug, )]
 pub struct Runner {
-    pub tx: broadcast::Sender<(u8, Option<f32>)>,
+    pub tx_axis_x: broadcast::Sender<(i8, i32)>,
+    pub tx_axis_y: broadcast::Sender<(i8, i32)>,
+    pub tx_axis_z: broadcast::Sender<(i8, i32)>,
     pub task: tokio::task::JoinHandle<()>,
 }
 impl Runner {
     pub fn new() -> Self {
         Self {
-            tx: broadcast::channel(1).0,
+            tx_axis_x: broadcast::channel(1).0,
+            tx_axis_y: broadcast::channel(1).0,
+            tx_axis_z: broadcast::channel(1).0,
             task: tokio::spawn(async move {}),
         }
     }
 
     pub fn channel(
         &self,
-    ) -> broadcast::Sender<(u8, Option<f32>)> {
-        self.tx.clone()
+    ) -> ( broadcast::Sender<(i8, i32)>,
+            broadcast::Sender<(i8, i32)>,
+            broadcast::Sender<(i8, i32)> ) {
+        ( self.tx_axis_x.clone(), self.tx_axis_y.clone(), self.tx_axis_z.clone() )
     }
 
     pub fn run(&mut self, settings: Settings) {
-        let mut rx = self.tx.subscribe();
+        let mut rx_axis_x = self.tx_axis_x.subscribe();
+        let mut rx_axis_y = self.tx_axis_y.subscribe();
+        let mut rx_axis_z = self.tx_axis_z.subscribe();
         self.task = tokio::spawn(async move {
             loop {
                 tokio::select! {
-                    Ok(data) = rx.recv() => {
-                        println!("Arm: {:?}", data);
+                    Ok(data) = rx_axis_x.recv() => {
+                        println!("Arm X: {:?}", data);
                     }
-                    // Ok(data) = rx_2.recv() => {
-                    //     println!("Secondary:"" {:?}", data);
-                    // }
+                    Ok(data) = rx_axis_y.recv() => {
+                        println!("Arm Y: {:?}", data);
+                    }
+                    Ok(data) = rx_axis_z.recv() => {
+                        println!("Arm Z: {:?}", data);
+                    }
                     else => { break }
                 };
             }

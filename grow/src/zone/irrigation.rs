@@ -102,9 +102,6 @@ impl Runner {
                     Ok(data) = rx.recv() => {
                         println!("Moisture: {:?}", data);
                     }
-                    // Ok(data) = rx_2.recv() => {
-                    //     println!("Secondary:"" {:?}", data);
-                    // }
                     else => { break }
                 };
             }

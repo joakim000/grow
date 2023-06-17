@@ -28,7 +28,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let lpu_hub = crate::hardware::lpu::init().await.unwrap();
     let mut house = init::house_init(lpu_hub.clone()).await;
     
-    sleep(Duration::from_secs(15));
     // let mut moist_value = |id: u8|->f32 {
     //         println!("Get moist value. zones.len = {}", house.zones().len() );
     //         for z in house.zones() {
@@ -44,12 +43,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // };
     // println!("READ MOIST ONETIME: {}", moist_value(1));
 
+    sleep(Duration::from_secs(5)).await;
     println!("READ LIGHT ONETIME: {:?}", house.read_light_value(&1u8));
     println!("READ TEMP ONETIME: {:?}", house.read_temperature_value(&1u8));
     println!("READ MOIST ONETIME: {:?}", house.read_moisture_value(&1u8));
     println!("LAMP ON: {:?}", house.set_lamp_state(&1u8, grow::zone::light::LampState::Off));
-    sleep(Duration::from_secs(15));
-    println!("PUMP RUN ON: {:?}", house.run_pump(&1u8, 5u16).await);
+    println!("PUMP RUN ON: {:?}", house.run_pump(&1u8, 2u16).await);
+    sleep(Duration::from_secs(5)).await;
+    println!("AXIS X: {:?}", house.arm_goto_x(&1u8, -25i32).await);
+    sleep(Duration::from_secs(5)).await;
+    println!("AXIS Y: {:?}", house.arm_goto_y(&1u8, 235i32).await);
 
     // Activity
     let mut activity_led = Gpio::new()?.get(ACTIVITY_LED_PIN)?.into_output();

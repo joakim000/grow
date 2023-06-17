@@ -224,13 +224,13 @@ impl Thermistor {
                 // println!("ADC lock drop for temp {}", &id);
                 // println!("Temp {:?}", &id); dbg!(reading);
            
-                // if let Some(p) = previous {
-                    // if reading != p {
+                if let Some(p) = previous {
+                    if reading != p {
                         tx.send((id, Some(reading)));
-                    // } else {
+                    } else {
                         // tx.send((id, Some(reading)));
-                    // }
-                // }
+                    }
+                }
                 // Assumes ok reading, check unwrap on reading
                 previous = Some(reading);
 
@@ -296,13 +296,13 @@ impl Photoresistor {
                     let mut lock = adc.lock().unwrap();
                     reading = light_from_byte(lock.analog_read_byte(LIGHT_SENSOR_1).unwrap());
                 }
-                // if let Some(p) = previous {
-                    // if reading != p {
+                if let Some(p) = previous {
+                    if reading != p {
                         tx.send((id, Some(reading)));
-                    // } else {
+                    } else {
                         // tx.send((id, Some(reading)));
-                    // }
-                // }
+                    }
+                }
                 // Check unwrap on reading
                 previous = Some(reading);
 
@@ -366,31 +366,27 @@ impl CapacitiveMoistureSensor {
         };
         Ok(tokio::spawn(async move {
             let mut previous: Option<f32> = None;
+            if id == 1 {
             loop {
-                if id == 1 {
                     tokio::time::sleep(Duration::from_secs(DELAY_MOIST_1)).await;
-                } else {
-                    tokio::time::sleep(Duration::from_secs(DELAY_MOIST_2)).await;
-                }
-                let reading: f32;
-                {
-                    let mut lock = adc.lock().unwrap();
-                    reading = moist_from_byte(lock.analog_read_byte(pin).unwrap());
-                }
-                // reading = 0f32;
-                // println!("Moist {:?}", &id); dbg!(reading);
+                    let reading: f32;
+                    {
+                        let mut lock = adc.lock().unwrap();
+                        reading = moist_from_byte(lock.analog_read_byte(pin).unwrap());
+                    }
+                    // reading = 0f32;
+                    // println!("Moist {:?}", &id); dbg!(reading);
 
-                // if let Some(p) = previous {
-                    // if reading != p {
-                        tx.send((id, Some(reading)));
-                    // } else {
+                    if let Some(p) = previous {
+                        if reading != p {
+                            tx.send((id, Some(reading)));
+                        } else {
                         // tx.send((id, Some(reading)));
-                    // }
-                // }
-                // Check unwrap on reading
-                previous = Some(reading);
-
-                // tokio::time::sleep(Duration::from_millis(2500)).await;
+                        }
+                    }
+                    // Check unwrap on reading
+                    previous = Some(reading);
+            }
             }
         }))
     }

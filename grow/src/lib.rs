@@ -86,6 +86,29 @@ impl House {
         }
         return Err(Box::new(ZoneError::new("Zone not found")))
     }
+    pub async fn arm_goto_x(&mut self, zid: &u8, x: i32) -> Result<(), Box<dyn Error + '_>> { 
+        for z in self.zones() {
+            match z {
+                Zone::Arm {id, settings:_, status:_, interface, runner: _} if id == zid => {
+                    return interface.arm.as_ref().expect("Interface not found").goto_x(x).await
+                }
+                _ => continue
+            }
+        }
+        return Err(Box::new(ZoneError::new("Zone not found")))
+    }
+    pub async fn arm_goto_y(&mut self, zid: &u8, y: i32) -> Result<(), Box<dyn Error + '_>> { 
+        for z in self.zones() {
+            match z {
+                Zone::Arm {id, settings:_, status:_, interface, runner: _} if id == zid => {
+                    return interface.arm.as_ref().expect("Interface not found").goto_y(y).await
+                }
+                _ => continue
+            }
+        }
+        return Err(Box::new(ZoneError::new("Zone not found")))
+    }
+
 
 
     pub async fn init(&mut self) -> () {
@@ -149,11 +172,11 @@ impl House {
                     id: _,
                     settings,
                     status: _,
-                    interface:_,
+                    interface,
                     runner,
                 } => {
-                    // let _ = interface.lightmeter.as_mut().unwrap().init(runner.lightmeter_channel());
-                    // let _ = interface.lamp.as_mut().unwrap().init(runner.lamp_channel());
+                    let _ = interface.arm.as_mut().unwrap()
+                        .init(runner.channel().0, runner.channel().1, runner.channel().2);
                     runner.run(settings.clone());
                 }
                 // _ => ()

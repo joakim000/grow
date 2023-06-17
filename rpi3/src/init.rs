@@ -86,14 +86,12 @@ pub async fn house_init(lpu_hub: lego_powered_up::HubMutex) -> grow::House {
                 interface,
                 runner,
             } => {
-                // interface.arm_cmd = Some(Box::new(hardware::lpu::Arm::new(
-                // *id,
-                // )));
-                // interface.arm_feedback = Some(Box::new(hardware::lpu::Arm::new(
-                // *id,
-                // )));
+                interface.arm = Some(Box::new(hardware::lpu::BrickArm::new(
+                *id,
+                lpu_hub.clone(),
+                ).await
+                ));
             }
-
             _ => (),
         }
     }

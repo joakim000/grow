@@ -255,3 +255,96 @@ impl BrickPump {
         }))
     }
 }
+
+pub struct BrickArm {
+    id: u8,
+    device_x: IoDevice,
+    device_y: IoDevice,
+    hub: HubMutex,
+    // control_task: Option<JoinHandle<()>>,
+    feedback_task: Option<JoinHandle<()>>,
+}
+#[async_trait]
+impl zone::irrigation::arm::Arm for BrickArm {
+    fn id(&self) -> u8 {
+        self.id
+    }
+    async fn init(
+        &mut self,
+        tx_axis_x: tokio::sync::broadcast::Sender<((i8, i32))>,
+        tx_axis_y: tokio::sync::broadcast::Sender<((i8, i32))>,
+        _tx_axis_z: tokio::sync::broadcast::Sender<((i8, i32))>,
+    ) -> Result<(), Box<dyn Error>> {
+        self.feedback_task = Some(
+            self.arm_feedback(tx_axis_x, tx_axis_y)
+                .await
+                .expect("Error initializing feedback task"),
+        );
+        Ok(())
+    }
+    async fn goto(&self, x: i32, y: i32) -> Result<(), Box<dyn Error>>{
+        self.device_x.goto_absolute_position(x, 20, 20, EndState::Brake).await?;
+        self.device_y.goto_absolute_position(y, 50, 20, EndState::Brake).await?;
+        Ok(())
+    }
+    async fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>>{
+        self.device_x.goto_absolute_position(x, 20, 20, EndState::Brake).await?;
+        Ok(())
+    }
+    async fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>>{
+        self.device_y.goto_absolute_position(y, 50, 20, EndState::Brake).await?;
+        Ok(())
+    }
+    async fn confirm(&self, x: i32, y: i32) -> Result<bool, Box<dyn Error>>{
+        Ok((false))  // TODO
+    }
+  
+    async fn stop(&self) -> Result<(), Box<dyn Error>> {
+        self.device_x.start_power(Power::Brake).await;
+        self.device_y.start_power(Power::Brake).await;
+        Ok(())
+    }
+}
+impl BrickArm {
+    pub async fn new(id: u8, hub: HubMutex) -> Self {
+        let device_x: IoDevice;
+        let device_y: IoDevice;
+        {
+            let lock = hub.lock().await;
+            device_x = lock.io_from_port(ARM_ROT_ADDR).await.expect("Error accessing LPU device");
+            device_y = lock.io_from_port(ARM_EXTENSION_ADDR).await.expect("Error accessing LPU device");
+        }
+        Self {
+            id,
+            hub,
+            device_x,
+            device_y,
+            feedback_task: None,
+        }
+    }
+    async fn arm_feedback(
+        &self,
+        tx_axis_x: tokio::sync::broadcast::Sender<((i8, i32))>,
+        tx_axis_y: tokio::sync::broadcast::Sender<((i8, i32))>,
+    ) -> Result<JoinHandle<()>, Box<dyn Error>> {
+        let id = self.id;
+        let (mut rx_axis_x, _axis_x_task) = 
+            self.device_x.enable_32bit_sensor(modes::InternalMotorTacho::POS, 1).await.unwrap();
+        let (mut rx_axis_y, _axis_y_task) = 
+            self.device_y.enable_32bit_sensor(modes::InternalMotorTacho::POS, 1).await.unwrap();
+        Ok(tokio::spawn(async move {
+            println!("Spawned arm feedback");
+            loop {
+                tokio::select! {
+                    Ok(data) = rx_axis_x.recv() => {
+                        println!("Arm X feedback: {:?} ", data,);
+                    }
+                    Ok(data) = rx_axis_y.recv() => {
+                        println!("Arm Y feedback: {:?} ", data,);
+                    }
+                    else => { break }
+                };
+            }
+        }))
+    }
+}
