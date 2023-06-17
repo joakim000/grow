@@ -13,6 +13,7 @@ pub mod running;
 // mod warning;
 use tokio::task::JoinHandle;
 
+pub mod display;
 
 pub mod warning {
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]

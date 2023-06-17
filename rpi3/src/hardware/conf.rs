@@ -23,15 +23,9 @@ pub const PWM_POLARITY_FAN_1: rppal::pwm::Polarity = rppal::pwm::Polarity::Inver
 pub const ADC_1_ADDR: u16 = 0x48;
 pub const ADC_1_BUS: &str = "/dev/i2c-1";
 pub const ADC_1_VREF: f64 = 5.0;
-// pub const LIGHT_SENSOR: Vec<Pin> = vec![Pin::AIN0,];
 pub const LIGHT_SENSOR: [Pin; 1] = [Pin::AIN0];
 pub const TEMP_SENSOR: [Pin; 1] = [Pin::AIN1];
 pub const MOIST_SENSOR: [Pin; 2] = [Pin::AIN2, Pin::AIN3];
-// Deprecated
-pub const LIGHT_SENSOR_1: Pin = Pin::AIN0;
-pub const TEMP_SENSOR_1: Pin = Pin::AIN1;
-pub const MOIST_SENSOR_1: Pin = Pin::AIN2;
-pub const MOIST_SENSOR_2: Pin = Pin::AIN3;
 
 pub const DISPLAY_BUS: &str = "/dev/i2c-1";
 pub const DISPLAY_ADDR: u16 = 0xc3;

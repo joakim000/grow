@@ -6,14 +6,19 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use core::fmt::Debug;
 use super::Zone;
+use crate::ops::display::{Indicator, DisplayStatus};
 
 
 pub fn new(id: u8, settings: Settings) -> super::Zone {
     let status = Status { 
         lamp_on: None,
         light_level: None,
+        disp: DisplayStatus {
+                indicator: Indicator::Blue,
+                msg: None,
+            }
        };
-    Zone::Light  {
+    Zone::Light {
         id,
         settings,
         status: Arc::new(Mutex::new(status)),
@@ -28,10 +33,11 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Settings {}
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Status {
     lamp_on: Option<bool>,
-    light_level: Option<f32>
+    light_level: Option<f32>,
+    disp: DisplayStatus,
 }
 
 #[derive( Debug, )]
@@ -44,6 +50,10 @@ pub struct Interface {
 pub enum LampState {
     On,
     Off,
+}
+
+pub struct Foo {
+    stuff: Vec<u8>
 }
 
 pub trait Lamp {

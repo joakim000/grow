@@ -208,6 +208,7 @@ impl Thermistor {
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
         let adc = self.adc.clone();
+        let pin = TEMP_SENSOR[self.id as usize - 1];
         Ok(tokio::spawn(async move {
             let mut previous: Option<f32> = None;
             loop {
@@ -217,7 +218,7 @@ impl Thermistor {
                     let mut lock = adc.lock().unwrap();
                     // println!("ADC lock aquired for temp {}", &id);
                     reading =
-                        celcius_from_byte(lock.analog_read_byte(TEMP_SENSOR_1).unwrap() as f32);
+                        celcius_from_byte(lock.analog_read_byte(pin).unwrap() as f32);
                     // TODO Check unwrap on reading
                 }
                 // reading = 0f32;
@@ -247,7 +248,6 @@ pub struct Photoresistor {
     feedback_task: Option<JoinHandle<()>>,
 }
 impl zone::light::Lightmeter for Photoresistor {
-    // fn read_light(&self) -> Result<(i32), Box<dyn Error>> {Ok(100i32)}
     fn id(&self) -> u8 {
         self.id
     }
@@ -288,13 +288,14 @@ impl Photoresistor {
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
         let adc = self.adc.clone();
+        let pin = LIGHT_SENSOR[self.id as usize - 1];
         Ok(tokio::spawn(async move {
             let mut previous: Option<f32> = None;
             loop {
                 let reading: f32;
                 {
                     let mut lock = adc.lock().unwrap();
-                    reading = light_from_byte(lock.analog_read_byte(LIGHT_SENSOR_1).unwrap());
+                    reading = light_from_byte(lock.analog_read_byte(pin).unwrap());
                 }
                 if let Some(p) = previous {
                     if reading != p {
@@ -359,31 +360,28 @@ impl CapacitiveMoistureSensor {
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
         let adc = self.adc.clone();
-        let pin = match id {
-            1 => MOIST_SENSOR_1,
-            2 => MOIST_SENSOR_2,
-            _ => Pin::AIN0, // need something
-        };
+        let pin = MOIST_SENSOR[self.id as usize - 1];
         Ok(tokio::spawn(async move {
             let mut previous: Option<f32> = None;
-            if id == 1 {
+            if true { //if id == 1 { 
             loop {
                     tokio::time::sleep(Duration::from_secs(DELAY_MOIST_1)).await;
                     let reading: f32;
                     {
                         let mut lock = adc.lock().unwrap();
                         reading = moist_from_byte(lock.analog_read_byte(pin).unwrap());
+                        // thread 'tokio-runtime-worker' panicked at 'called `Result::unwrap()` on an `Err` value: Nix(Sys(EREMOTEIO))', src/hardware/pcf8591.rs:376:78
                     }
                     // reading = 0f32;
                     // println!("Moist {:?}", &id); dbg!(reading);
 
-                    if let Some(p) = previous {
-                        if reading != p {
+                    // if let Some(p) = previous {
+                        // if reading != p {
                             tx.send((id, Some(reading)));
-                        } else {
+                        // } else {
                         // tx.send((id, Some(reading)));
-                        }
-                    }
+                        // }
+                    // }
                     // Check unwrap on reading
                     previous = Some(reading);
             }
@@ -407,7 +405,8 @@ fn celcius_from_byte(value: f32) -> f32 {
 }
 fn moist_from_byte(value: u8) -> f32 {
     // 115 = 100% moist, 215 = 0% moist
-    (0f32 - value as f32 + 215f32)
+    // (0f32 - value as f32 + 215f32)
+    value as f32
 }
 fn light_from_byte(value: u8) -> f32 {
     // 15(240) = dark, 40 = 5v LED up close, 208(47) = very light,

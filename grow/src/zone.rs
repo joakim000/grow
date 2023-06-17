@@ -15,6 +15,14 @@ pub use irrigation::{pump, tank, arm};
 
 #[derive(Debug, )]
 pub enum Zone {
+    Air {
+        id: u8,
+        settings: air::Settings,
+        // status: air::Status,
+        status: Arc<Mutex<air::Status>>,
+        interface: air::Interface,
+        runner: air::Runner,
+    },
     Light {
         id: u8,
         settings: light::Settings,
@@ -23,20 +31,19 @@ pub enum Zone {
         interface: light::Interface,
         runner: light::Runner,
     },
-    Tank {
-        id: u8,
-        settings: tank::Settings,
-        // status: tank::Status,
-        status: Arc<Mutex<tank::Status>>,
-        interface: tank::Interface,
-        runner: tank::Runner,
-    },
     Irrigation {
         id: u8,
         settings: irrigation::Settings,
         status: Arc<Mutex<irrigation::Status>>,
         interface: irrigation::Interface,
         runner: irrigation::Runner,
+    },
+    Arm {
+        id: u8,
+        settings: arm::Settings,
+        status: Arc<Mutex<arm::Status>>,
+        interface: arm::Interface,
+        runner: arm::Runner,
     },
     Pump {
         id: u8,
@@ -46,21 +53,15 @@ pub enum Zone {
         interface: pump::Interface,
         runner: pump::Runner,
     },
-    Arm {
+    Tank {
         id: u8,
-        settings: arm::Settings,
-        status: Arc<Mutex<arm::Status>>,
-        interface: arm::Interface,
-        runner: arm::Runner,
+        settings: tank::Settings,
+        // status: tank::Status,
+        status: Arc<Mutex<tank::Status>>,
+        interface: tank::Interface,
+        runner: tank::Runner,
     },
-    Air {
-        id: u8,
-        settings: air::Settings,
-        // status: air::Status,
-        status: Arc<Mutex<air::Status>>,
-        interface: air::Interface,
-        runner: air::Runner,
-    },
+  
 }
 pub mod air;
 // pub mod arm;

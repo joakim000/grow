@@ -194,11 +194,3 @@ impl Default for House {
 }
 
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Indicator {
-    Green,
-    Yellow,
-    Red,
-    Blue,
-}
-

@@ -5,6 +5,7 @@ use core::fmt::Debug;
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use crate::ops::display::{Indicator, DisplayStatus};
 
 pub fn new(id: u8, settings: Settings) -> super::Zone {
     let status = Status { 
@@ -36,7 +37,7 @@ pub struct Settings {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Status {
     pub moisture_level: Option<f32>,
-    pub indicator: Option<crate::Indicator>,
+    pub indicator: Option<Indicator>,
     pub msg: Option<String>,
 }
 

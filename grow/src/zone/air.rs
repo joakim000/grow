@@ -7,24 +7,19 @@ use tokio::sync::Mutex;
 use core::fmt::Debug;
 pub type FanMutex = Arc<Mutex<Box<dyn Fan>>>;
 use super::Zone;
+use crate::ops::display::{Indicator, DisplayStatus};
 
 pub fn new(id: u8, settings: Settings) -> super::Zone {
     let status = Status {
         temp: None,
         fan_rpm: None,
-        indicator: None,
+        indicator: Default::default(),
         msg: None,
     };
     Zone::Air {
         id,
         settings,
         status: Arc::new(Mutex::new(status)),
-        // status: Status {
-        //     temp: None,
-        //     fan_rpm: None,
-        //     indicator: None,
-        //     msg: None,
-        // },
         interface: Interface {
             fan: None,
             thermo: None,
@@ -44,7 +39,8 @@ pub struct Settings {
 pub struct Status {
     pub temp: Option<f32>,
     pub fan_rpm: Option<f32>,
-    pub indicator: Option<crate::Indicator>,
+    // pub indicator: Option<crate::Indicator>,
+    pub indicator: Indicator,
     pub msg: Option<String>,
 }
 
@@ -138,7 +134,7 @@ impl Runner {
         let mut rx_rpm = self.fan_rpm.subscribe();
         let mut rx_temp = self.temp.subscribe();
         let tx_fan = self.fan_control.clone();
-        let mut current_setting = FanSetting::Off;
+        let mut current_fan_mode = FanSetting::Off;
         self.task = tokio::spawn(async move {
             loop {
                 tokio::select! {
@@ -148,24 +144,38 @@ impl Runner {
                     }
                     Ok(data) = rx_temp.recv() => {
                         println!("Temp: {:?}", data);
-                        match data.1 {
-                            Some(temp) => {
-                                if temp > 25f32 {
-                                    println!("temp > 25 deg C");
-                                    if current_setting != FanSetting::Low {
-                                        match tx_fan.send(FanSetting::Low) {
-                                            Ok(_) => {
-                                                current_setting = FanSetting::Low;
-                                            },
-                                            Err(e) => {
-                                                eprintln!("Fan control error: {:?}", e);
-                                            }
-                                        }
-                                    }
-                                }
+                        
+                        // match data.1 {
+                        //     Some(temp) => {
+                        //         if temp > settings.temp_fan_low { }
+                        //         if temp > settings.temp_fan_high { }
+
+
+
+                        //             // println!("temp > {} deg C", settings.temp_fan_low);
+                        //             // if current_fan_mode != FanSetting::Low {
+                        //             //     match tx_fan.send(FanSetting::Low) {
+                        //             //         Ok(_) => {
+                        //             //             current_fan_mode = FanSetting::Low;
+                        //             //         },
+                        //             //         Err(e) => {
+                        //             //             eprintln!("Fan control error: {:?}", e);
+                        //             //         }
+                        //             //     }
+                        //             // }
+                        //     }
+                        //     _ => ()
+                        // }
+
+                        match tx_fan.send(FanSetting::Off) {
+                            Ok(_) => {
+                                current_fan_mode = FanSetting::Off;
+                            },
+                            Err(e) => {
+                             eprintln!("Fan control error: {:?}", e);
                             }
-                            _ => ()
                         }
+
                     }
                     else => { break }
                 };

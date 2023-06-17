@@ -7,6 +7,7 @@ use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use core::fmt::Debug;
 use super::Zone;
+use crate::ops::display::{Indicator, DisplayStatus};
 
 pub fn new(id: u8, settings: Settings) -> super::Zone {
     let status = Status { 
