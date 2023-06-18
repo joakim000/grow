@@ -99,7 +99,7 @@ impl PwmFan {
         let mut fan_rpm: Option<f32> = Default::default();
 
         let id = self.id;
-
+        let mut previous = f32::MAX;
         Ok(tokio::spawn(async move {
             loop {
                 let mut fan_pulse_detected = true;
@@ -136,6 +136,18 @@ impl PwmFan {
                 // print!("Fan 1 duty cycle: {:?}   ", pwm.duty_cycle().unwrap());
                 // print!("RPM pulse duration: {:?}   ", pulse_duration);
                 // println!("Fan 1 RPM: {:?}", fan_rpm);
+
+                match fan_rpm {
+                    Some(rpm) => {
+                        if (rpm-previous).abs() >= FAN_1_DELTA {
+                            previous = rpm;
+                            tx.send( (id, fan_rpm) );
+                        }
+                    }
+                    None => {
+                        tx.send( (id, fan_rpm) );
+                    }
+                }
 
                 tx.send((id, fan_rpm));
                 tokio::time::sleep(Duration::from_secs(DELAY_FAN_1)).await;

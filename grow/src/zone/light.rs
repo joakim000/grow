@@ -62,7 +62,7 @@ pub trait Lamp {
         &mut self,
         rx_lamp: tokio::sync::broadcast::Receiver<(u8, bool)>
     ) -> Result<(), Box<dyn Error>>;
-    fn set_state(&self, state: LampState) -> Result<(), Box<dyn Error>>;
+    fn set_state(&self, state: LampState) -> Result<(), Box<dyn Error + '_>>;
 
 }
 impl Debug for dyn Lamp {

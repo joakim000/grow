@@ -94,19 +94,19 @@ impl zone::light::Lamp for Led {
     fn id(&self) -> u8 {
         self.id
     }
-    fn set_state(&self, state: zone::light::LampState) -> Result<(), Box<dyn Error>> {
+    fn set_state(&self, state: zone::light::LampState) -> Result<(), Box<dyn Error + '_>> {
         match state {
             zone::light::LampState::On => {
-                let mut lock = self.adc.lock().unwrap();
-                lock.analog_write_byte(255);
+                let mut lock = self.adc.lock()?;
+                Ok(lock.analog_write_byte(255)?)
             }
             zone::light::LampState::Off => {
-                let mut lock = self.adc.lock().unwrap();
-                lock.analog_write_byte(0);
+                let mut lock = self.adc.lock()?;
+                Ok(lock.analog_write_byte(0)?)
             }
         }
         
-        Ok(())
+        // Ok(())
     }
     fn init(
         &mut self,
@@ -214,15 +214,18 @@ impl Thermistor {
             loop {
                 let reading: f32;
                 {
-                    // println!("ADC lock req for temp {}", &id);
+//                     let lock = match adc.lock() {
+//                         Ok(lock) => lock,
+//                         Err(e) => e,
+// ;                        
+//                     };
+                    
                     let mut lock = adc.lock().unwrap();
-                    // println!("ADC lock aquired for temp {}", &id);
                     reading =
                         celcius_from_byte(lock.analog_read_byte(pin).unwrap() as f32);
                     // TODO Check unwrap on reading
                 }
                 // reading = 0f32;
-                // println!("ADC lock drop for temp {}", &id);
                 // println!("Temp {:?}", &id); dbg!(reading);
            
                 if let Some(p) = previous {

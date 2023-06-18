@@ -18,11 +18,12 @@ pub const PULSES_PER_ROTATION: f32 = 4.0;
 pub const PWM_FREQ_FAN_1: f64 = 25000.0; // PWM frequency target 25 kHz
 pub const PWM_FAN_1: rppal::pwm::Channel = rppal::pwm::Channel::Pwm0;
 pub const PWM_POLARITY_FAN_1: rppal::pwm::Polarity = rppal::pwm::Polarity::Inverse;
+pub const FAN_1_DELTA: f32 = 50f32;
 
 // I2C
 pub const ADC_1_ADDR: u16 = 0x48;
 pub const ADC_1_BUS: &str = "/dev/i2c-1";
-pub const ADC_1_VREF: f64 = 5.0;
+pub const ADC_1_VREF: f64 = 4.0;
 pub const LIGHT_SENSOR: [Pin; 1] = [Pin::AIN0];
 pub const TEMP_SENSOR: [Pin; 1] = [Pin::AIN1];
 pub const MOIST_SENSOR: [Pin; 2] = [Pin::AIN2, Pin::AIN3];
