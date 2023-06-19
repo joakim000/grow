@@ -39,11 +39,12 @@ pub struct Interface {
 }
 
 #[async_trait]
-pub trait Pump {
+pub trait Pump : Send + Sync {
     fn id(&self) -> u8;
     async fn init(
         &mut self,
-        rx_pump: tokio::sync::broadcast::Receiver<(u8, PumpCmd)>
+        rx_pump: tokio::sync::broadcast::Receiver<(u8, PumpCmd)>,
+        tx_pump: tokio::sync::broadcast::Sender<(u8, (i8, i32) )>
     ) -> Result<(), Box<dyn Error>>;
     async fn run_for_secs(&self, secs: u16) -> Result<(), Box<dyn Error>>;
     async fn stop(&self) -> Result<(), Box<dyn Error>>;
@@ -58,14 +59,14 @@ impl Debug for dyn Pump {
 
 #[derive(Debug, )]
 pub struct Runner {
-    pub tx_speed: broadcast::Sender<(u8, Option<f32>)>,
+    pub tx_feedback: broadcast::Sender<(u8, (i8, i32) )>,
     pub tx_pumpcmd: broadcast::Sender<(u8, PumpCmd)>,
     pub task: tokio::task::JoinHandle<()>,
 }
 impl Runner {
     pub fn new() -> Self {
         Self {
-            tx_speed: broadcast::channel(1).0,
+            tx_feedback: broadcast::channel(1).0,
             tx_pumpcmd: broadcast::channel(2).0,
             task: tokio::spawn(async move {}),
         }
@@ -77,18 +78,18 @@ impl Runner {
     }
     pub fn channel(
         &self,
-    ) -> broadcast::Sender<(u8, Option<f32>)> {
-        self.tx_speed.clone()
+    ) -> broadcast::Sender<(u8, (i8, i32) )> {
+        self.tx_feedback.clone()
     }
 
     pub fn run(&mut self, settings: Settings) {
-        let mut rx_speed = self.tx_speed.subscribe();
+        let mut rx_feedback = self.tx_feedback.subscribe();
         let tx_pumpcmd = self.tx_pumpcmd.clone();
         self.task = tokio::spawn(async move {
             loop {
                 tokio::select! {
-                    Ok(data) = rx_speed.recv() => {
-                        println!("Pump speed: {:?}", data);
+                    Ok(data) = rx_feedback.recv() => {
+                        println!("\tPump speed: {:?}", data);
                     }
                     // Ok(data) = rx_2.recv() => {
                     //     println!("Secondary:"" {:?}", data);

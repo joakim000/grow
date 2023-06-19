@@ -7,6 +7,10 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use crate::ops::display::{Indicator, DisplayStatus};
 
+pub mod arm;
+pub mod pump;
+pub mod tank;
+
 pub fn new(id: u8, settings: Settings) -> super::Zone {
     let status = Status { 
         moisture_level: None,
@@ -23,7 +27,6 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
         runner: Runner::new(),
     }
 }
-
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Settings {
@@ -42,7 +45,7 @@ pub struct Status {
 }
 
 #[async_trait]
-pub trait MoistureSensor {
+pub trait MoistureSensor : Send {
     fn id(&self) -> u8;
     fn init(
         &mut self,
@@ -55,16 +58,7 @@ pub trait MoistureSensor {
 pub struct Interface {
     pub moist: Option<Box<dyn MoistureSensor>>,
 }
-impl Interface {
-    // pub fn set_moist(&mut self, moist: Box<dyn MoistureSensor>) -> () {
-    //     self.moist = Some(moist);
-    // }
-}
-// impl Debug for Interface {
-//     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-//         write!(f, "Interface: ")
-//     }
-// }
+
 impl Debug for dyn MoistureSensor {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "MoistureSensor {{{}}}", self.id())
@@ -72,9 +66,7 @@ impl Debug for dyn MoistureSensor {
 }
 
 
-pub mod pump;
-pub mod tank;
-pub mod arm;
+
 
 #[derive(Debug, )]
 pub struct Runner {
@@ -101,7 +93,7 @@ impl Runner {
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {
-                        println!("Moisture: {:?}", data);
+                        println!("\tMoisture: {:?}", data);
                     }
                     else => { break }
                 };

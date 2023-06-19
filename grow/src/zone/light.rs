@@ -52,11 +52,11 @@ pub enum LampState {
     Off,
 }
 
-pub struct Foo {
-    stuff: Vec<u8>
-}
+// pub struct Foo {
+//     stuff: Vec<u8>
+// }
 
-pub trait Lamp {
+pub trait Lamp : Send {
     fn id(&self) -> u8;
     fn init(
         &mut self,
@@ -72,7 +72,7 @@ impl Debug for dyn Lamp {
 }
 
 
-pub trait Lightmeter {
+pub trait Lightmeter : Send {
     fn id(&self) -> u8;
     fn init(
         &mut self,
@@ -123,17 +123,7 @@ impl Runner {
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {
-                        println!("Light level: {:?}", data);
-                        // match data {
-                        //     (id, Some(lvl)) => {
-                        //         if lvl < 20f32 {
-                        //             tx.send( (1, true) );
-                        //         } else {
-                        //             tx.send( (1, false) );
-                        //         }
-                        //     }
-                        //     (_, None) => ()
-                        // }
+                        println!("\tLight level: {:?}", data);
                     }
                     // Ok(data) = rx_2.recv() => {
                     //     println!("Secondary:"" {:?}", data);

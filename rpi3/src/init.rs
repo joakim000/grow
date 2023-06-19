@@ -100,6 +100,9 @@ pub async fn house_init(lpu_hub: lego_powered_up::HubMutex) -> grow::House {
     house.init().await;
     println!("After house init:");
     // dbg!(&house);
-
+    house.read_light_value(&1);
+    house.run_pump(&1, 2).await;
+    house.arm_goto_y(&1, 30).await;
+    house.read_temperature_value(&1);
     house
 }

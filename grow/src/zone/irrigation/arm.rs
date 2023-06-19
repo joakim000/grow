@@ -42,7 +42,7 @@ pub struct Interface {
 pub struct Status {}
 
 #[async_trait]
-pub trait Arm {
+pub trait Arm : Send {
     fn id(&self) -> u8;
     async fn init(
         &mut self,
@@ -95,13 +95,13 @@ impl Runner {
             loop {
                 tokio::select! {
                     Ok(data) = rx_axis_x.recv() => {
-                        println!("Arm X: {:?}", data);
+                        println!("\tArm X: {:?}", data);
                     }
                     Ok(data) = rx_axis_y.recv() => {
-                        println!("Arm Y: {:?}", data);
+                        println!("\tArm Y: {:?}", data);
                     }
                     Ok(data) = rx_axis_z.recv() => {
-                        println!("Arm Z: {:?}", data);
+                        println!("\tArm Z: {:?}", data);
                     }
                     else => { break }
                 };

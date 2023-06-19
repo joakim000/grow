@@ -21,6 +21,7 @@ use lego_powered_up::{ConnectedHub, IoDevice, IoTypeId, PoweredUp};
 use lego_powered_up::{Hub, HubFilter};
 use lego_powered_up::HubMutex;
 use lego_powered_up::iodevice::visionsensor::DetectedColor;
+use lego_powered_up::consts::MotorSensorMode;
 
 use grow::zone;
 use grow::zone::tank::TankLevel;
@@ -181,7 +182,7 @@ pub struct BrickPump {
     device: IoDevice,
     hub: HubMutex,
     control_task: Option<JoinHandle<()>>,
-    // feedback_task: Option<JoinHandle<()>>,
+    feedback_task: Option<JoinHandle<()>>,
 }
 #[async_trait]
 impl zone::irrigation::pump::Pump for BrickPump {
@@ -201,11 +202,17 @@ impl zone::irrigation::pump::Pump for BrickPump {
     async fn init(
         &mut self,
         rx_pumpcmd: tokio::sync::broadcast::Receiver<(u8, PumpCmd)>,
+        tx_pump: tokio::sync::broadcast::Sender<(u8, (i8, i32) )>,
     ) -> Result<(), Box<dyn Error>> {
         self.control_task = Some(
             self.pump_control(rx_pumpcmd)
                 .await
                 .expect("Error initializing control task"),
+        );
+        self.feedback_task = Some(
+            self.pump_feedback(tx_pump)
+                .await
+                .expect("Error initializing feedback task"),
         );
         Ok(())
     }
@@ -222,6 +229,7 @@ impl BrickPump {
             hub,
             device,
             control_task: None,
+            feedback_task: None,
         }
     }
 
@@ -252,6 +260,21 @@ impl BrickPump {
                 }
             }
 
+        }))
+    }
+    async fn pump_feedback(
+        &self,
+        tx: broadcast::Sender<(u8, (i8, i32) )>,
+    ) -> Result<JoinHandle<()>, Box<dyn Error>> {
+        let id = self.id;
+        let (mut rx_motor, _motor_sensor_task) = 
+            self.device.enable_8bit_sensor(modes::InternalMotorTacho::SPEED, 1).await.unwrap();
+        Ok(tokio::spawn(async move {
+            println!("Spawned pump feedback");
+            while let Ok(data) = rx_motor.recv().await {
+                println!("Arm X feedback: {:?} ", data,);
+                    tx.send( (id, (data[0], 0)) );
+            }
         }))
     }
 }
@@ -338,9 +361,11 @@ impl BrickArm {
                 tokio::select! {
                     Ok(data) = rx_axis_x.recv() => {
                         println!("Arm X feedback: {:?} ", data,);
+                        tx_axis_x.send( (0i8, data[0]) );
                     }
                     Ok(data) = rx_axis_y.recv() => {
                         println!("Arm Y feedback: {:?} ", data,);
+                        tx_axis_y.send( (0i8, data[0]) );
                     }
                     else => { break }
                 };

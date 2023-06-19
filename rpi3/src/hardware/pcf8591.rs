@@ -1,5 +1,5 @@
 use super::conf::*;
-use pcf8591::{Pin, PCF8591};
+use pcf8591::{Pin, PCF8591, LinuxI2CError};
 use std::sync::Arc;
 // use tokio::sync::Mutex;
 use core::fmt::Debug;
@@ -39,31 +39,32 @@ impl Adc {
         let control = PCF8591::new(ADC_1_BUS, ADC_1_ADDR, ADC_1_VREF).unwrap();
         let mutex = Arc::new(Mutex::new(control));
         let adc = mutex.clone();
-        // tokio::spawn(async move {
-        //     loop {
-        //         let reading: f32;
-        //         {
-        //             println!("ADC lock req for ADC ");
-        //             // let mut lock = adc.lock().await;
-        //             let mut lock = adc.lock().unwrap();
-        //             println!("ADC lock aquired for ADC");
+    
+        tokio::spawn(async move {
+            loop {
+                let reading: f32;
+                {
+                    println!("ADC lock req for ADC ");
+                    // let mut lock = adc.lock().await;
+                    let mut lock = adc.lock().unwrap();
+                    println!("ADC lock aquired for ADC");
 
-        //             let v0 = lock.analog_read_byte(Pin::AIN0); // photoresistor
-        //             let v1 = lock.analog_read_byte(Pin::AIN1); // thermistor
-        //             let v2 = lock.analog_read_byte(Pin::AIN2); // capacitive soil moisture 1
-        //             let v3 = lock.analog_read_byte(Pin::AIN3); // capacitive soil moisture 2
-        //             println!("Light {:?}  Temp {:?}    Moist 1 {:?}     Moist 2 {:?} ",&v0, &v1, &v2, &v3);
+                    let v0 = lock.analog_read_byte(Pin::AIN0); // photoresistor
+                    let v1 = lock.analog_read_byte(Pin::AIN1); // thermistor
+                    let v2 = lock.analog_read_byte(Pin::AIN2); // capacitive soil moisture 1
+                    let v3 = lock.analog_read_byte(Pin::AIN3); // capacitive soil moisture 2
+                    println!("Light {:?}  Temp {:?}    Moist 1 {:?}     Moist 2 {:?} ",&v0, &v1, &v2, &v3);
 
-        //             let c0 = light_from_byte(v0.unwrap().into());
-        //             let c1 = celcius_from_byte(v1.unwrap().into());
-        //             let c2 = moist_from_byte(v2.unwrap().into());
-        //             let c3 = moist_from_byte(v3.unwrap().into());
-        //             println!("Light {:?}  Temp {:?}    Moist 1 {:?}     Moist 2 {:?} ",c0, c1, c2, c3);
-        //         }
-        //         println!("ADC lock drop for ADC");
-        //         tokio::time::sleep(Duration::from_millis(10000)).await;
-        //     }
-        // });
+                    let c0 = light_from_byte(v0.unwrap().into());
+                    let c1 = celcius_from_byte(v1.unwrap().into());
+                    let c2 = moist_from_byte(v2.unwrap().into());
+                    let c3 = moist_from_byte(v3.unwrap().into());
+                    println!("Light {:?}  Temp {:?}    Moist 1 {:?}     Moist 2 {:?} ",c0, c1, c2, c3);
+                }
+                println!("ADC lock drop for ADC");
+                tokio::time::sleep(Duration::from_millis(10000)).await;
+            }
+        });
 
         Self { mutex }
     }
@@ -105,8 +106,6 @@ impl zone::light::Lamp for Led {
                 Ok(lock.analog_write_byte(0)?)
             }
         }
-        
-        // Ok(())
     }
     fn init(
         &mut self,
@@ -168,7 +167,7 @@ impl zone::air::Thermometer for Thermistor {
     }
     fn init(
         &mut self,
-        tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f32>)>,
+        tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f64>)>,
     ) -> Result<(), Box<dyn Error>> {
         self.feedback_task = Some(
             self.temp_feedback(tx_temp)
@@ -177,9 +176,9 @@ impl zone::air::Thermometer for Thermistor {
 
         Ok(())
     }
-    fn read(&self) -> Result<(f32), Box<dyn Error + '_>> {
+    fn read(&self) -> Result<(f64), Box<dyn Error + '_>> {
         let pin = TEMP_SENSOR[self.id as usize - 1];
-        let reading: f32;
+        let reading: f64;
         {
           let mut lock = self.adc.lock()?;
           reading = celcius_from_byte(lock.analog_read_byte(pin)?.into());
@@ -204,40 +203,34 @@ impl Thermistor {
 
     fn temp_feedback(
         &self,
-        tx: broadcast::Sender<(u8, Option<f32>)>,
+        tx: broadcast::Sender<(u8, Option<f64>)>,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
         let adc = self.adc.clone();
         let pin = TEMP_SENSOR[self.id as usize - 1];
         Ok(tokio::spawn(async move {
-            let mut previous: Option<f32> = None;
+            // let mut previous: Option<f32> = None;
+            let mut previous: f64 = f64::MAX;
             loop {
-                let reading: f32;
+                let reading: f64;
+                let read_result: Result<u8, LinuxI2CError>; 
                 {
-//                     let lock = match adc.lock() {
-//                         Ok(lock) => lock,
-//                         Err(e) => e,
-// ;                        
-//                     };
-                    
                     let mut lock = adc.lock().unwrap();
-                    reading =
-                        celcius_from_byte(lock.analog_read_byte(pin).unwrap() as f32);
-                    // TODO Check unwrap on reading
+                    read_result = lock.analog_read_byte(pin);
                 }
-                // reading = 0f32;
-                // println!("Temp {:?}", &id); dbg!(reading);
-           
-                if let Some(p) = previous {
-                    if reading != p {
-                        tx.send((id, Some(reading)));
-                    } else {
-                        // tx.send((id, Some(reading)));
+                match read_result {
+                    Ok(raw_reading) => {
+                        reading = celcius_from_byte(raw_reading.into());
+                        // println!("Temp {:?}   reading {:?}   previous {:?}", &id, &reading, &previous); 
+                        if reading != previous { 
+                            tx.send( (id, Some(reading)) );
+                            previous = reading; 
+                        }
                     }
-                }
-                // Assumes ok reading, check unwrap on reading
-                previous = Some(reading);
-
+                    Err(e) => {
+                        tx.send( (id, None) ); 
+                    }    
+                }    
                 tokio::time::sleep(Duration::from_secs(DELAY_TEMP_1)).await;
             }
         }))
@@ -284,7 +277,6 @@ impl Photoresistor {
             feedback_task: None,
         }
     }
-
     fn light_feedback(
         &self,
         tx: broadcast::Sender<(u8, Option<f32>)>,
@@ -293,22 +285,28 @@ impl Photoresistor {
         let adc = self.adc.clone();
         let pin = LIGHT_SENSOR[self.id as usize - 1];
         Ok(tokio::spawn(async move {
-            let mut previous: Option<f32> = None;
+            let mut previous = f32::MAX;
             loop {
                 let reading: f32;
+                let read_result: Result<u8, LinuxI2CError>; 
                 {
                     let mut lock = adc.lock().unwrap();
-                    reading = light_from_byte(lock.analog_read_byte(pin).unwrap());
+                    read_result = lock.analog_read_byte(pin);
                 }
-                if let Some(p) = previous {
-                    if reading != p {
-                        tx.send((id, Some(reading)));
-                    } else {
-                        // tx.send((id, Some(reading)));
+                match read_result {
+                    Ok(raw_reading) => {
+                        reading = light_from_byte(raw_reading.into());
+                        // println!("Light {:?}   reading {:?}   previous {:?}", &id, &reading, &previous); 
+                        if reading != previous { 
+                            tx.send( (id, Some(reading)) );
+                            previous = reading; 
+                        }
                     }
-                }
-                // Check unwrap on reading
-                previous = Some(reading);
+                    Err(e) => {
+                        tx.send( (id, None) ); 
+                    }    
+                }    
+           
 
                 tokio::time::sleep(Duration::from_secs(DELAY_LIGHT_1)).await;
             }
@@ -356,7 +354,6 @@ impl CapacitiveMoistureSensor {
             feedback_task: None,
         }
     }
-
     fn moist_feedback(
         &self,
         tx: broadcast::Sender<(u8, Option<f32>)>,
@@ -365,43 +362,42 @@ impl CapacitiveMoistureSensor {
         let adc = self.adc.clone();
         let pin = MOIST_SENSOR[self.id as usize - 1];
         Ok(tokio::spawn(async move {
-            let mut previous: Option<f32> = None;
-            if true { //if id == 1 { 
+            let mut previous = f32::MAX;
             loop {
-                    tokio::time::sleep(Duration::from_secs(DELAY_MOIST_1)).await;
-                    let reading: f32;
-                    {
-                        let mut lock = adc.lock().unwrap();
-                        reading = moist_from_byte(lock.analog_read_byte(pin).unwrap());
-                        // thread 'tokio-runtime-worker' panicked at 'called `Result::unwrap()` on an `Err` value: Nix(Sys(EREMOTEIO))', src/hardware/pcf8591.rs:376:78
+                tokio::time::sleep(Duration::from_secs(DELAY_MOIST_1)).await;
+                let reading: f32;
+                let read_result: Result<u8, LinuxI2CError>; 
+                {
+                    let mut lock = adc.lock().unwrap();
+                    read_result = lock.analog_read_byte(pin);
+                }
+                match read_result {
+                    Ok(raw_reading) => {
+                        reading = moist_from_byte(raw_reading.into());
+                        // println!("Moist {:?}   reading {:?}   previous {:?}", &id, &reading, &previous); 
+                        if reading != previous { 
+                            tx.send( (id, Some(reading)) );
+                            previous = reading; 
+                        }
                     }
-                    // reading = 0f32;
-                    // println!("Moist {:?}", &id); dbg!(reading);
-
-                    // if let Some(p) = previous {
-                        // if reading != p {
-                            tx.send((id, Some(reading)));
-                        // } else {
-                        // tx.send((id, Some(reading)));
-                        // }
-                    // }
-                    // Check unwrap on reading
-                    previous = Some(reading);
-            }
+                    Err(e) => {
+                        tx.send( (id, None) ); 
+                    }    
+                }    
             }
         }))
     }
 }
 
 /// Conversions
-fn celcius_from_byte(value: f32) -> f32 {
-    let coeff_b = 3950f32; // thermistor coefficient
-    let res_r0 = 10000f32; // resistance @ room temperature
-    let res_r1 = 1000f32; // resistance of R1
-    let room_temperature_in_kelvin = 297.15f32;
+fn celcius_from_byte(value: f64) -> f64 {
+    let coeff_b = 3950f64; // thermistor coefficient
+    let res_r0 = 10000f64; // resistance @ room temperature
+    let res_r1 = 1000f64; // resistance of R1
+    let room_temperature_in_kelvin = 297.15f64;
 
-    let res_r6: f32 = (res_r1 * value) / (256.0 - value);
-    let kelvin: f32 =
+    let res_r6:f64 = (res_r1 * value) / (256.0 - value);
+    let kelvin:f64 =
         1.0 / ((1.0 / room_temperature_in_kelvin) + (1.0 / coeff_b) * (res_r6 / res_r0).ln());
 
     kelvin - 273.15

@@ -35,7 +35,7 @@ pub struct Interface {
 }
 
 #[async_trait]
-pub trait TankSensor {
+pub trait TankSensor : Send {
     fn id(&self) -> u8;
     async fn init(
         &mut self,
@@ -75,7 +75,7 @@ impl Runner {
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {
-                        println!("Tank: {:?}", data);
+                        println!("\tTank: {:?}", data);
                     }
                     // Ok(data) = rx_2.recv() => {
                     //     println!("Secondary:"" {:?}", data);

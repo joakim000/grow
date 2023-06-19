@@ -62,7 +62,7 @@ impl Interface {
 
 
 #[async_trait]
-pub trait Fan {
+pub trait Fan : Send {
     fn id(&self) -> u8;
     fn init(
         &mut self,
@@ -77,13 +77,13 @@ impl Debug for dyn Fan {
         write!(f, "Fan: {{{}}}", self.id())
     }
 }
-pub trait Thermometer {
+pub trait Thermometer : Send {
     fn id(&self) -> u8;
     // fn read_temp(&self) -> Result<(i32), Box<dyn Error>>;
-    fn read(&self) -> Result<(f32), Box<dyn Error  + '_>>;
+    fn read(&self) -> Result<(f64), Box<dyn Error  + '_>>;
     fn init(
         &mut self,
-        tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f32>)>
+        tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f64>)>
     ) -> Result<(), Box<dyn Error>>;
 }
 impl Debug for dyn Thermometer {
@@ -96,6 +96,7 @@ impl Debug for dyn Thermometer {
 pub enum FanSetting {
     Off,
     Low,
+    Medium,
     High,
 }
 
@@ -103,14 +104,14 @@ pub enum FanSetting {
 pub struct Runner {
     pub fan_control: broadcast::Sender<FanSetting>,
     pub fan_rpm: broadcast::Sender<(u8, Option<f32>)>,
-    pub temp: broadcast::Sender<(u8, Option<f32>)>,
+    pub temp: broadcast::Sender<(u8, Option<f64>)>,
     pub task: tokio::task::JoinHandle<()>,
 }
 impl Runner {
     pub fn new() -> Self {
         Self {
             fan_control: broadcast::channel(1).0,
-            fan_rpm: broadcast::channel(1).0,
+            fan_rpm: broadcast::channel(8).0,
             temp: broadcast::channel(1).0,
             task: tokio::spawn(async move {}),
         }
@@ -126,7 +127,7 @@ impl Runner {
     }
     pub fn thermo_channel(
         &self,
-    ) -> broadcast::Sender<(u8, Option<f32>)> {
+    ) -> broadcast::Sender<(u8, Option<f64>)> {
         self.temp.clone()
     }
 
@@ -135,41 +136,30 @@ impl Runner {
         let mut rx_temp = self.temp.subscribe();
         let tx_fan = self.fan_control.clone();
         let mut current_fan_mode = FanSetting::Off;
+        let mut requested_fan_mode = FanSetting::Off;
         self.task = tokio::spawn(async move {
             loop {
                 tokio::select! {
                     Ok(data) = rx_rpm.recv() => {
-                        println!("Fan rpm: {:?}", data);
+                        println!("\tFan rpm: {:?}", data);
                         // wake manager if 0
                     }
                     Ok(data) = rx_temp.recv() => {
-                        println!("Temp: {:?}", data);
-                        
-                        // match data.1 {
-                        //     Some(temp) => {
-                        //         if temp > settings.temp_fan_low { }
-                        //         if temp > settings.temp_fan_high { }
+                        println!("\tTemp: {:?}", data);
 
+                        // This can be done with match using [..] (without if-clauses)                         
+                        match data.1 {
+                            Some(temp) => {
+                                requested_fan_mode = FanSetting::Off;
+                                if temp > settings.temp_fan_low.into() { requested_fan_mode = FanSetting::Low }
+                                if temp > settings.temp_fan_high.into() { requested_fan_mode = FanSetting::High }
+                            }
+                            None => () // Raise warning
+                        }
 
-
-                        //             // println!("temp > {} deg C", settings.temp_fan_low);
-                        //             // if current_fan_mode != FanSetting::Low {
-                        //             //     match tx_fan.send(FanSetting::Low) {
-                        //             //         Ok(_) => {
-                        //             //             current_fan_mode = FanSetting::Low;
-                        //             //         },
-                        //             //         Err(e) => {
-                        //             //             eprintln!("Fan control error: {:?}", e);
-                        //             //         }
-                        //             //     }
-                        //             // }
-                        //     }
-                        //     _ => ()
-                        // }
-
-                        match tx_fan.send(FanSetting::Off) {
+                        match tx_fan.send(requested_fan_mode) {
                             Ok(_) => {
-                                current_fan_mode = FanSetting::Off;
+                                current_fan_mode = requested_fan_mode;
                             },
                             Err(e) => {
                              eprintln!("Fan control error: {:?}", e);

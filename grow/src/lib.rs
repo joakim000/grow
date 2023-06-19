@@ -51,7 +51,7 @@ impl House {
         }
         return Err(Box::new(ZoneError::new("Zone not found")))
     }
-    pub fn read_temperature_value(&mut self, zid: &u8) -> Result<f32, Box<dyn Error + '_>> { 
+    pub fn read_temperature_value(&mut self, zid: &u8) -> Result<f64, Box<dyn Error + '_>> { 
         for z in self.zones() {
             match z {
                 Zone::Air {id, settings:_, status:_, interface, runner: _} if id == zid => {
@@ -79,7 +79,7 @@ impl House {
                 Zone::Pump {id, settings:_, status:_, interface, runner: _} if id == zid => {
                     // interface.pump.as_ref().expect("Interface not found").run_for_secs(secs).await?;
                     // return Ok(())
-                    return interface.pump.as_ref().expect("Interface not found").run_for_secs(secs).await
+                    return interface.pump.as_mut().expect("Interface not found").run_for_secs(secs).await
                 }
                 _ => continue
             }
@@ -122,8 +122,10 @@ impl House {
                     runner,
                 } => {
                     let channels = runner.fan_channels();
-                    let _ = interface.fan.as_mut().unwrap().init(channels.0, channels.1);
-                    let _ = interface.thermo.as_mut().unwrap().init(runner.thermo_channel());
+                    let _ = interface.fan.as_mut().unwrap()
+                        .init(channels.0, channels.1);
+                    let _ = interface.thermo.as_mut().unwrap()
+                        .init(runner.thermo_channel());
                     runner.run(settings.clone());
                 },
                 Zone::Light {
@@ -133,8 +135,10 @@ impl House {
                     interface,
                     runner,
                 } => {
-                    let _ = interface.lightmeter.as_mut().unwrap().init(runner.lightmeter_channel());
-                    let _ = interface.lamp.as_mut().unwrap().init(runner.lamp_channel());
+                    let _ = interface.lightmeter.as_mut().unwrap()
+                        .init(runner.lightmeter_channel());
+                    let _ = interface.lamp.as_mut().unwrap()
+                        .init(runner.lamp_channel());
                     runner.run(settings.clone());
                 }
                 Zone::Irrigation {
@@ -144,7 +148,8 @@ impl House {
                     interface,
                     runner,
                 } => {
-                    let _ = interface.moist.as_mut().unwrap().init(runner.channel());
+                    let _ = interface.moist.as_mut().unwrap()
+                        .init(runner.channel());
                     runner.run(settings.clone());
                 }
                 Zone::Tank {
@@ -154,7 +159,8 @@ impl House {
                     interface,
                     runner,
                 } => {
-                    let _ = interface.tank_sensor.as_mut().unwrap().init(runner.channel()).await;
+                    let _ = interface.tank_sensor.as_mut().unwrap()
+                        .init(runner.channel()).await;
                     runner.run(settings.clone());
                 }
                 Zone::Pump {
@@ -164,8 +170,8 @@ impl House {
                     interface,
                     runner,
                 } => {
-                    let _ = interface.pump.as_mut().unwrap().init(runner.cmd_channel());
-                    // let _ = interface.lamp.as_mut().unwrap().init(runner.lamp_channel());
+                    let _ = interface.pump.as_mut().unwrap()
+                        .init(runner.cmd_channel(), runner.channel());
                     runner.run(settings.clone());
                 }
                 Zone::Arm {

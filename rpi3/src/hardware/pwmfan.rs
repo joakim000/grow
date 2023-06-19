@@ -68,7 +68,7 @@ impl zone::air::Fan for PwmFan {
 impl PwmFan {
     pub fn new(id: u8) -> Self {
         let pwm_channel =
-            Pwm::with_frequency(PWM_FAN_1, PWM_FREQ_FAN_1, 0.0, PWM_POLARITY_FAN_1, true)
+            Pwm::with_frequency(PWM_FAN_1, PWM_FREQ_FAN_1, 0.2, PWM_POLARITY_FAN_1, true)
                 .expect("Error setting up pwm");
         let pwm_mutex = Arc::new(Mutex::new(pwm_channel));
         Self {
@@ -139,6 +139,7 @@ impl PwmFan {
 
                 match fan_rpm {
                     Some(rpm) => {
+                        // println!("Fanrpm {:?}   reading {:?}   previous {:?}   delta {:?}", &id, &rpm, &previous, (&rpm-&previous).abs()); 
                         if (rpm-previous).abs() >= FAN_1_DELTA {
                             previous = rpm;
                             tx.send( (id, fan_rpm) );
@@ -148,8 +149,6 @@ impl PwmFan {
                         tx.send( (id, fan_rpm) );
                     }
                 }
-
-                tx.send((id, fan_rpm));
                 tokio::time::sleep(Duration::from_secs(DELAY_FAN_1)).await;
             }
         }))
@@ -168,6 +167,9 @@ impl PwmFan {
                         let _ = pwm.lock().unwrap().set_duty_cycle(0.0);
                     }
                     FanSetting::Low => {
+                        let _ = pwm.lock().unwrap().set_duty_cycle(0.2);
+                    }
+                    FanSetting::Medium => {
                         let _ = pwm.lock().unwrap().set_duty_cycle(0.5);
                     }
                     FanSetting::High => {
