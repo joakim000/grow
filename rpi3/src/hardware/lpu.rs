@@ -30,21 +30,7 @@ use grow::zone::pump::PumpCmd;
 // #[tokio::main]
 pub async fn init() -> Result<HubMutex, Box<dyn Error>> {
     // === Single hub ===
-    let hub = lego_powered_up::setup::single_hub().await?;
-
-    // let vsensor: IoDevice;
-    // let pump: IoDevice;
-    // let rot: IoDevice;
-    // let extend: IoDevice;
-    // {
-    //     let lock = hub.mutex.lock().await;
-    //     vsensor = lock.io_from_kind(IoTypeId::VisionSensor).await?;
-    //     pump = lock.io_from_port(named_port::C).await?;
-    //     rot = lock.io_from_port(named_port::A).await?;
-    //     extend = lock.io_from_port(named_port::B).await?;
-    // }
-
-    
+    let hub = lego_powered_up::setup::single_hub().await?;   
     Ok(hub.mutex.clone())
 }
 
@@ -102,7 +88,7 @@ pub async fn init() -> Result<HubMutex, Box<dyn Error>> {
 pub struct Vsensor {
     id: u8,
     device: IoDevice,
-    hub: HubMutex,
+    // hub: HubMutex,
     feedback_task: Option<JoinHandle<()>>,
     // color_task: JoinHandle<()>,
     // rx_color: broadcast::Receiver<DetectedColor>,
@@ -128,15 +114,19 @@ impl zone::irrigation::tank::TankSensor for Vsensor {
     }
 }
 impl Vsensor {
-    pub async fn new(id: u8, hub: HubMutex) -> Self {
+    pub fn new(id: u8, hub: HubMutex) -> Self {
         let device: IoDevice;
         {
-            let lock = hub.lock().await;
-            device = lock.io_from_kind(IoTypeId::VisionSensor).await.expect("Error accessing LPU device");
+            // let lock = hub.lock().await;
+            let lock = tokio::task::block_in_place(move || {
+                // let lock = hub.blocking_lock();
+                hub.blocking_lock_owned()
+            });
+            device = lock.io_from_kind(IoTypeId::VisionSensor).expect("Error accessing LPU device");
         }
         Self {
             id,
-            hub,
+            // hub,
             device,
             feedback_task: None,
         }
@@ -222,7 +212,8 @@ impl BrickPump {
         let device: IoDevice;
         {
             let lock = hub.lock().await;
-            device = lock.io_from_port(PUMP_ADDR).await.expect("Error accessing LPU device");
+            // device = lock.io_from_port(PUMP_ADDR).await.expect("Error accessing LPU device");
+            device = lock.io_from_port(PUMP_ADDR).expect("Error accessing LPU device");
         }
         Self {
             id,
@@ -244,19 +235,15 @@ impl BrickPump {
         Ok(tokio::spawn(async move {
             println!("Spawned pump control");
             while let Ok(data) = rx_cmd.recv().await {
-                // println!("Tank color: {:?} ", data,);
                 match data {
                     (_id, PumpCmd::RunForSec(secs)) => { 
-                        device.start_speed(50, 100);
+                        let _ = device.start_speed(50, 100).await;
                         sleep(Duration::from_secs(secs as u64)).await;
-                        device.start_power(Power::Float);
+                        let _ = device.start_power(Power::Float).await;
                     }
                     (_id, PumpCmd::Stop) => { 
                         device.start_power(Power::Brake);
                     }
-                    // _ =>  {
-                    //     tx.send( (id, None ) );
-                    // }
                 }
             }
 
@@ -272,7 +259,7 @@ impl BrickPump {
         Ok(tokio::spawn(async move {
             println!("Spawned pump feedback");
             while let Ok(data) = rx_motor.recv().await {
-                println!("Arm X feedback: {:?} ", data,);
+                // println!("Pump feedback: {:?} ", data,);
                     tx.send( (id, (data[0], 0)) );
             }
         }))
@@ -334,8 +321,10 @@ impl BrickArm {
         let device_y: IoDevice;
         {
             let lock = hub.lock().await;
-            device_x = lock.io_from_port(ARM_ROT_ADDR).await.expect("Error accessing LPU device");
-            device_y = lock.io_from_port(ARM_EXTENSION_ADDR).await.expect("Error accessing LPU device");
+            // device_x = lock.io_from_port(ARM_ROT_ADDR).await.expect("Error accessing LPU device");
+            // device_y = lock.io_from_port(ARM_EXTENSION_ADDR).await.expect("Error accessing LPU device");
+            device_x = lock.io_from_port(ARM_ROT_ADDR).expect("Error accessing LPU device");
+            device_y = lock.io_from_port(ARM_EXTENSION_ADDR).expect("Error accessing LPU device");
         }
         Self {
             id,
@@ -360,11 +349,11 @@ impl BrickArm {
             loop {
                 tokio::select! {
                     Ok(data) = rx_axis_x.recv() => {
-                        println!("Arm X feedback: {:?} ", data,);
+                        // println!("Arm X feedback: {:?} ", data,);
                         tx_axis_x.send( (0i8, data[0]) );
                     }
                     Ok(data) = rx_axis_y.recv() => {
-                        println!("Arm Y feedback: {:?} ", data,);
+                        // println!("Arm Y feedback: {:?} ", data,);
                         tx_axis_y.send( (0i8, data[0]) );
                     }
                     else => { break }

@@ -2,8 +2,10 @@ use crate::hardware;
 use grow::ops;
 use grow::zone::*;
 
-pub async fn house_init(lpu_hub: lego_powered_up::HubMutex) -> grow::House {
+// pub async fn house_init(lpu_hub: lego_powered_up::HubMutex) -> grow::House {
+pub async fn house_init() -> grow::House {
     let mut house = ops::conf::Conf::read_test_into_house();
+    let lpu_hub = crate::hardware::lpu::init().await.unwrap();
     let adc_1 = crate::hardware::pcf8591::Adc::new();
 
     for zone in house.zones() {
@@ -59,7 +61,7 @@ pub async fn house_init(lpu_hub: lego_powered_up::HubMutex) -> grow::House {
                 interface.tank_sensor = Some(Box::new(hardware::lpu::Vsensor::new(
                 *id,
                 lpu_hub.clone(),
-                ).await
+                )
                 
                 ));
             }
@@ -100,9 +102,15 @@ pub async fn house_init(lpu_hub: lego_powered_up::HubMutex) -> grow::House {
     house.init().await;
     println!("After house init:");
     // dbg!(&house);
-    house.read_light_value(&1);
-    house.run_pump(&1, 2).await;
-    house.arm_goto_y(&1, 30).await;
-    house.read_temperature_value(&1);
+ 
+    // Test commands
+    // house.set_lamp_state(1, light::LampState::On);
+    // house.read_light_value(1);
+    // house.arm_goto_x(1, 30).await;
+    // house.arm_goto_y(1, 30).await;
+    // house.run_pump(1, 2).await;
+    // house.read_temperature_value(1);
+    // house.set_lamp_state(1, light::LampState::Off);
+
     house
 }

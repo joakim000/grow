@@ -40,31 +40,31 @@ impl Adc {
         let mutex = Arc::new(Mutex::new(control));
         let adc = mutex.clone();
     
-        tokio::spawn(async move {
-            loop {
-                let reading: f32;
-                {
-                    println!("ADC lock req for ADC ");
+        // tokio::spawn(async move {
+            // loop {
+                // let reading: f32;
+                // {
+                    // println!("ADC lock req for ADC ");
                     // let mut lock = adc.lock().await;
-                    let mut lock = adc.lock().unwrap();
-                    println!("ADC lock aquired for ADC");
+                    // let mut lock = adc.lock().unwrap();
+                    // println!("ADC lock aquired for ADC");
 
-                    let v0 = lock.analog_read_byte(Pin::AIN0); // photoresistor
-                    let v1 = lock.analog_read_byte(Pin::AIN1); // thermistor
-                    let v2 = lock.analog_read_byte(Pin::AIN2); // capacitive soil moisture 1
-                    let v3 = lock.analog_read_byte(Pin::AIN3); // capacitive soil moisture 2
-                    println!("Light {:?}  Temp {:?}    Moist 1 {:?}     Moist 2 {:?} ",&v0, &v1, &v2, &v3);
+                    // let v0 = lock.analog_read_byte(Pin::AIN0); // photoresistor
+                    // let v1 = lock.analog_read_byte(Pin::AIN1); // thermistor
+                    // let v2 = lock.analog_read_byte(Pin::AIN2); // capacitive soil moisture 1
+                    // let v3 = lock.analog_read_byte(Pin::AIN3); // capacitive soil moisture 2
+                    // println!("Light {:?}  Temp {:?}    Moist 1 {:?}     Moist 2 {:?} ",&v0, &v1, &v2, &v3);
 
-                    let c0 = light_from_byte(v0.unwrap().into());
-                    let c1 = celcius_from_byte(v1.unwrap().into());
-                    let c2 = moist_from_byte(v2.unwrap().into());
-                    let c3 = moist_from_byte(v3.unwrap().into());
-                    println!("Light {:?}  Temp {:?}    Moist 1 {:?}     Moist 2 {:?} ",c0, c1, c2, c3);
-                }
-                println!("ADC lock drop for ADC");
-                tokio::time::sleep(Duration::from_millis(10000)).await;
-            }
-        });
+                //     let c0 = light_from_byte(v0.unwrap().into());
+                //     let c1 = celcius_from_byte(v1.unwrap().into());
+                //     let c2 = moist_from_byte(v2.unwrap().into());
+                //     let c3 = moist_from_byte(v3.unwrap().into());
+                //     println!("Light {:?}  Temp {:?}    Moist 1 {:?}     Moist 2 {:?} ",c0, c1, c2, c3);
+                // }
+                // // println!("ADC lock drop for ADC");
+                // tokio::time::sleep(Duration::from_millis(10000)).await;
+            // }
+        // });
 
         Self { mutex }
     }

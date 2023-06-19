@@ -120,6 +120,7 @@ impl Runner {
         let mut rx = self.tx_lightmeter.subscribe();
         let tx = self.tx_lamp.clone();
         self.task = tokio::spawn(async move {
+            println!("Spawned light runner");
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {

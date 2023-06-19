@@ -66,8 +66,8 @@ pub struct Runner {
 impl Runner {
     pub fn new() -> Self {
         Self {
-            tx_feedback: broadcast::channel(1).0,
-            tx_pumpcmd: broadcast::channel(2).0,
+            tx_feedback: broadcast::channel(8).0,
+            tx_pumpcmd: broadcast::channel(8).0,
             task: tokio::spawn(async move {}),
         }
     }
@@ -86,6 +86,7 @@ impl Runner {
         let mut rx_feedback = self.tx_feedback.subscribe();
         let tx_pumpcmd = self.tx_pumpcmd.clone();
         self.task = tokio::spawn(async move {
+            println!("Spawned pump runner");
             loop {
                 tokio::select! {
                     Ok(data) = rx_feedback.recv() => {
@@ -101,7 +102,7 @@ impl Runner {
         // Cmd test
         // sleep(Duration::from_secs(15)).await;
         // println!("Pump run from runner");
-        // tx_pumpcmd.send( (1, PumpCmd::RunForSec(5)) );
+        // tx_pumpcmd.send( (1, PumpCmd::RunForSec(2)) );
 
     }
 }

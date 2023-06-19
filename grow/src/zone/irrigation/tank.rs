@@ -35,7 +35,7 @@ pub struct Interface {
 }
 
 #[async_trait]
-pub trait TankSensor : Send {
+pub trait TankSensor : Send + Sync {
     fn id(&self) -> u8;
     async fn init(
         &mut self,

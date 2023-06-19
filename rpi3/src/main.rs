@@ -15,10 +15,11 @@ use tokio::time::sleep as sleep;
 use simple_signal::{self, Signal};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-// use std::sync::Mutex;
+use std::sync::Mutex;
 use tokio::sync::Mutex as TokioMutex;
 pub type HouseMutex = Arc<TokioMutex<grow::House>>;
-
+use tokio::sync::mpsc;
+use tokio::signal;
 
 use rppal::gpio::{Gpio, OutputPin, Trigger};
 use rppal::pwm::{Channel, Polarity, Pwm};
@@ -29,23 +30,16 @@ use pcf8591::{Pin, PCF8591};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let keepalive = signal_handler();
-    let lpu_hub = crate::hardware::lpu::init().await.unwrap();
-    let mut house = init::house_init(lpu_hub.clone()).await;
+    // let (shutdown_send, shutdown_recv) = mpsc::unbounded_channel();
+    // let keepalive = signal_handler();
+    
+    // let lpu_hub = crate::hardware::lpu::init().await.unwrap();
+    // let mut house = init::house_init(lpu_hub.clone()).await;
+
+    let mut house = init::house_init().await;
     
 
-    // sleep(Duration::from_secs(5)).await;
-    // println!("READ LIGHT ONETIME: {:?}", house.read_light_value(&1u8));
-    // println!("READ TEMP ONETIME: {:?}", house.read_temperature_value(&1u8));
-    // println!("READ MOIST 2 ONETIME: {:?}", house.read_moisture_value(&1u8));
-    // println!("READ MOIST 2 ONETIME: {:?}", house.read_moisture_value(&2u8));
-    // println!("LAMP ON: {:?}", house.set_lamp_state(&1u8, grow::zone::light::LampState::Off));
     
-    // println!("PUMP RUN ON: {:?}", house.run_pump(&1u8, 2u16).await);
-    // sleep(Duration::from_secs(5)).await;
-    // println!("AXIS X: {:?}", house.arm_goto_x(&1u8, -25i32).await);
-    // sleep(Duration::from_secs(5)).await;
-    // println!("AXIS Y: {:?}", house.arm_goto_y(&1u8, 235i32).await);
 
     // Activity
     // let mut activity_led = Gpio::new()?.get(ACTIVITY_LED_PIN)?.into_output();
@@ -63,6 +57,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
     sr.enable_output();
     sr.output_clear();
     let mut led_byte: u8 = 0;
+    // let sr_mutex = Arc::new(Mutex::new(sr));
+    // let sr_mutex_2 = sr_mutex.clone();
+    let led_task = tokio::spawn(async move {
+        loop { 
+            // Blink all
+            led_byte = 0b11111111;        // println!("loading: {:?}", led_byte);
+            {
+                // sr_mutex.lock().await.load(led_byte);
+                // sr_mutex.lock().unwrap().load(led_byte);
+                sr.load(led_byte);
+            }
+            tokio::time::sleep(Duration::from_millis(1000)).await;
+            led_byte = 0b00000000;
+            {
+                // sr_mutex.lock().unwrap().load(led_byte);
+                sr.load(led_byte);
+            }
+            tokio::time::sleep(Duration::from_millis(1000)).await;
+        }
+    });
+    // led_task.await;
 
     // Buttons
     let mut btn_1 = Gpio::new()?.get(BUTTON_1_PIN)?.into_input_pulldown();
@@ -74,74 +89,60 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // OLED
     // oled::test_oled();
 
-    // let sr_mutex = Arc::new(TokioMutex::new(sr));
-    // let sr_mutex_2 = sr_mutex.clone();
-    // let led_task = tokio::spawn(async move {
-    //     loop { 
-    //         // Blink all
-    //         led_byte = 0b11111111;        // println!("loading: {:?}", led_byte);
-    //         {
-    //             sr_mutex.lock().await.load(led_byte);
-    //         }
-    //         tokio::time::sleep(Duration::from_millis(1000)).await;
-    //         led_byte = 0b00000000;
-    //         {
-    //             sr_mutex.lock().await.load(led_byte);
-    //         }
-    //         //  sr.load(led_byte);
-    //         tokio::time::sleep(Duration::from_millis(1000)).await;
-    //     }
-    // });
+    
+    // === Init done === 
 
-    // let house_mutex = Arc::new(TokioMutex::new(house));
+    // sleep(Duration::from_secs(5)).await;
+    // println!("READ LIGHT ONETIME: {:?}", house.read_light_value(&1u8));
+    // println!("READ TEMP ONETIME: {:?}", house.read_temperature_value(&1u8));
+    // println!("READ MOIST 2 ONETIME: {:?}", house.read_moisture_value(&1u8));
+    // println!("READ MOIST 2 ONETIME: {:?}", house.read_moisture_value(&2u8));
+    // println!("LAMP ON: {:?}", house.set_lamp_state(&1u8, grow::zone::light::LampState::On));
+    
+    // println!("AXIS Y: {:?}", house.arm_goto_y(&1u8, 235i32).await);
+    // sleep(Duration::from_secs(5)).await;
+    // println!("PUMP RUN ON: {:?}", house.run_pump(&1u8, 2u16).await);
+    // sleep(Duration::from_secs(5)).await;
+    // println!("AXIS X: {:?}", house.arm_goto_x(&1u8, -25i32).await);
+ 
+
+    // println!("READ TEMP ONETIME: {:?}", house.read_temperature_value(&1u8));
+    // println!("LAMP OFF: {:?}", house.set_lamp_state(&1u8, grow::zone::light::LampState::Off));
+
+    let house_mutex = Arc::new(TokioMutex::new(house));
 
     // let cmd_task = tokio::spawn(async move {
         // cmd::house_cmds(house_mutex).await;
     // });
-    // let running = keepalive.clone();
-    // cmd::house_cmds(house_mutex);
-
-    while keepalive.load(Ordering::SeqCst) {
-        // activity_led.set_high();
+    cmd::house_cmds(house_mutex);
 
 
-        // Blink all
-        led_byte = 0b11111111;        // println!("loading: {:?}", led_byte);
-        sr.load(led_byte);
-        tokio::time::sleep(Duration::from_millis(1000)).await;
-        led_byte = 0b00000000;
-        sr.load(led_byte);
-        tokio::time::sleep(Duration::from_millis(1000)).await;
-
-        // activity_led.set_low();
+    match signal::ctrl_c().await {
+        Ok(()) => {},
+        Err(err) => {
+            eprintln!("Unable to listen for shutdown signal: {}", err);
+            // we also shut down in case of error
+        },
     }
 
     // Cleanup
-    lpu_hub.lock().await.disconnect().await;
-    // led_byte = 0b00000000;
+    // lpu_hub.lock().await.disconnect().await;
+  
+    // led_task.abort();
+    // let led_byte = 0b00000000;
     // { 
-    //     let mut lock = sr_mutex_2.lock().await;
+    //     let mut lock = 
+    //         sr_mutex_2.lock().unwrap();
     //     lock.load(led_byte);
     //     lock.output_clear();
     //     lock.disable_output();
     // }
-    sr.load(led_byte);
-    sr.output_clear();
-    sr.disable_output();
+    // sr.load(led_byte);
+    // sr.output_clear();
+    // sr.disable_output();
+  
     // activity_led.set_low();
     println!("Cleanup successful");
     Ok(())
 }
 
-fn signal_handler() -> Arc<AtomicBool> {
-    let keepalive = Arc::new(AtomicBool::new(true));
-    // When a SIGINT (Ctrl-C) or SIGTERM signal is caught, atomically set running to false.
-    simple_signal::set_handler(&[Signal::Int, Signal::Term], {
-        let running = keepalive.clone();
-        move |_| {
-            running.store(false, Ordering::SeqCst);
-        }
-    });
-
-    keepalive
-}

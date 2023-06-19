@@ -69,8 +69,10 @@ pub trait Fan : Send {
         tx_rpm: tokio::sync::broadcast::Sender<(u8, Option<f32>)>,
         rx_control: tokio::sync::broadcast::Receiver<FanSetting>,
     ) -> Result<(), Box<dyn Error>>;
+    fn read(&mut self) -> Result<Option<f32>, Box<dyn Error  + '_>>;
     fn to_high(&self) -> Result<(), Box<dyn Error + '_>>;
     fn to_low(&self) -> Result<(), Box<dyn Error + '_>>;
+    fn set_duty_cycle(&self, duty_cycle: f64) -> Result<(), Box<dyn Error + '_>>;
 }
 impl Debug for dyn Fan {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -138,6 +140,7 @@ impl Runner {
         let mut current_fan_mode = FanSetting::Off;
         let mut requested_fan_mode = FanSetting::Off;
         self.task = tokio::spawn(async move {
+            println!("Spawned air runner");
             loop {
                 tokio::select! {
                     Ok(data) = rx_rpm.recv() => {

@@ -90,6 +90,7 @@ impl Runner {
     pub fn run(&mut self, settings: Settings) {
         let mut rx = self.tx.subscribe();
         self.task = tokio::spawn(async move {
+            println!("Spawned irrigation runner");
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {

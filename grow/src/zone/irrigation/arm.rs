@@ -42,7 +42,7 @@ pub struct Interface {
 pub struct Status {}
 
 #[async_trait]
-pub trait Arm : Send {
+pub trait Arm : Send + Sync {
     fn id(&self) -> u8;
     async fn init(
         &mut self,
@@ -72,9 +72,9 @@ pub struct Runner {
 impl Runner {
     pub fn new() -> Self {
         Self {
-            tx_axis_x: broadcast::channel(1).0,
-            tx_axis_y: broadcast::channel(1).0,
-            tx_axis_z: broadcast::channel(1).0,
+            tx_axis_x: broadcast::channel(8).0,
+            tx_axis_y: broadcast::channel(8).0,
+            tx_axis_z: broadcast::channel(8).0,
             task: tokio::spawn(async move {}),
         }
     }
@@ -92,6 +92,7 @@ impl Runner {
         let mut rx_axis_y = self.tx_axis_y.subscribe();
         let mut rx_axis_z = self.tx_axis_z.subscribe();
         self.task = tokio::spawn(async move {
+            println!("Spawned arm runner");
             loop {
                 tokio::select! {
                     Ok(data) = rx_axis_x.recv() => {
