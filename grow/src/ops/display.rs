@@ -14,6 +14,13 @@ pub struct DisplayStatus {
     pub indicator: Indicator,
     pub msg: Option<String>,
 }
+impl DisplayStatus {
+    pub fn indicator(&self) -> Indicator {
+        self.indicator.clone()
+    }
+}
+
+
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ZoneDisplay {

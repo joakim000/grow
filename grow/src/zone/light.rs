@@ -3,7 +3,8 @@ use alloc::collections::BTreeMap;
 use async_trait::async_trait;
 use tokio::sync::broadcast;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+// use tokio::sync::Mutex;
+use std::sync::Mutex;
 use core::fmt::Debug;
 use super::Zone;
 use crate::ops::display::{Indicator, DisplayStatus};
@@ -14,7 +15,7 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
         lamp_on: None,
         light_level: None,
         disp: DisplayStatus {
-                indicator: Indicator::Blue,
+                indicator: Default::default(),
                 msg: None,
             }
        };
@@ -37,7 +38,7 @@ pub struct Settings {}
 pub struct Status {
     lamp_on: Option<bool>,
     light_level: Option<f32>,
-    disp: DisplayStatus,
+    pub disp: DisplayStatus,
 }
 
 #[derive( Debug, )]

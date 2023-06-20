@@ -35,7 +35,7 @@ pub struct PwmFan {
     control_task: Option<JoinHandle<()>>,
 }
 impl zone::air::Fan for PwmFan {
-    fn read(&mut self) -> Result<Option<f32>, Box<dyn Error  + '_>> {
+    fn read(&mut self) -> Result<Option<f32>, Box<dyn Error + '_>> {
         Ok(self.get_rpm())
     }
     fn to_high(&self) -> Result<(), Box<dyn Error + '_>> {
@@ -162,14 +162,14 @@ impl PwmFan {
 
                 match fan_rpm {
                     Some(rpm) => {
-                        // println!("Fanrpm {:?}   reading {:?}   previous {:?}   delta {:?}", &id, &rpm, &previous, (&rpm-&previous).abs()); 
-                        if (rpm-previous).abs() >= FAN_1_DELTA {
+                        // println!("Fanrpm {:?}   reading {:?}   previous {:?}   delta {:?}", &id, &rpm, &previous, (&rpm-&previous).abs());
+                        if (rpm - previous).abs() >= FAN_1_DELTA {
                             previous = rpm;
-                            tx.send( (id, fan_rpm) );
+                            tx.send((id, fan_rpm));
                         }
                     }
                     None => {
-                        tx.send( (id, fan_rpm) );
+                        tx.send((id, fan_rpm));
                     }
                 }
                 tokio::time::sleep(Duration::from_secs(DELAY_FAN_1)).await;
@@ -228,7 +228,7 @@ impl PwmFan {
 
     //             match Self::get_rpm(&mut rpm_pin) {
     //                 Some(rpm) => {
-    //                     // println!("Fanrpm {:?}   reading {:?}   previous {:?}   delta {:?}", &id, &rpm, &previous, (&rpm-&previous).abs()); 
+    //                     // println!("Fanrpm {:?}   reading {:?}   previous {:?}   delta {:?}", &id, &rpm, &previous, (&rpm-&previous).abs());
     //                     if (rpm-previous).abs() >= FAN_1_DELTA {
     //                         previous = rpm;
     //                         tx.send( (id, Some(rpm)) );
@@ -275,7 +275,7 @@ impl PwmFan {
         let mut pulse_duration: Duration = pulse_start.elapsed();
         let mut fan_pulse_detected = true;
         let mut pin = self.rpm_pin.lock().unwrap();
-        
+
         let rpm_pulse = pin.poll_interrupt(true, Some(Duration::from_millis(100)));
         match rpm_pulse {
             Ok(level_opt) => match level_opt {
@@ -297,14 +297,12 @@ impl PwmFan {
             }
         };
         match fan_pulse_detected {
-            true => {
-                Some(
-                    (Duration::from_secs(60).as_micros() as f32
+            true => Some(
+                (Duration::from_secs(60).as_micros() as f32
                     / pulse_duration.as_micros() as f32
                     / PULSES_PER_ROTATION)
                     .round(),
-                )
-            }
+            ),
             false => None,
         }
         // if fan_pulse_detected {

@@ -3,15 +3,19 @@ use alloc::collections::BTreeMap;
 use async_trait::async_trait;
 use tokio::sync::broadcast;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+// use tokio::sync::Mutex;
+use std::sync::Mutex;
 use core::fmt::Debug;
 use super::Zone;
 use crate::ops::display::{Indicator, DisplayStatus};
 
 pub fn new(id: u8, settings: Settings) -> super::Zone {
     let status = Status { 
-       
-       };
+        disp: DisplayStatus {
+            indicator: Default::default(),
+            msg: None,
+        }
+    };
     Zone::Tank {
         id,
         settings,
@@ -26,8 +30,10 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Settings {}
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Status {}
+#[derive(Clone, Debug, PartialEq)]
+pub struct Status {
+    pub disp: DisplayStatus,
+}
 
 #[derive(Debug, )]
 pub struct Interface {

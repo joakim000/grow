@@ -58,12 +58,8 @@ pub async fn house_init() -> grow::House {
                 interface,
                 runner,
             } => {
-                interface.tank_sensor = Some(Box::new(hardware::lpu::Vsensor::new(
-                *id,
-                lpu_hub.clone(),
-                )
-                
-                ));
+                interface.tank_sensor =
+                    Some(Box::new(hardware::lpu::Vsensor::new(*id, lpu_hub.clone())));
             }
             Zone::Pump {
                 id,
@@ -72,10 +68,8 @@ pub async fn house_init() -> grow::House {
                 interface,
                 runner,
             } => {
-                interface.pump = Some(Box::new(hardware::lpu::BrickPump::new(
-                *id,
-                lpu_hub.clone(),
-                ).await
+                interface.pump = Some(Box::new(
+                    hardware::lpu::BrickPump::new(*id, lpu_hub.clone()).await,
                 ));
                 // interface.pump_feedback = Some(Box::new(hardware::lpu::Pump::new(
                 // *id,
@@ -88,10 +82,8 @@ pub async fn house_init() -> grow::House {
                 interface,
                 runner,
             } => {
-                interface.arm = Some(Box::new(hardware::lpu::BrickArm::new(
-                *id,
-                lpu_hub.clone(),
-                ).await
+                interface.arm = Some(Box::new(
+                    hardware::lpu::BrickArm::new(*id, lpu_hub.clone()).await,
                 ));
             }
             _ => (),
@@ -102,7 +94,7 @@ pub async fn house_init() -> grow::House {
     house.init().await;
     println!("After house init:");
     // dbg!(&house);
- 
+
     // Test commands
     // house.set_lamp_state(1, light::LampState::On);
     // house.read_light_value(1);
@@ -114,3 +106,14 @@ pub async fn house_init() -> grow::House {
 
     house
 }
+
+pub fn runner_init(house: grow::HouseMutex) -> grow::ops::running::Manager {
+    let board = Box::new(hardware::regshift_leds::Shiftreg::new());
+    let display = Box::new(hardware::ssd1306::Oled::new());
+
+    grow::ops::running::Manager {
+        house,
+        board, 
+        display
+    }
+}   

@@ -23,9 +23,9 @@ pub mod warning {
     pub struct Status {}
 }
 
-pub struct Manager {
+// pub struct Manager {
 
-}
+// }
 
 // pub fn Manager(house: House) -> Result<JoinHandle<()>, Box<dyn Error>> {
 //     Ok(tokio::spawn(async move {

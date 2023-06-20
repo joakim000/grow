@@ -4,7 +4,8 @@ use tokio::sync::broadcast;
 use core::fmt::Debug;
 use async_trait::async_trait;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+// use tokio::sync::Mutex;
+use std::sync::Mutex;
 use crate::ops::display::{Indicator, DisplayStatus};
 
 pub mod arm;
@@ -14,8 +15,10 @@ pub mod tank;
 pub fn new(id: u8, settings: Settings) -> super::Zone {
     let status = Status { 
         moisture_level: None,
-        indicator: None,
-        msg: None,
+        disp: DisplayStatus {
+            indicator: Default::default(),
+            msg: None,
+        }
        };
     Zone::Irrigation  {
         id,
@@ -40,8 +43,7 @@ pub struct Settings {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Status {
     pub moisture_level: Option<f32>,
-    pub indicator: Option<Indicator>,
-    pub msg: Option<String>,
+    pub disp: DisplayStatus,
 }
 
 #[async_trait]

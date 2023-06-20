@@ -3,7 +3,8 @@ use async_trait::async_trait;
 use core::error::Error;
 use tokio::sync::broadcast;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+// use tokio::sync::Mutex;
+use std::sync::Mutex;
 use core::fmt::Debug;
 pub type FanMutex = Arc<Mutex<Box<dyn Fan>>>;
 use super::Zone;
@@ -13,8 +14,10 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
     let status = Status {
         temp: None,
         fan_rpm: None,
-        indicator: Default::default(),
-        msg: None,
+        disp: DisplayStatus {
+            indicator: Default::default(),
+            msg: None,
+        }
     };
     Zone::Air {
         id,
@@ -39,9 +42,8 @@ pub struct Settings {
 pub struct Status {
     pub temp: Option<f32>,
     pub fan_rpm: Option<f32>,
-    // pub indicator: Option<crate::Indicator>,
-    pub indicator: Indicator,
-    pub msg: Option<String>,
+    pub disp: DisplayStatus,
+   
 }
 
 #[derive( Debug, )]
@@ -62,7 +64,7 @@ impl Interface {
 
 
 #[async_trait]
-pub trait Fan : Send {
+pub trait Fan : Send  {
     fn id(&self) -> u8;
     fn init(
         &mut self,
@@ -81,12 +83,11 @@ impl Debug for dyn Fan {
 }
 pub trait Thermometer : Send {
     fn id(&self) -> u8;
-    // fn read_temp(&self) -> Result<(i32), Box<dyn Error>>;
-    fn read(&self) -> Result<(f64), Box<dyn Error  + '_>>;
     fn init(
         &mut self,
         tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f64>)>
     ) -> Result<(), Box<dyn Error>>;
+    fn read(&self) -> Result<(f64), Box<dyn Error  + '_>>;
 }
 impl Debug for dyn Thermometer {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {

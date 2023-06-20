@@ -3,10 +3,12 @@
 extern crate alloc;
 use core::error::Error;
 pub type BoxResult<T> = core::result::Result<T, Box<dyn Error>>;
+use ops::display::{ZoneDisplay, DisplayStatus};
 // use alloc::collections::BTreeMap;
 use zone::Zone;
-// use std::sync::Arc;
+use std::sync::Arc;
 // use tokio::sync::Mutex;
+use std::sync::Mutex;
 pub use tokio::sync::broadcast;
 
 mod error;
@@ -14,6 +16,9 @@ pub use error::ZoneError;
 pub mod ops;
 pub mod zone;
 use zone::light::LampState;
+
+pub type HouseMutex = Arc<Mutex<House>>;
+
 
 #[derive( Debug, )]
 pub struct House {
@@ -131,6 +136,40 @@ impl House {
         return Err(Box::new(ZoneError::new("Zone not found")))
     }
 
+    pub fn collect_display_status(&mut self) -> Vec<ZoneDisplay> {
+        let mut r: Vec<ZoneDisplay> = Vec::new();
+        for zone in self.zones() {
+            match zone {
+                Zone::Air{id, settings:_, status, ..} => {
+                    let lock = status.lock().unwrap();
+                    r.push(ZoneDisplay::Air { id: *id, info: lock.disp.clone() })
+                }
+                Zone::Light{id, settings:_, status, ..} => {
+                    let lock = status.lock().unwrap();
+                    r.push(ZoneDisplay::Light { id: *id, info: lock.disp.clone() })
+                }
+                Zone::Irrigation{id, settings:_, status, ..} => {
+                    let lock = status.lock().unwrap();
+                    r.push(ZoneDisplay::Irrigation { id: *id, info: lock.disp.clone() })
+                }
+                Zone::Arm{id, settings:_, status, ..} => {
+                    let lock = status.lock().unwrap();
+                    r.push(ZoneDisplay::Arm { id: *id, info: lock.disp.clone() })
+                }
+                Zone::Pump{id, settings:_, status, ..} => {
+                    let lock = status.lock().unwrap();
+                    r.push(ZoneDisplay::Pump { id: *id, info: lock.disp.clone() })
+                }
+                Zone::Tank{id, settings:_, status, ..} => {
+                    let lock = status.lock().unwrap();
+                    r.push(ZoneDisplay::Tank { id: *id, info: lock.disp.clone() })
+                }
+            }    
+        }
+
+        dbg!(&r);
+        r
+    }    
 
 
     pub async fn init(&mut self) -> () {

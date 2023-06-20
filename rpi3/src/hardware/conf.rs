@@ -39,12 +39,9 @@ pub const ARM_EXTENSION_ADDR: u8 = 0x01; // Ext hub port B
 pub const PUMP_ADDR: u8 = 0x02; // Ext hub port C
 pub const TANK_SENSOR_ADDR: u8 = 0x03; // Ext hub port D
 
-
 // Poll intervals
 pub const DELAY_TEMP_1: u64 = 2;
 pub const DELAY_MOIST_1: u64 = 2;
 pub const DELAY_MOIST_2: u64 = 2;
 pub const DELAY_LIGHT_1: u64 = 2;
 pub const DELAY_FAN_1: u64 = 2;
-
-

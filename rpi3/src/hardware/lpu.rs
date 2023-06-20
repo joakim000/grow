@@ -1,72 +1,70 @@
 use super::conf::*;
 
-use lego_powered_up::iodevice::visionsensor::VisionSensor;
-use tokio::sync::Mutex;
-use tokio::sync::broadcast;
-use tokio::task::JoinHandle;
 use async_trait::async_trait;
+use lego_powered_up::iodevice::visionsensor::VisionSensor;
+use tokio::sync::broadcast;
+use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 use core::error::Error;
 use core::time::Duration;
-use tokio::time::sleep as sleep;
+use tokio::time::sleep;
 
 use lego_powered_up::consts::named_port;
+use lego_powered_up::consts::MotorSensorMode;
 use lego_powered_up::consts::LEGO_COLORS;
 use lego_powered_up::error::{Error as LpuError, OptionContext, Result as LpuResult};
 use lego_powered_up::iodevice::modes;
 use lego_powered_up::iodevice::remote::{RcButtonState, RcDevice};
+use lego_powered_up::iodevice::visionsensor::DetectedColor;
 use lego_powered_up::iodevice::{hubled::*, motor::*, sensor::*};
 use lego_powered_up::notifications::Power;
+use lego_powered_up::HubMutex;
 use lego_powered_up::{ConnectedHub, IoDevice, IoTypeId, PoweredUp};
 use lego_powered_up::{Hub, HubFilter};
-use lego_powered_up::HubMutex;
-use lego_powered_up::iodevice::visionsensor::DetectedColor;
-use lego_powered_up::consts::MotorSensorMode;
 
 use grow::zone;
-use grow::zone::tank::TankLevel;
 use grow::zone::pump::PumpCmd;
+use grow::zone::tank::TankLevel;
 
 // #[tokio::main]
 pub async fn init() -> Result<HubMutex, Box<dyn Error>> {
     // === Single hub ===
-    let hub = lego_powered_up::setup::single_hub().await?;   
+    let hub = lego_powered_up::setup::single_hub().await?;
     Ok(hub.mutex.clone())
 }
 
-    // Do stuff
+// Do stuff
 
-    // Cleanup
-    // println!("Disconnect from hub `{}`", hub.name);
-    // {
-    //     let lock = hub.mutex.lock().await;
-    //     lock.disconnect().await?;
-    // }
+// Cleanup
+// println!("Disconnect from hub `{}`", hub.name);
+// {
+//     let lock = hub.mutex.lock().await;
+//     lock.disconnect().await?;
+// }
 
-    // // === Main hub and RC ===
-    // let (main_hub, rc_hub) = lego_powered_up::setup::main_and_rc().await?;
-    // let rc: IoDevice;
-    // {
-    //     let lock = rc_hub.mutex.lock().await;
-    //     rc = lock.io_from_port(named_port::A).await?;
-    // }
-    // let (mut rc_rx, _) = rc.remote_connect_with_green().await?;
+// // === Main hub and RC ===
+// let (main_hub, rc_hub) = lego_powered_up::setup::main_and_rc().await?;
+// let rc: IoDevice;
+// {
+//     let lock = rc_hub.mutex.lock().await;
+//     rc = lock.io_from_port(named_port::A).await?;
+// }
+// let (mut rc_rx, _) = rc.remote_connect_with_green().await?;
 
-    // // Do stuff
+// // Do stuff
 
-    // // Cleanup
-    // println!("Disconnect from hub `{}`", rc_hub.name);
-    // {
-    //     let lock = rc_hub.mutex.lock().await;
-    //     lock.disconnect().await?;
-    // }
-    // println!("Disconnect from hub `{}`", main_hub.name);
-    // {
-    //     let lock = main_hub.mutex.lock().await;
-    //     lock.disconnect().await?;
-    // }
-
-
+// // Cleanup
+// println!("Disconnect from hub `{}`", rc_hub.name);
+// {
+//     let lock = rc_hub.mutex.lock().await;
+//     lock.disconnect().await?;
+// }
+// println!("Disconnect from hub `{}`", main_hub.name);
+// {
+//     let lock = main_hub.mutex.lock().await;
+//     lock.disconnect().await?;
+// }
 
 // let rc_control = tokio::spawn(async move {
 //     while let Ok(data) = rc_rx.recv().await {
@@ -122,7 +120,9 @@ impl Vsensor {
                 // let lock = hub.blocking_lock();
                 hub.blocking_lock_owned()
             });
-            device = lock.io_from_kind(IoTypeId::VisionSensor).expect("Error accessing LPU device");
+            device = lock
+                .io_from_kind(IoTypeId::VisionSensor)
+                .expect("Error accessing LPU device");
         }
         Self {
             id,
@@ -137,35 +137,32 @@ impl Vsensor {
         tx: broadcast::Sender<(u8, Option<TankLevel>)>,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
-        let (mut rx_color, _color_task) = 
-            self.device.visionsensor_color().await.unwrap();
+        let (mut rx_color, _color_task) = self.device.visionsensor_color().await.unwrap();
         Ok(tokio::spawn(async move {
             println!("Spawned tank feedback");
             while let Ok(data) = rx_color.recv().await {
                 // println!("Tank color: {:?} ", data,);
                 match data {
                     DetectedColor::Blue => {
-                        tx.send( (id, Some(TankLevel::Blue)) );
+                        tx.send((id, Some(TankLevel::Blue)));
                     }
                     DetectedColor::Green => {
-                        tx.send( (id, Some(TankLevel::Green)) );
+                        tx.send((id, Some(TankLevel::Green)));
                     }
                     DetectedColor::Yellow => {
-                        tx.send( (id, Some(TankLevel::Yellow)) );
+                        tx.send((id, Some(TankLevel::Yellow)));
                     }
                     DetectedColor::Red => {
-                        tx.send( (id, Some(TankLevel::Red)) );
+                        tx.send((id, Some(TankLevel::Red)));
                     }
-                    _ =>  {
-                        tx.send( (id, None ) );
+                    _ => {
+                        tx.send((id, None));
                     }
                 }
             }
-
         }))
     }
 }
-
 
 pub struct BrickPump {
     id: u8,
@@ -192,7 +189,7 @@ impl zone::irrigation::pump::Pump for BrickPump {
     async fn init(
         &mut self,
         rx_pumpcmd: tokio::sync::broadcast::Receiver<(u8, PumpCmd)>,
-        tx_pump: tokio::sync::broadcast::Sender<(u8, (i8, i32) )>,
+        tx_pump: tokio::sync::broadcast::Sender<(u8, (i8, i32))>,
     ) -> Result<(), Box<dyn Error>> {
         self.control_task = Some(
             self.pump_control(rx_pumpcmd)
@@ -213,7 +210,9 @@ impl BrickPump {
         {
             let lock = hub.lock().await;
             // device = lock.io_from_port(PUMP_ADDR).await.expect("Error accessing LPU device");
-            device = lock.io_from_port(PUMP_ADDR).expect("Error accessing LPU device");
+            device = lock
+                .io_from_port(PUMP_ADDR)
+                .expect("Error accessing LPU device");
         }
         Self {
             id,
@@ -230,37 +229,39 @@ impl BrickPump {
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
         let device = self.device.clone();
-        // let (mut rx_color, _color_task) = 
+        // let (mut rx_color, _color_task) =
         //     self.device.visionsensor_color().await.unwrap();  // TODO Speed feedback
         Ok(tokio::spawn(async move {
             println!("Spawned pump control");
             while let Ok(data) = rx_cmd.recv().await {
                 match data {
-                    (_id, PumpCmd::RunForSec(secs)) => { 
+                    (_id, PumpCmd::RunForSec(secs)) => {
                         let _ = device.start_speed(50, 100).await;
                         sleep(Duration::from_secs(secs as u64)).await;
                         let _ = device.start_power(Power::Float).await;
                     }
-                    (_id, PumpCmd::Stop) => { 
+                    (_id, PumpCmd::Stop) => {
                         device.start_power(Power::Brake);
                     }
                 }
             }
-
         }))
     }
     async fn pump_feedback(
         &self,
-        tx: broadcast::Sender<(u8, (i8, i32) )>,
+        tx: broadcast::Sender<(u8, (i8, i32))>,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
-        let (mut rx_motor, _motor_sensor_task) = 
-            self.device.enable_8bit_sensor(modes::InternalMotorTacho::SPEED, 1).await.unwrap();
+        let (mut rx_motor, _motor_sensor_task) = self
+            .device
+            .enable_8bit_sensor(modes::InternalMotorTacho::SPEED, 1)
+            .await
+            .unwrap();
         Ok(tokio::spawn(async move {
             println!("Spawned pump feedback");
             while let Ok(data) = rx_motor.recv().await {
                 // println!("Pump feedback: {:?} ", data,);
-                    tx.send( (id, (data[0], 0)) );
+                tx.send((id, (data[0], 0)));
             }
         }))
     }
@@ -292,23 +293,31 @@ impl zone::irrigation::arm::Arm for BrickArm {
         );
         Ok(())
     }
-    async fn goto(&self, x: i32, y: i32) -> Result<(), Box<dyn Error>>{
-        self.device_x.goto_absolute_position(x, 20, 20, EndState::Brake).await?;
-        self.device_y.goto_absolute_position(y, 50, 20, EndState::Brake).await?;
+    async fn goto(&self, x: i32, y: i32) -> Result<(), Box<dyn Error>> {
+        self.device_x
+            .goto_absolute_position(x, 20, 20, EndState::Brake)
+            .await?;
+        self.device_y
+            .goto_absolute_position(y, 50, 20, EndState::Brake)
+            .await?;
         Ok(())
     }
-    async fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>>{
-        self.device_x.goto_absolute_position(x, 20, 20, EndState::Brake).await?;
+    async fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>> {
+        self.device_x
+            .goto_absolute_position(x, 20, 20, EndState::Brake)
+            .await?;
         Ok(())
     }
-    async fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>>{
-        self.device_y.goto_absolute_position(y, 50, 20, EndState::Brake).await?;
+    async fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>> {
+        self.device_y
+            .goto_absolute_position(y, 50, 20, EndState::Brake)
+            .await?;
         Ok(())
     }
-    async fn confirm(&self, x: i32, y: i32) -> Result<bool, Box<dyn Error>>{
-        Ok((false))  // TODO
+    async fn confirm(&self, x: i32, y: i32) -> Result<bool, Box<dyn Error>> {
+        Ok((false)) // TODO
     }
-  
+
     async fn stop(&self) -> Result<(), Box<dyn Error>> {
         self.device_x.start_power(Power::Brake).await;
         self.device_y.start_power(Power::Brake).await;
@@ -323,8 +332,12 @@ impl BrickArm {
             let lock = hub.lock().await;
             // device_x = lock.io_from_port(ARM_ROT_ADDR).await.expect("Error accessing LPU device");
             // device_y = lock.io_from_port(ARM_EXTENSION_ADDR).await.expect("Error accessing LPU device");
-            device_x = lock.io_from_port(ARM_ROT_ADDR).expect("Error accessing LPU device");
-            device_y = lock.io_from_port(ARM_EXTENSION_ADDR).expect("Error accessing LPU device");
+            device_x = lock
+                .io_from_port(ARM_ROT_ADDR)
+                .expect("Error accessing LPU device");
+            device_y = lock
+                .io_from_port(ARM_EXTENSION_ADDR)
+                .expect("Error accessing LPU device");
         }
         Self {
             id,
@@ -340,10 +353,16 @@ impl BrickArm {
         tx_axis_y: tokio::sync::broadcast::Sender<((i8, i32))>,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
-        let (mut rx_axis_x, _axis_x_task) = 
-            self.device_x.enable_32bit_sensor(modes::InternalMotorTacho::POS, 1).await.unwrap();
-        let (mut rx_axis_y, _axis_y_task) = 
-            self.device_y.enable_32bit_sensor(modes::InternalMotorTacho::POS, 1).await.unwrap();
+        let (mut rx_axis_x, _axis_x_task) = self
+            .device_x
+            .enable_32bit_sensor(modes::InternalMotorTacho::POS, 1)
+            .await
+            .unwrap();
+        let (mut rx_axis_y, _axis_y_task) = self
+            .device_y
+            .enable_32bit_sensor(modes::InternalMotorTacho::POS, 1)
+            .await
+            .unwrap();
         Ok(tokio::spawn(async move {
             println!("Spawned arm feedback");
             loop {
