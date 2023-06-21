@@ -10,6 +10,12 @@ use core::fmt::Debug;
 use super::Zone;
 use crate::ops::display::{Indicator, DisplayStatus};
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum PumpCmd {
+    RunForSec(u16),
+    Stop
+}
+
 pub fn new(id: u8, settings: Settings) -> super::Zone {
     let status = Status { 
         disp: DisplayStatus {
@@ -65,9 +71,9 @@ impl Debug for dyn Pump {
 
 #[derive(Debug, )]
 pub struct Runner {
-    pub tx_feedback: broadcast::Sender<(u8, (i8, i32) )>,
-    pub tx_pumpcmd: broadcast::Sender<(u8, PumpCmd)>,
-    pub task: tokio::task::JoinHandle<()>,
+    tx_feedback: broadcast::Sender<(u8, (i8, i32) )>,
+    tx_pumpcmd: broadcast::Sender<(u8, PumpCmd)>,
+    task: tokio::task::JoinHandle<()>,
 }
 impl Runner {
     pub fn new() -> Self {
@@ -77,12 +83,18 @@ impl Runner {
             task: tokio::spawn(async move {}),
         }
     }
-    pub fn cmd_channel(
+    
+    pub fn cmd_sender(
+        &self,
+    ) -> broadcast::Sender<(u8, PumpCmd)> {
+        self.tx_pumpcmd.clone()
+    }
+    pub fn cmd_receiver(
         &self,
     ) -> broadcast::Receiver<(u8, PumpCmd)> {
         self.tx_pumpcmd.subscribe()
     }
-    pub fn channel(
+    pub fn feedback_sender(
         &self,
     ) -> broadcast::Sender<(u8, (i8, i32) )> {
         self.tx_feedback.clone()
@@ -98,23 +110,10 @@ impl Runner {
                     Ok(data) = rx_feedback.recv() => {
                         println!("\tPump speed: {:?}", data);
                     }
-                    // Ok(data) = rx_2.recv() => {
-                    //     println!("Secondary:"" {:?}", data);
-                    // }
                     else => { break }
                 };
             }
         });
-        // Cmd test
-        // sleep(Duration::from_secs(15)).await;
-        // println!("Pump run from runner");
-        // tx_pumpcmd.send( (1, PumpCmd::RunForSec(2)) );
-
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone, Ord, PartialOrd, Hash)]
-pub enum PumpCmd {
-    RunForSec(u16),
-    Stop
-}

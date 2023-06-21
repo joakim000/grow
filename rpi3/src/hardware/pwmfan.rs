@@ -105,13 +105,6 @@ impl PwmFan {
         &mut self,
         tx: broadcast::Sender<(u8, Option<f32>)>,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
-        // let mut rpm_pin = Gpio::new()
-        //     .expect("Error on new pin")
-        //     .get(PIN_FAN_1_RPM)
-        //     .expect("Error on get pin")
-        //     .into_input_pullup();
-        // rpm_pin.set_interrupt(Trigger::Both)?;
-
         let mut rpm_pin = self.rpm_pin.clone();
 
         let mut pulse_start: Instant = Instant::now();
@@ -177,72 +170,7 @@ impl PwmFan {
         }))
     }
 
-    // fn fan_feedback(
-    //     &self,
-    //     tx: broadcast::Sender<(u8, Option<f32>)>,
-    // ) -> Result<JoinHandle<()>, Box<dyn Error>> {
-    //     let mut rpm_pin = &self.rpm_pin;
-
-    //     // let mut pulse_start: Instant = Instant::now();
-    //     // let mut pulse_duration: Duration = pulse_start.elapsed();
-    //     // let mut fan_rpm: Option<f32> = Default::default();
-
-    //     let id = self.id;
-    //     let mut previous = f32::MAX;
-    //     Ok(tokio::spawn(async move {
-    //         loop {
-    //             // let mut fan_pulse_detected = true;
-    //             // let rpm_pulse = rpm_pin.poll_interrupt(true, Some(Duration::from_millis(100)));
-    //             // match rpm_pulse {
-    //             //     Ok(level_opt) => match level_opt {
-    //             //         None => fan_pulse_detected = false,
-    //             //         Some(_level) => pulse_start = Instant::now(),
-    //             //     },
-    //             //     Err(err) => {
-    //             //         println!("Error reading rpm: {}", err);
-    //             //     }
-    //             // };
-    //             // let rpm_pulse = rpm_pin.poll_interrupt(true, Some(Duration::from_millis(100)));
-    //             // match rpm_pulse {
-    //             //     Ok(level_opt) => match level_opt {
-    //             //         None => fan_pulse_detected = false,
-    //             //         Some(_level) => pulse_duration = pulse_start.elapsed(),
-    //             //     },
-    //             //     Err(err) => {
-    //             //         println!("Error reading rpm: {}", err);
-    //             //     }
-    //             // };
-    //             // if fan_pulse_detected {
-    //             //     fan_rpm = Some(
-    //             //         (Duration::from_secs(60).as_micros() as f32
-    //             //             / pulse_duration.as_micros() as f32
-    //             //             / PULSES_PER_ROTATION)
-    //             //             .round(),
-    //             //     );
-    //             // } else {
-    //             //     fan_rpm = None;
-    //             // }
-    //             // print!("Fan 1 duty cycle: {:?}   ", pwm.duty_cycle().unwrap());
-    //             // print!("RPM pulse duration: {:?}   ", pulse_duration);
-    //             // println!("Fan 1 RPM: {:?}", fan_rpm);
-
-    //             match Self::get_rpm(&mut rpm_pin) {
-    //                 Some(rpm) => {
-    //                     // println!("Fanrpm {:?}   reading {:?}   previous {:?}   delta {:?}", &id, &rpm, &previous, (&rpm-&previous).abs());
-    //                     if (rpm-previous).abs() >= FAN_1_DELTA {
-    //                         previous = rpm;
-    //                         tx.send( (id, Some(rpm)) );
-    //                     }
-    //                 }
-    //                 None => {
-    //                     tx.send( (id, None) );
-    //                 }
-    //             }
-    //             tokio::time::sleep(Duration::from_secs(DELAY_FAN_1)).await;
-    //         }
-    //     }))
-    // }
-
+   
     fn fan_control(
         &self,
         mut rx: broadcast::Receiver<FanSetting>,
@@ -258,9 +186,9 @@ impl PwmFan {
                     FanSetting::Low => {
                         let _ = pwm.lock().unwrap().set_duty_cycle(0.2);
                     }
-                    FanSetting::Medium => {
-                        let _ = pwm.lock().unwrap().set_duty_cycle(0.5);
-                    }
+                    // FanSetting::Medium => {
+                    //     let _ = pwm.lock().unwrap().set_duty_cycle(0.5);
+                    // }
                     FanSetting::High => {
                         let _ = pwm.lock().unwrap().set_duty_cycle(1.0);
                     }

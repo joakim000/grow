@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 use tokio::time::sleep;
 // use grow::ops::display::DisplayStatus::*;
 use embedded_hal::digital::v2::OutputPin as HalOutputPin;
+use grow::ops::Board;
 
 pub struct Shiftreg {
     // reg: ShiftRegister<OE: HalOutputPin, SER: HalOutputPin, SRCLR: HalOutputPin, SRCLK: HalOutputPin, RCLK: HalOutputPin>,
@@ -16,11 +17,76 @@ pub struct Shiftreg {
     // reg: ShiftRegister,
     current: u8,
 }
-impl grow::ops::running::Board for Shiftreg {
+impl Board for Shiftreg {
     fn init(
         &mut self,
         rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
     ) -> Result<(), Box<dyn Error>> {
+
+        Ok(())
+    }
+
+    fn set(&mut self, zones: Vec<ZoneDisplay>) -> Result<(), Box<dyn Error>> {
+        let mut led_byte = 0;
+
+        for z in zones {
+            match z {
+                ZoneDisplay::Air {
+                    id: 1,
+                    info: DisplayStatus { indicator, msg: _ },
+                } => match indicator {
+                        Indicator::Red => led_byte += Leds::AirRed as u8,
+                    _ => {}
+                },
+                ZoneDisplay::Aux {
+                    id: 1,
+                    info: DisplayStatus { indicator, msg: _ },
+                } => match indicator {
+                        Indicator::Red => led_byte += Leds::AirRed as u8,
+                        _ => {}
+                    },
+                ZoneDisplay::Light {
+                    id: 1,
+                    info: DisplayStatus { indicator, msg: _ },
+                } => match indicator {
+                    Indicator::Red => led_byte += Leds::LightRed as u8,
+                    _ => {}
+                },
+                ZoneDisplay::Irrigation {
+                    id: 1,
+                    info: DisplayStatus { indicator, msg: _ },
+                } => match indicator {
+                    Indicator::Red => led_byte += Leds::IrrigationRed as u8,
+                    _ => {}
+                },
+                ZoneDisplay::Irrigation {
+                    id: 2,
+                    info: DisplayStatus { indicator, msg: _ },
+                } => match indicator {
+                    Indicator::Red => led_byte += Leds::IrrigationRed as u8,
+                    _ => {}
+                },
+                ZoneDisplay::Pump {
+                    id: 1,
+                    info: DisplayStatus { indicator, msg: _ },
+                }  => 
+                    match indicator {
+                        Indicator::Red => {} //led_byte += Leds::PumpRed as u8,
+                    _ => {}
+                },
+                ZoneDisplay::Tank {
+                    id: 1,
+                    info: DisplayStatus { indicator, msg: _ },
+                }  => 
+                    match indicator {
+                        Indicator::Red => led_byte += Leds::TankRed as u8,
+                        Indicator::Yellow => led_byte += Leds::TankYellow as u8,
+                        Indicator::Green => led_byte += Leds::TankGreen as u8,
+                        Indicator::Blue => led_byte += Leds::Blue as u8,
+                    },
+                _ => continue,
+            }
+        }
 
         Ok(())
     }
@@ -91,54 +157,15 @@ impl Shiftreg {
         }
     }
 
-    pub fn set(&mut self, zones: Vec<ZoneDisplay>) -> Result<(), Box<dyn Error>> {
-        let mut led_byte = 0;
+    
 
-        for z in zones {
-            match z {
-                ZoneDisplay::Air {
-                    id,
-                    info: DisplayStatus { indicator, msg: _ },
-                } => match indicator {
-                    Indicator::Red => led_byte += Leds::AirRed as u8,
-                    _ => {}
-                },
-                ZoneDisplay::Light {
-                    id,
-                    info: DisplayStatus { indicator, msg: _ },
-                } => match indicator {
-                    Indicator::Red => led_byte += Leds::LightRed as u8,
-                    _ => {}
-                },
-                ZoneDisplay::Irrigation {
-                    id,
-                    info: DisplayStatus { indicator, msg: _ },
-                } => match indicator {
-                    Indicator::Red => led_byte += Leds::IrrigationRed as u8,
-                    _ => {}
-                },
-                ZoneDisplay::Pump {
-                    id,
-                    info: DisplayStatus { indicator, msg: _ },
-                } => match indicator {
-                    Indicator::Red => led_byte += Leds::PumpRed as u8,
-                    _ => {}
-                },
-                ZoneDisplay::Tank {
-                    id,
-                    info: DisplayStatus { indicator, msg: _ },
-                } => match indicator {
-                    Indicator::Red => led_byte += Leds::TankRed as u8,
-                    Indicator::Yellow => led_byte += Leds::TankYellow as u8,
-                    Indicator::Green => led_byte += Leds::TankGreen as u8,
-                    Indicator::Blue => led_byte += Leds::Blue as u8,
-                },
-                _ => continue,
-            }
-        }
+    pub fn shutdown(&mut self) -> Result<(), Box<dyn Error>> {
+        self.reg.output_clear();
+        self.reg.disable_output();
 
         Ok(())
     }
+
 }
 
 #[repr(u8)]
@@ -147,8 +174,8 @@ enum Leds {
     TankGreen = 0b00000010,
     TankYellow = 0b00000100,
     TankRed = 0b00001000,
-    AirRed = 0b00010000,
-    LightRed = 0b00100000,
-    IrrigationRed = 0b01000000,
-    PumpRed = 0b10000000,
+    IrrigationRed = 0b00010000,
+    AirRed = 0b00100000,
+    LightRed = 0b01000000,
+    AuxRed = 0b10000000,
 }

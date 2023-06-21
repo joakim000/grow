@@ -27,54 +27,56 @@ use rppal::pwm::{Channel, Polarity, Pwm};
 use drive_74hc595::ShiftRegister;
 use dummy_pin::DummyPin;
 use pcf8591::{Pin, PCF8591};
-
+use lego_powered_up::PoweredUp;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     // let (shutdown_send, shutdown_recv) = mpsc::unbounded_channel();
-    // let keepalive = signal_handler();
 
-    // let lpu_hub = crate::hardware::lpu::init().await.unwrap();
-    // let mut house = init::house_init(lpu_hub.clone()).await;
-
-    let mut house = init::house_init().await;
+    let mut pu = 
+        Arc::new(TokioMutex::new(PoweredUp::init().await.expect("Error from PoweredUp::init()")));   
+    let mut house = init::house_init(pu.clone()).await;
+    // let manager = init::manager_init(house.clone(), pu.clone());
+    let _cmd_task = 
+        // cmd::house_cmds(house.clone(), manager.clone());
+        cmd::house_cmds(house.clone(), );
 
     // Activity
     // let mut activity_led = Gpio::new()?.get(ACTIVITY_LED_PIN)?.into_output();
     // println!("LED pin initialized");
 
     // Shiftreg leds
-    let sr_data = Gpio::new()?.get(INDICATORS_SR_DATA)?.into_output();
-    let sr_enable = Gpio::new()?.get(INDICATORS_SR_ENABLE)?.into_output();
-    let sr_clk = Gpio::new()?.get(INDICATORS_SR_CLK)?.into_output();
-    let sr_latch = Gpio::new()?.get(INDICATORS_SR_LATCH)?.into_output();
-    let sr_reset = Gpio::new()?.get(INDICATORS_SR_RESET)?.into_output();
-    let mut sr = ShiftRegister::new(sr_enable, sr_data, sr_reset, sr_clk, sr_latch);
-    sr.begin();
-    println!("SR initizalied");
-    sr.enable_output();
-    sr.output_clear();
-    let mut led_byte: u8 = 0;
-    // let sr_mutex = Arc::new(Mutex::new(sr));
-    // let sr_mutex_2 = sr_mutex.clone();
-    let led_task = tokio::spawn(async move {
-        loop {
-            // Blink all
-            led_byte = 0b11111111; // println!("loading: {:?}", led_byte);
-            {
-                // sr_mutex.lock().await.load(led_byte);
-                // sr_mutex.lock().unwrap().load(led_byte);
-                sr.load(led_byte);
-            }
-            tokio::time::sleep(Duration::from_millis(1000)).await;
-            led_byte = 0b00000000;
-            {
-                // sr_mutex.lock().unwrap().load(led_byte);
-                sr.load(led_byte);
-            }
-            tokio::time::sleep(Duration::from_millis(1000)).await;
-        }
-    });
+    // let sr_data = Gpio::new()?.get(INDICATORS_SR_DATA)?.into_output();
+    // let sr_enable = Gpio::new()?.get(INDICATORS_SR_ENABLE)?.into_output();
+    // let sr_clk = Gpio::new()?.get(INDICATORS_SR_CLK)?.into_output();
+    // let sr_latch = Gpio::new()?.get(INDICATORS_SR_LATCH)?.into_output();
+    // let sr_reset = Gpio::new()?.get(INDICATORS_SR_RESET)?.into_output();
+    // let mut sr = ShiftRegister::new(sr_enable, sr_data, sr_reset, sr_clk, sr_latch);
+    // sr.begin();
+    // println!("SR initizalied");
+    // sr.enable_output();
+    // sr.output_clear();
+    // let mut led_byte: u8 = 0;
+    // // let sr_mutex = Arc::new(Mutex::new(sr));
+    // // let sr_mutex_2 = sr_mutex.clone();
+    // let led_task = tokio::spawn(async move {
+    //     loop {
+    //         // Blink all
+    //         led_byte = 0b11111111; // println!("loading: {:?}", led_byte);
+    //         {
+    //             // sr_mutex.lock().await.load(led_byte);
+    //             // sr_mutex.lock().unwrap().load(led_byte);
+    //             sr.load(led_byte);
+    //         }
+    //         tokio::time::sleep(Duration::from_millis(1000)).await;
+    //         led_byte = 0b00000000;
+    //         {
+    //             // sr_mutex.lock().unwrap().load(led_byte);
+    //             sr.load(led_byte);
+    //         }
+    //         tokio::time::sleep(Duration::from_millis(1000)).await;
+    //     }
+    // });
     // led_task.await;
 
     // Buttons
@@ -105,12 +107,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // println!("READ TEMP ONETIME: {:?}", house.read_temperature_value(&1u8));
     // println!("LAMP OFF: {:?}", house.set_lamp_state(&1u8, grow::zone::light::LampState::Off));
 
-    let house_mutex = Arc::new(TokioMutex::new(house));
+    // let house_mutex = house.clone();
 
-    // let cmd_task = tokio::spawn(async move {
-    // cmd::house_cmds(house_mutex).await;
-    // });
-    cmd::house_cmds(house_mutex);
+    
 
     match signal::ctrl_c().await {
         Ok(()) => {}

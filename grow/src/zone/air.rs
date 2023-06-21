@@ -95,12 +95,14 @@ impl Debug for dyn Thermometer {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone, Ord, PartialOrd, Hash)]
+#[derive(Debug, PartialEq, Copy, Clone, PartialOrd, )]
 pub enum FanSetting {
     Off,
     Low,
-    Medium,
     High,
+    // Low(f32),
+    // High(f32),
+
 }
 
 #[derive(Debug, )]

@@ -1,12 +1,22 @@
 use crate::hardware;
 use grow::ops;
+use grow::ops::running::Manager;
 use grow::zone::*;
 
+use lego_powered_up::PoweredUp;
+use std::sync::Arc;
+use std::sync::Mutex;
+use tokio::sync::Mutex as TokioMutex;
+use grow::HouseMutex;
+use grow::ManagerMutex;
+
 // pub async fn house_init(lpu_hub: lego_powered_up::HubMutex) -> grow::House {
-pub async fn house_init() -> grow::House {
+pub async fn house_init(pu: Arc<TokioMutex<PoweredUp>>) -> HouseMutex {
     let mut house = ops::conf::Conf::read_test_into_house();
-    let lpu_hub = crate::hardware::lpu::init().await.unwrap();
     let adc_1 = crate::hardware::pcf8591::Adc::new();
+
+    
+    let lpu_hub = crate::hardware::lpu::init(pu.clone()).await.unwrap();
 
     for zone in house.zones() {
         match zone {
@@ -22,6 +32,16 @@ pub async fn house_init() -> grow::House {
                     *id,
                     adc_1.new_mutex(),
                 )));
+            }
+            Zone::Aux {
+                id,
+                settings: _,
+                status: _,
+                interface,
+                runner,
+            } => {
+                interface.aux_device = Some(Box::new(hardware::lpu::LpuHub::new(*id, lpu_hub.clone())));
+             
             }
             Zone::Light {
                 id,
@@ -104,16 +124,20 @@ pub async fn house_init() -> grow::House {
     // house.read_temperature_value(1);
     // house.set_lamp_state(1, light::LampState::Off);
 
-    house
+    Arc::new(TokioMutex::new(house))
 }
 
-pub fn runner_init(house: grow::HouseMutex) -> grow::ops::running::Manager {
+pub fn manager_init(house: grow::HouseMutex, pu: Arc<TokioMutex<PoweredUp>>) -> ManagerMutex {
     let board = Box::new(hardware::regshift_leds::Shiftreg::new());
     let display = Box::new(hardware::ssd1306::Oled::new());
+    let remote = Box::new(hardware::lpu_remote::LpuRemote::new(pu));
+    let buttons = Box::new(hardware::pushbuttons::PushButtons::new());
 
-    grow::ops::running::Manager {
+    Arc::new(TokioMutex::new(Manager {
         house,
         board, 
-        display
-    }
+        display, 
+        remote,
+        // buttons,
+    }))
 }   

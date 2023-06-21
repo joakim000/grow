@@ -17,8 +17,9 @@
 pub mod conf;
 pub use conf::*;
 
-pub mod buttons;
+pub mod pushbuttons;
 pub mod lpu;
+pub mod lpu_remote;
 pub mod pcf8591;
 pub mod pwmfan;
 pub mod regshift_leds;

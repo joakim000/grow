@@ -24,6 +24,14 @@ pub enum Zone {
         interface: air::Interface,
         runner: air::Runner,
     },
+    Aux {
+        id: u8,
+        settings: auxiliary::Settings,
+        // status: air::Status,
+        status: Arc<Mutex<auxiliary::Status>>,
+        interface: auxiliary::Interface,
+        runner: auxiliary::Runner,
+    },
     Light {
         id: u8,
         settings: light::Settings,
@@ -65,6 +73,7 @@ pub enum Zone {
   
 }
 pub mod air;
+pub mod auxiliary;
 // pub mod arm;
 pub mod irrigation;
 pub mod light;

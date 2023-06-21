@@ -1,13 +1,13 @@
 use super::conf::*;
 use grow::ops::display::ZoneDisplay;
 
-use std::error::Error;
+use core::error::Error;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use simple_signal::{self, Signal};
+// use std::sync::atomic::{AtomicBool, Ordering};
+// use std::sync::Arc;
+// use simple_signal::{self, Signal};
 
 use rppal::gpio::{Gpio, Trigger, OutputPin};
 // use rppal::pwm::{Channel, Polarity, Pwm};
@@ -25,10 +25,13 @@ use embedded_graphics::{
     text::{Baseline, Text, Alignment, LineHeight, TextStyleBuilder},
 };
 
+
+use grow::ops::TextDisplay;
+
 pub struct Oled {
 
 }
-impl grow::ops::running::TextDisplay for Oled {
+impl TextDisplay for Oled {
     fn init(
         &mut self,
         rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,

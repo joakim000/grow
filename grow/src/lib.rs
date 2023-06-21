@@ -3,12 +3,12 @@
 extern crate alloc;
 use core::error::Error;
 pub type BoxResult<T> = core::result::Result<T, Box<dyn Error>>;
-use ops::display::{ZoneDisplay, DisplayStatus};
+use ops::display::{ZoneDisplay, };
 // use alloc::collections::BTreeMap;
 use zone::Zone;
 use std::sync::Arc;
-// use tokio::sync::Mutex;
-use std::sync::Mutex;
+use tokio::sync::Mutex;
+// use std::sync::Mutex;
 pub use tokio::sync::broadcast;
 
 mod error;
@@ -18,6 +18,7 @@ pub mod zone;
 use zone::light::LampState;
 
 pub type HouseMutex = Arc<Mutex<House>>;
+pub type ManagerMutex = Arc<Mutex<ops::running::Manager>>;
 
 
 #[derive( Debug, )]
@@ -106,7 +107,7 @@ impl House {
                 Zone::Pump {id, settings:_, status:_, interface, runner: _} if id == &zid => {
                     // interface.pump.as_ref().expect("Interface not found").run_for_secs(secs).await?;
                     // return Ok(())
-                    return interface.pump.as_mut().expect("Interface not found").run_for_secs(secs).await
+                    return interface.pump.as_ref().expect("Interface not found").run_for_secs(secs).await
                 }
                 _ => continue
             }
@@ -139,10 +140,15 @@ impl House {
     pub fn collect_display_status(&mut self) -> Vec<ZoneDisplay> {
         let mut r: Vec<ZoneDisplay> = Vec::new();
         for zone in self.zones() {
+            // May be a use for settings later    
             match zone {
                 Zone::Air{id, settings:_, status, ..} => {
                     let lock = status.lock().unwrap();
                     r.push(ZoneDisplay::Air { id: *id, info: lock.disp.clone() })
+                }
+                Zone::Aux{id, settings:_, status, ..} => {
+                    let lock = status.lock().unwrap();
+                    r.push(ZoneDisplay::Aux { id: *id, info: lock.disp.clone() })
                 }
                 Zone::Light{id, settings:_, status, ..} => {
                     let lock = status.lock().unwrap();
@@ -189,6 +195,17 @@ impl House {
                         .init(runner.thermo_channel());
                     runner.run(settings.clone());
                 },
+                Zone::Aux {
+                    id: _,
+                    settings,
+                    status: _,
+                    interface,
+                    runner,
+                } => {
+                    let _ = interface.aux_device.as_mut().unwrap()
+                        .init(runner.channel()).await;
+                    runner.run(settings.clone());
+                },
                 Zone::Light {
                     id: _,
                     settings,
@@ -197,9 +214,9 @@ impl House {
                     runner,
                 } => {
                     let _ = interface.lightmeter.as_mut().unwrap()
-                        .init(runner.lightmeter_channel());
+                        .init(runner.lightmeter_feedback_sender());
                     let _ = interface.lamp.as_mut().unwrap()
-                        .init(runner.lamp_channel());
+                        .init(runner.lamp_cmd_receiver());
                     runner.run(settings.clone());
                 }
                 Zone::Irrigation {
@@ -232,7 +249,7 @@ impl House {
                     runner,
                 } => {
                     let _ = interface.pump.as_mut().unwrap()
-                        .init(runner.cmd_channel(), runner.channel()).await;
+                        .init(runner.cmd_receiver(), runner.feedback_sender()).await;
                     runner.run(settings.clone());
                 }
                 Zone::Arm {
@@ -243,7 +260,11 @@ impl House {
                     runner,
                 } => {
                     let _ = interface.arm.as_mut().unwrap()
-                        .init(runner.channel().0, runner.channel().1, runner.channel().2).await;
+                        .init(runner.feedback_sender().0, 
+                              runner.feedback_sender().1, 
+                              runner.feedback_sender().2,
+                              runner.cmd_receiver(),
+                        ).await;
                     runner.run(settings.clone());
                 }
                 // _ => ()

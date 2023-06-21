@@ -104,15 +104,20 @@ impl Runner {
         }
     }
 
-    pub fn lightmeter_channel(
+    pub fn lightmeter_feedback_sender(
         &self,
     ) -> broadcast::Sender<(u8, Option<f32>)> {
         self.tx_lightmeter.clone()
     }
-    pub fn lamp_channel(
+    pub fn lamp_cmd_receiver(
         &self,
     ) -> broadcast::Receiver<(u8, bool)> {
         self.tx_lamp.subscribe()
+    }
+    pub fn lamp_cmd_sender(
+        &self,
+    ) -> broadcast::Sender<(u8, bool)> {
+        self.tx_lamp.clone()
     }
 
     // This could handle scheudlineg and to that timed lightchecks, only waking manager if warning

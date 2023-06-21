@@ -14,17 +14,18 @@ pub struct DisplayStatus {
     pub indicator: Indicator,
     pub msg: Option<String>,
 }
-impl DisplayStatus {
-    pub fn indicator(&self) -> Indicator {
-        self.indicator.clone()
-    }
-}
+// impl DisplayStatus {
+//     pub fn indicator(&self) -> Indicator {
+//         self.indicator.clone()
+//     }
+// }
 
 
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ZoneDisplay {
     Air {id: u8, info: DisplayStatus},
+    Aux {id: u8, info: DisplayStatus},
     Light {id: u8, info: DisplayStatus},
     Irrigation {id: u8, info: DisplayStatus},
     Arm {id: u8, info: DisplayStatus},

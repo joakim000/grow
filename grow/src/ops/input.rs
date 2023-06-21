@@ -12,29 +12,14 @@ use crate::ops::display::{Indicator, DisplayStatus};
 
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum RcInput {
-    Down,
-    DownUp,
-    Left,
-    LeftUp,
-    Right,
-    RightUp,
-    Up,
-    UpUp,
-
-    Back,       // Back / Cancel
-    BackUp,
-    Confirm,    // Forward / Confirm
-    ConfirmUp,
-    Mode,       // Mode / Menu
-    ModeUp,
-
-    Exit,
+pub enum ButtonInput {
+    One,
+    Two,
 }
 
 #[derive(Debug)]
-pub struct Rc {
-    interface: Option<Box<dyn RemoteControl>>
+pub struct Buttons {
+    interface: Option<Box<dyn ButtonPanel>>
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -44,26 +29,26 @@ pub struct Status {
     pub disp: DisplayStatus,
 }
 
-#[async_trait]
-pub trait RemoteControl : Send {
-    async fn init(
+pub trait ButtonPanel : Send {
+    // fn id(&self) -> u8;
+    fn init(
         &mut self,
-        tx_rc: tokio::sync::broadcast::Sender<RcInput>,
-    ) -> Result<(), Box<dyn Error + '_>>;   
+        tx_rc: tokio::sync::broadcast::Sender<ButtonInput>,
+    ) -> Result<(), Box<dyn Error>>;   
     // fn read(&self) -> Result<(f32), Box<dyn Error  + '_>>;
     
 }
-impl Debug for dyn RemoteControl {
+impl Debug for dyn ButtonPanel {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Remote control: {{{}}}", 0)
+        write!(f, "Buttons: {{{}}}", 0)
     }
 }
 
 
 #[derive(Debug, )]
 pub struct Runner {
-    pub tx_from_rc: broadcast::Sender<RcInput>,
-    pub tx_to_manager: broadcast::Sender<RcInput>,
+    pub tx_from_rc: broadcast::Sender<ButtonInput>,
+    pub tx_to_manager: broadcast::Sender<ButtonInput>,
     pub task: tokio::task::JoinHandle<()>,
 }
 impl Runner {
@@ -77,7 +62,7 @@ impl Runner {
 
     pub fn channel(
         &self,
-    ) -> broadcast::Sender<RcInput> {
+    ) -> broadcast::Sender<ButtonInput> {
         self.tx_from_rc.clone()
     }
 

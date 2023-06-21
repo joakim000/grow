@@ -64,7 +64,10 @@ impl Conf {
             1,
             zone::light::Settings {},
         ));
-
+        h.zones.push(zone::auxiliary::new(
+            1,
+            zone::auxiliary::Settings {},
+        ));
         h.zones.push(zone::irrigation::arm::new(
             1,
             zone::irrigation::arm::Settings {},
@@ -81,28 +84,9 @@ impl Conf {
             zone::irrigation::tank::Settings {},
         ));
 
-      
-        // h.zones.push(Zone::Pump {
-        //     id: 1,
-        //     settings: zone::irrigation::pump::Settings {
-        //         run_for_secs: 10,
-        //         rest_secs: 60,
-        //     },
-        //     status: zone::irrigation::pump::Status {},
-        // });
-        // h.zones.push(Zone::Tank {
-        //     id: 1,
-        //     settings: zone::irrigation::tank::Settings {},
-        //     status: zone::irrigation::tank::Status {},
-        // });
-        // h.zones.push(Zone::Arm {
-        //     id: 1,
-        //     setttings: zone::irrigation::arm::Settings {},
-        //     status: zone::irrigation::arm::Status {},
-        // });
-
         h
     }
+}
 
     // pub fn read_test_into_vec() -> Vec<Zone> {
     //     // Return hardcoded config
@@ -234,4 +218,3 @@ impl Conf {
 
     //     h
     // }
-}

@@ -5,13 +5,18 @@ use super::House;
 // use super::HouseMapped;
 use crate::zone;
 use crate::zone::Zone;
+use crate::ZoneDisplay;
+
 use alloc::collections::BTreeMap;
 use alloc::vec::{IntoIter, Vec};
 use core::error::Error;
 pub mod conf;
 pub mod running;
+pub mod remote;
+pub mod input;
 // mod warning;
 use tokio::task::JoinHandle;
+use core::fmt::Debug;
 
 pub mod display;
 
@@ -22,6 +27,31 @@ pub mod warning {
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct Status {}
 }
+
+pub trait Board : Send {
+    fn init(
+        &mut self,
+        rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
+    ) -> Result<(), Box<dyn Error>>;
+    fn set(&mut self, zones: Vec<ZoneDisplay>) -> Result<(), Box<dyn Error>>;
+}
+impl Debug for dyn Board {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Indicator board: {{{}}}", 0)
+    }
+}
+pub trait TextDisplay : Send {
+    fn init(
+        &mut self,
+        rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
+    ) -> Result<(), Box<dyn Error>>;
+}
+impl Debug for dyn TextDisplay {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Text display: {{{}}}", 0)
+    }
+}
+
 
 // pub struct Manager {
 
