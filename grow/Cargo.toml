@@ -14,3 +14,6 @@ time = { version = "0.3.*", default-features = false, features = ["macros", "par
 anyhow = { version = "1.0", default-features = false }
 
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time"]}
+
+text_io = "0.1.12"
+parking_lot = "0.12.1"

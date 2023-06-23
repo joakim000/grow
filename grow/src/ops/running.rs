@@ -11,6 +11,7 @@ use tokio::task::JoinHandle;
 use std::sync::Mutex;
 use std::sync::Arc;
 use core::fmt::Debug;
+use parking_lot::RwLock;
 
 use super::display::ZoneDisplay;
 use super::TextDisplay;
@@ -27,7 +28,9 @@ use crate::zone::irrigation::arm::Arm;
 
 pub struct Manager {
     pub house: HouseMutex,
+    // pub board: Arc<RwLock<Box<dyn Board>>>,
     pub board: Box<dyn Board>,
+    // pub display:Arc<RwLock<Box<dyn TextDisplay>>>,
     pub display: Box<dyn TextDisplay>,
     pub remote: Box<dyn RemoteControl>,
 }
@@ -38,7 +41,9 @@ impl Manager {
         ) -> Self {     
         Self {
             house,
-            board,
+            // board: Arc::new(RwLock::new(board)),
+            board, 
+            // display: Arc::new(RwLock::new(display)),
             display,
             remote,
             // buttons,
@@ -49,21 +54,30 @@ impl Manager {
 
     }
 
-    pub fn run(&self) -> (Result<(), Box<dyn Error>>) {
-
+    pub async fn run(&mut self) -> (Result<(), Box<dyn Error>>) {
+        // let board = self.board.clone();
+        // tokio::spawn(async move {
+            self.board.blink_all(Duration::from_millis(500), Duration::from_secs(1));
+        // });
+        // self.board.blink_all(Duration::from_millis(500), Duration::from_secs(1)).await;
+        
+        
         Ok(())
     }
 
     pub async fn position_from_rc(&mut self, zid: u8) -> (i32, i32, i32) {
         println!("Inside pos from rc");
-        let (rc_tx, mut rc_rx) = broadcast::channel::<RcInput>(1);
+        // let (rc_tx, mut rc_rx) = broadcast::channel::<RcInput>(8);
+        let (rc_tx, mut rc_rx) = mpsc::channel::<RcInput>(8);
+        println!("Got channels, calline remote.init");
         let _ = self.remote.init(rc_tx).await;
-        
+        println!("Back from  remote.init()");
+
         let x = 0;
         let y = 0;
         let z = 0;
 
-        let mutex = self.house.clone();
+      
         // let mut lock = mutex.lock().await;
         // let mut arm_o: Option<Arc<&(dyn Arm + '_)>> = None;
         
@@ -78,53 +92,63 @@ impl Manager {
         // }
         
         // return Err(Box::new(ZoneError::new("Zone not found")))
-        tokio::spawn(async move {
-            println!("Spawned position finder task");
+
+        let mutex = self.house.clone();
+        let position_finder = tokio::spawn(async move {
+            println!(" =================== Spawned position finder task");
             // let mut arm_o: Option<Arc<&(dyn Arm + '_)>> = None;
             let mut arm_o: Option<&(dyn Arm + '_)> = None;
-            let mut lock = mutex.lock().await;
-            for z in lock.zones() {
-                match z {
-                    Zone::Arm {id , settings:_, status:_, interface, runner: _} if id == &zid => {
-                        // let arm = Arc::new(interface.arm.as_deref().expect("Interface not found"));
-                        let arm_o = Some(interface.arm.as_deref().expect("Interface not found")); 
+
+            // {
+                let mut lock = mutex.lock().await;
+                for z in lock.zones() {
+                    match z {
+                        Zone::Arm {id , settings:_, status:_, interface, runner: _} if id == &zid => {
+                            // let arm = Arc::new(interface.arm.as_deref().expect("Interface not found"));
+                            arm_o = Some(interface.arm.as_deref().expect("Interface not found")); 
+                        }
+                        _ => continue
                     }
-                    _ => continue
                 }
-            }
-            let arm = arm_o.expect("Zone not found");
-            while let Ok(data) = rc_rx.recv().await {
+            
+                let arm = arm_o.expect("Zone not found");
+            // }
+            while let Some(data) = rc_rx.recv().await {
                 println!("Runner RC input: {:?} ", data,);
                 match data {
                     RcInput::LeftUp | RcInput::RightUp => {
-                        arm.stop_x().await;
+                        arm.stop_x();
+                    }
+                    RcInput::DownUp | RcInput::UpUp => {
+                        arm.stop_y();
                     }
                     RcInput::Left => {
-                        arm.start_x(-20).await;
+                        arm.start_x(-20);
                     }
                     RcInput::Right => {
-                        arm.start_x(20).await;
+                        arm.start_x(20);
                     }
                     RcInput::Up => {
+                        arm.start_y(80);
                     }
                     RcInput::Down => {
+                        arm.start_y(-80);
                     }
                     RcInput::Confirm => {
+                        break;
                     }
                     RcInput::Back => {
                     }
                     RcInput::Mode => {
                     }
                     RcInput::Exit => {
+                        break;
                     }
                    
-                    RcInput::RightUp => {
-                    }
+                
                     RcInput::ConfirmUp => {
                     }
-                    RcInput::DownUp => {
-                    }
-                    RcInput::UpUp => {
+                    RcInput::DownUp | RcInput::UpUp => {
                     }
                     RcInput::BackUp => {
                     }
@@ -132,8 +156,11 @@ impl Manager {
                     }
                 }
             }
+            println!("End Manager RC while-loop");
+            println!("Receiever: {:?}", &rc_rx);
         });
-
+        position_finder.await;
+        println!("End Manager RC-task");
 
         (x, y, z)
     }

@@ -10,18 +10,22 @@ use tokio::time::sleep;
 // use grow::ops::display::DisplayStatus::*;
 use embedded_hal::digital::v2::OutputPin as HalOutputPin;
 use grow::ops::Board;
+use parking_lot::RwLock;
+use std::sync::Arc;
 
 pub struct Shiftreg {
-    // reg: ShiftRegister<OE: HalOutputPin, SER: HalOutputPin, SRCLR: HalOutputPin, SRCLK: HalOutputPin, RCLK: HalOutputPin>,
-    reg: ShiftRegister<OutputPin, OutputPin, OutputPin, OutputPin, OutputPin>,
-    // reg: ShiftRegister,
+    // reg: ShiftRegister<OutputPin, OutputPin, OutputPin, OutputPin, OutputPin>,
+    reg: Arc<RwLock<ShiftRegister<OutputPin, OutputPin, OutputPin, OutputPin, OutputPin>>>,
     current: u8,
+    blink: bool,
 }
 impl Board for Shiftreg {
     fn init(
         &mut self,
         rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
     ) -> Result<(), Box<dyn Error>> {
+
+        // self.blink_all(Duration::from_millis(1000), Duration::from_millis(1000));
 
         Ok(())
     }
@@ -91,6 +95,42 @@ impl Board for Shiftreg {
         Ok(())
     }
 
+    fn blink_all(&mut self, on: Duration, off: Duration) -> () {
+        // self.reg.begin();
+        // self.reg.enable_output();
+        // self.reg.output_clear();
+        let mut led_byte: u8 = 0;
+        self.blink = true;
+        // Blink all
+        // while self.blink == true {
+        
+        let reg = self.reg.clone();
+        tokio::spawn(async move {
+            
+            loop {
+                led_byte = 0b11111111;
+                // println!("loading: {:?}", led_byte);
+                reg.write().load(led_byte);
+                tokio::time::sleep(on).await;
+
+                led_byte = 0b00000000;
+                // println!("loading: {:?}", led_byte);
+                reg.write().load(led_byte);
+                tokio::time::sleep(off).await;
+            }
+        // }
+            });
+    }
+
+    
+
+    fn shutdown(&mut self) -> Result<(), Box<dyn Error>> {
+        self.reg.write().output_clear();
+        self.reg.write().disable_output();
+
+        Ok(())
+    }
+
 }
 impl Shiftreg {
     pub fn new() -> Self {
@@ -125,46 +165,26 @@ impl Shiftreg {
             .expect("Get pin error")
             .into_output();
 
+        let mut reg = ShiftRegister::new(sr_enable, sr_data, sr_reset, sr_clk, sr_latch);
+        reg.begin();
+        reg.enable_output();
+        reg.output_clear();
+
         // let mut sr = ShiftRegister::new(sr_enable, sr_data, sr_reset, sr_clk, sr_latch);
         let mut s = Self {
-            reg: ShiftRegister::new(sr_enable, sr_data, sr_reset, sr_clk, sr_latch),
+            // let reg: ShiftRegister::new(sr_enable, sr_data, sr_reset, sr_clk, sr_latch),
+            reg: Arc::new(RwLock::new(reg)),
             current: 0b00000000,
+            blink: false,
         };
-        s.reg.begin();
-        s.reg.enable_output();
-        s.reg.output_clear();
+        // s.reg.begin();
+        // s.reg.enable_output();
+        // s.reg.output_clear();
 
         s
     }
 
-    pub async fn blink_all(&mut self, on: Duration, off: Duration) -> () {
-        // self.reg.begin();
-        // self.reg.enable_output();
-        // self.reg.output_clear();
-        let mut led_byte: u8 = 0;
-
-        // Blink all
-        loop {
-            led_byte = 0b11111111;
-            // println!("loading: {:?}", led_byte);
-            self.reg.load(led_byte);
-            tokio::time::sleep(on).await;
-
-            led_byte = 0b00000000;
-            // println!("loading: {:?}", led_byte);
-            self.reg.load(led_byte);
-            tokio::time::sleep(off).await;
-        }
-    }
-
-    
-
-    pub fn shutdown(&mut self) -> Result<(), Box<dyn Error>> {
-        self.reg.output_clear();
-        self.reg.disable_output();
-
-        Ok(())
-    }
+   
 
 }
 

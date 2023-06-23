@@ -4,6 +4,8 @@
 use core::error::Error;
 use alloc::collections::BTreeMap;
 use async_trait::async_trait;
+use parking_lot::RwLock;
+use std::ops::Deref;
 use tokio::sync::broadcast;
 use std::sync::Arc;
 // use tokio::sync::Mutex;
@@ -19,7 +21,7 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
             msg: None,
         }
     };
-    let status_mutex = Arc::new(Mutex::new(status));
+    let status_mutex = Arc::new(RwLock::new(status));
     Zone::Aux {
         id,
         settings,
@@ -64,10 +66,10 @@ impl Debug for dyn AuxDevice {
 pub struct Runner {
     tx: broadcast::Sender<(u8, DisplayStatus)>,
     task: tokio::task::JoinHandle<()>,
-    status: Arc<Mutex<Status>>,
+    status: Arc<RwLock<Status>>,
 }
 impl Runner {
-    pub fn new(status: Arc<Mutex<Status>>) -> Self {
+    pub fn new(status: Arc<RwLock<Status>>) -> Self {
         Self {
             tx: broadcast::channel(8).0,
             task: tokio::spawn(async move {}),
@@ -92,7 +94,7 @@ impl Runner {
                         println!("\tAux: {:?}", data);
                         match data {
                             (_, display_status) => {
-                                let mut lock = status.lock().unwrap();
+                                let mut lock = status.write();
                                 lock.disp = display_status;
                             }
                         }

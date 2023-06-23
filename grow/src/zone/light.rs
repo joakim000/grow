@@ -1,6 +1,7 @@
 use core::error::Error;
 use alloc::collections::BTreeMap;
 use async_trait::async_trait;
+use parking_lot::RwLock;
 use tokio::sync::broadcast;
 use std::sync::Arc;
 // use tokio::sync::Mutex;
@@ -19,10 +20,11 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
                 msg: None,
             }
        };
+       let status_mutex = Arc::new(RwLock::new(status));
     Zone::Light {
         id,
         settings,
-        status: Arc::new(Mutex::new(status)),
+        status: status_mutex,
         interface: Interface {
             lamp: None,
             lightmeter: None,

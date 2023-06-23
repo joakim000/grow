@@ -2,6 +2,7 @@ use core::error::Error;
 use tokio::time::sleep as sleep;
 use alloc::collections::BTreeMap;
 use async_trait::async_trait;
+use parking_lot::RwLock;
 use tokio::sync::broadcast;
 use std::{sync::Arc, time::Duration};
 // use tokio::sync::Mutex;
@@ -23,10 +24,11 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
             msg: None,
         }    
     };
+    let status_mutex = Arc::new(RwLock::new(status));
     Zone::Pump  {
         id,
         settings,
-        status: Arc::new(Mutex::new(status)),
+        status: status_mutex,
         interface: Interface {
             pump: None,
         },
@@ -59,7 +61,9 @@ pub trait Pump : Send + Sync {
         tx_pump: tokio::sync::broadcast::Sender<(u8, (i8, i32) )>
     ) -> Result<(), Box<dyn Error>>;
     async fn run_for_secs(&self, secs: u16) -> Result<(), Box<dyn Error>>;
-    async fn stop(&self) -> Result<(), Box<dyn Error>>;
+    fn run(&self) -> Result<(), Box<dyn Error>>;
+    fn stop(&self) -> Result<(), Box<dyn Error>>;
+    fn float(&self) -> Result<(), Box<dyn Error>>;
    
 }
 impl Debug for dyn Pump {

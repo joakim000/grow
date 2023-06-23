@@ -3,6 +3,7 @@ use core::error::Error;
 use tokio::sync::broadcast;
 use core::fmt::Debug;
 use async_trait::async_trait;
+use parking_lot::RwLock;
 use std::sync::Arc;
 // use tokio::sync::Mutex;
 use std::sync::Mutex;
@@ -20,10 +21,11 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
             msg: None,
         }
        };
+    let status_mutex = Arc::new(RwLock::new(status));
     Zone::Irrigation  {
         id,
         settings,
-        status: Arc::new(Mutex::new(status)),
+        status: status_mutex,
         interface: Interface {
             moist: None,
         },

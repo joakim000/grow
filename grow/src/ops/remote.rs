@@ -48,7 +48,8 @@ pub struct Status {
 pub trait RemoteControl : Send {
     async fn init(
         &mut self,
-        tx_rc: tokio::sync::broadcast::Sender<RcInput>,
+        // tx_rc: tokio::sync::broadcast::Sender<RcInput>,
+        tx_rc: tokio::sync::mpsc::Sender<RcInput>,
     ) -> Result<(), Box<dyn Error + '_>>;   
     // fn read(&self) -> Result<(f32), Box<dyn Error  + '_>>;
     

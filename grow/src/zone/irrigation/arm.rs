@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use core::fmt::Debug;
 use super::Zone;
 use crate::ops::display::{Indicator, DisplayStatus};
+use parking_lot::RwLock;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ArmCmd {
@@ -24,19 +25,23 @@ pub enum ArmCmd {
 
 pub fn new(id: u8, settings: Settings) -> super::Zone {
     let status = Status { 
+        pos_x: 0,
+        pos_y: 0,
+        pos_z: 0,
         disp: DisplayStatus {
             indicator: Default::default(),
             msg: None,
         }    
     };
+    let status_mutex = Arc::new(RwLock::new(status));
     Zone::Arm  {
         id,
         settings,
-        status: Arc::new(Mutex::new(status)),
+        runner: Runner::new(status_mutex.clone()),
+        status: status_mutex,
         interface: Interface {
             arm: None,
         },
-        runner: Runner::new(),
     }
 }
 
@@ -58,6 +63,9 @@ pub struct Interface {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Status {
     // position: (i32, i32, i32),
+    pub pos_x: i32,
+    pub pos_y: i32,
+    pub pos_z: i32,
     pub disp: DisplayStatus,
 }
 
@@ -71,16 +79,19 @@ pub trait Arm : Send + Sync {
         tx_axis_z: tokio::sync::broadcast::Sender<((i8, i32))>,
         rx_cmd: tokio::sync::broadcast::Receiver<ArmCmd>,
     ) -> Result<(), Box<dyn Error>>;
-    async fn goto(&self, x: i32, y: i32) -> Result<(), Box<dyn Error>>;
-    async fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>>;
-    async fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>>;
+    fn goto(&self, x: i32, y: i32) -> Result<(), Box<dyn Error>>;
+    fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>>;
+    fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>>;
     async fn confirm(&self, x: i32, y: i32) -> Result<bool, Box<dyn Error>>;
-    async fn stop(&self) -> Result<(), Box<dyn Error>>; 
-    async fn start_x(&self, speed: i8) -> Result<(), Box<dyn Error>>;
-    async fn stop_x(&self) -> Result<(), Box<dyn Error>>;
-    async fn start_y(&self, speed: i8) -> Result<(), Box<dyn Error>>;
-    async fn stop_y(&self) -> Result<(), Box<dyn Error>>;
+    fn stop(&self) -> Result<(), Box<dyn Error>>; 
+    fn start_x(&self, speed: i8) -> Result<(), Box<dyn Error>>;
+    fn stop_x(&self) -> Result<(), Box<dyn Error>>;
+    fn start_y(&self, speed: i8) -> Result<(), Box<dyn Error>>;
+    fn stop_y(&self) -> Result<(), Box<dyn Error>>;
+    async fn update_pos(&self) -> Result<(), Box<dyn Error>>;
+    fn position(&self) -> Result<((i32, i32)), Box<dyn Error>>;
 }
+
 impl Debug for dyn Arm {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Arm: {{{}}}", self.id())
@@ -94,15 +105,17 @@ pub struct Runner {
     pub tx_axis_z: broadcast::Sender<(i8, i32)>,
     pub tx_cmd: broadcast::Sender<ArmCmd>,
     pub task: tokio::task::JoinHandle<()>,
+    status: Arc<RwLock<Status>>,
 }
 impl Runner {
-    pub fn new() -> Self {
+    pub fn new(status: Arc<RwLock<Status>>) -> Self {
         Self {
             tx_axis_x: broadcast::channel(8).0,
             tx_axis_y: broadcast::channel(8).0,
             tx_axis_z: broadcast::channel(8).0,
             tx_cmd: broadcast::channel(8).0,
             task: tokio::spawn(async move {}),
+            status,
         }
     }
     pub fn cmd_sender(
@@ -128,18 +141,21 @@ impl Runner {
         let mut rx_axis_x = self.tx_axis_x.subscribe();
         let mut rx_axis_y = self.tx_axis_y.subscribe();
         let mut rx_axis_z = self.tx_axis_z.subscribe();
+        let status = self.status.clone();
         self.task = tokio::spawn(async move {
             println!("Spawned arm runner");
             loop {
                 tokio::select! {
                     Ok(data) = rx_axis_x.recv() => {
+                        status.write().pos_x = data.1;
                         println!("\tArm X: {:?}", data);
                     }
                     Ok(data) = rx_axis_y.recv() => {
+                        status.write().pos_y = data.1;
                         println!("\tArm Y: {:?}", data);
                     }
                     Ok(data) = rx_axis_z.recv() => {
-                        println!("\tArm Z: {:?}", data);
+                        status.write().pos_z = data.1;
                     }
                     else => { break }
                 };

@@ -12,7 +12,6 @@ use std::error::Error;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
 
-use simple_signal::{self, Signal};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -25,21 +24,36 @@ use rppal::gpio::{Gpio, OutputPin, Trigger};
 use rppal::pwm::{Channel, Polarity, Pwm};
 
 use drive_74hc595::ShiftRegister;
-use dummy_pin::DummyPin;
+// use dummy_pin::DummyPin;
 use pcf8591::{Pin, PCF8591};
 use lego_powered_up::PoweredUp;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    // construct a subscriber that prints formatted traces to stdout
+    // let subscriber = tracing_subscriber::FmtSubscriber::new();
+    // use that subscriber to process traces emitted after this point
+    // tracing::subscriber::set_global_default(subscriber)?;   
+    // tracing_subscriber::fmt::try_init()?;
+
+    // console_subscriber::init();
+    // console_subscriber::ConsoleLayer::builder()
+    // .retention(Duration::from_secs(60))
+    // .server_addr(([127, 0, 0, 1], 5555))
+    // .server_addr(([192, 168, 0, 106], 9090))
+    // .init();
+
     // let (shutdown_send, shutdown_recv) = mpsc::unbounded_channel();
+
 
     let mut pu = 
         Arc::new(TokioMutex::new(PoweredUp::init().await.expect("Error from PoweredUp::init()")));   
     let mut house = init::house_init(pu.clone()).await;
-    // let manager = init::manager_init(house.clone(), pu.clone());
-    let _cmd_task = 
-        // cmd::house_cmds(house.clone(), manager.clone());
-        cmd::house_cmds(house.clone(), );
+    let manager = init::manager_init(house.clone(), pu.clone());
+    let cmd_task = 
+        cmd::house_cmds(house.clone(), manager.clone());
+        // cmd::house_cmds(house.clone(), ); //.await;
+    // _cmd_task.unwrap().await;
 
     // Activity
     // let mut activity_led = Gpio::new()?.get(ACTIVITY_LED_PIN)?.into_output();
@@ -120,6 +134,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Cleanup
+    cmd_task.unwrap().abort();
+
     // lpu_hub.lock().await.disconnect().await;
 
     // led_task.abort();

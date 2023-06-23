@@ -16,7 +16,7 @@ pub async fn house_init(pu: Arc<TokioMutex<PoweredUp>>) -> HouseMutex {
     let adc_1 = crate::hardware::pcf8591::Adc::new();
 
     
-    let lpu_hub = crate::hardware::lpu::init(pu.clone()).await.unwrap();
+    let lpu_hub = crate::hardware::lpu::init(pu.clone()).await.unwrap(); //thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: BluetoothError(DeviceNotFound)', src/init.rs:19:64
 
     for zone in house.zones() {
         match zone {
@@ -123,6 +123,8 @@ pub async fn house_init(pu: Arc<TokioMutex<PoweredUp>>) -> HouseMutex {
     // house.run_pump(1, 2).await;
     // house.read_temperature_value(1);
     // house.set_lamp_state(1, light::LampState::Off);
+
+   
 
     Arc::new(TokioMutex::new(house))
 }
