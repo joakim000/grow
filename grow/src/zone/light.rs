@@ -9,11 +9,14 @@ use std::sync::Mutex;
 use core::fmt::Debug;
 use super::Zone;
 use crate::ops::display::{Indicator, DisplayStatus};
+use super::*;
+use crate::ops::OpsChannelsTx;
+use crate::ops::SysLog;
 
 
 pub fn new(id: u8, settings: Settings) -> super::Zone {
     let status = Status { 
-        lamp_on: None,
+        lamp_state: Some(LampState::Off),
         light_level: None,
         disp: DisplayStatus {
                 indicator: Default::default(),
@@ -24,22 +27,25 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
     Zone::Light {
         id,
         settings,
+        runner: Runner::new(id, status_mutex.clone()),
         status: status_mutex,
         interface: Interface {
             lamp: None,
             lightmeter: None,
         },
-        runner: Runner::new(),
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Settings {}
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Settings {
+    pub lightlevel_low_yellow_warning: f32,
+    pub lightlevel_low_red_alert: f32,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Status {
-    lamp_on: Option<bool>,
-    light_level: Option<f32>,
+    pub lamp_state: Option<LampState>,
+    pub light_level: Option<f32>,
     pub disp: DisplayStatus,
 }
 
@@ -50,14 +56,12 @@ pub struct Interface {
 }
 
 
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LampState {
     On,
     Off,
 }
 
-// pub struct Foo {
-//     stuff: Vec<u8>
-// }
 
 pub trait Lamp : Send {
     fn id(&self) -> u8;
@@ -66,6 +70,7 @@ pub trait Lamp : Send {
         rx_lamp: tokio::sync::broadcast::Receiver<(u8, bool)>
     ) -> Result<(), Box<dyn Error>>;
     fn set_state(&self, state: LampState) -> Result<(), Box<dyn Error + '_>>;
+    fn state(&self) -> Result<LampState, Box<dyn Error>>;
 
 }
 impl Debug for dyn Lamp {
@@ -93,16 +98,20 @@ impl Debug for dyn Lightmeter {
 
 #[derive(Debug, )]
 pub struct Runner {
-    pub tx_lightmeter: broadcast::Sender<(u8, Option<f32>)>,
-    pub tx_lamp: broadcast::Sender<(u8, bool)>,
-    pub task: tokio::task::JoinHandle<()>,
+    id: u8,
+    status: Arc<RwLock<Status>>,
+    tx_lightmeter: broadcast::Sender<(u8, Option<f32>)>,
+    tx_lamp: broadcast::Sender<(u8, bool)>,
+    task: tokio::task::JoinHandle<()>,
 }
 impl Runner {
-    pub fn new() -> Self {
+    pub fn new(id: u8, status: Arc<RwLock<Status>>) -> Self {
         Self {
             tx_lightmeter: broadcast::channel(1).0,
             tx_lamp: broadcast::channel(1).0,
             task: tokio::spawn(async move {}),
+            id,
+            status,
         }
     }
 
@@ -122,21 +131,56 @@ impl Runner {
         self.tx_lamp.clone()
     }
 
-    // This could handle scheudlineg and to that timed lightchecks, only waking manager if warning
-    // Keep lamp channel for runner lamp control
-    pub fn run(&mut self, settings: Settings) {
+    pub fn run(&mut self, settings: Settings, zone_channels: ZoneChannelsTx, ops_channels: OpsChannelsTx) {
+        let id = self.id;
+        let to_manager = zone_channels.zoneupdate;
+        let to_status_subscribers = zone_channels.zonestatus; 
+        let to_logger = zone_channels.zonelog;
+        let to_syslog = ops_channels.syslog;
         let mut rx = self.tx_lightmeter.subscribe();
-        let tx = self.tx_lamp.clone();
+        let status = self.status.clone();
         self.task = tokio::spawn(async move {
-            println!("Spawned light runner");
+            to_syslog.send(SysLog::new(format!("Spawned light runner id {}", &id))).await;
+            let set_and_send = |ds: DisplayStatus | {
+                *&mut status.write().disp = ds.clone(); 
+                &to_status_subscribers.send(ZoneDisplay::Light { id, info: ds });        
+            };
+            set_and_send( DisplayStatus {indicator: Indicator::Green, msg: Some(format!("Light running"))} );
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {
-                        println!("\tLight level: {:?}", data);
+                        // println!("Light: {:?}", data);
+                        let mut o_ds: Option<DisplayStatus> = None;
+                        match data {
+                            (id, None) => {
+                                o_ds = Some(DisplayStatus {indicator: Indicator::Red, msg: Some(format!("No data from lightmeter"))} );
+                            },
+                            (id, Some(lightlevel)) => { 
+                                if (status.read().lamp_state.expect("Lamp status error") == LampState::Off)  {
+                                    o_ds = Some(DisplayStatus {indicator: Indicator::Green, 
+                                        msg: Some(format!("Light {} (lamp OFF)", lightlevel))} );
+                                }
+                                else if lightlevel < settings.lightlevel_low_red_alert {
+                                    o_ds = Some(DisplayStatus {indicator: Indicator::Red, 
+                                        msg: Some(format!("Alert: {} (lamp ON)", lightlevel))} );
+                                }
+                                else if lightlevel < settings.lightlevel_low_yellow_warning {
+                                    o_ds = Some(DisplayStatus {indicator: Indicator::Yellow, 
+                                        msg: Some(format!("Warning: {} (lamp ON)", lightlevel))} );
+                                }
+                                else {
+                                    o_ds = Some(DisplayStatus {indicator: Indicator::Yellow, 
+                                        msg: Some(format!("Ok: {} (lamp ON)", lightlevel))} );
+                                }
+                            },
+                            _ => () 
+                        }
+                        to_logger.send(ZoneLog::Tank {id: data.0, changed_status: o_ds.clone() }).await;
+                        match o_ds {
+                            Some(ds) => { set_and_send(ds); }
+                            None => {}
+                        }
                     }
-                    // Ok(data) = rx_2.recv() => {
-                    //     println!("Secondary:"" {:?}", data);
-                    // }
                     else => { break }
                 };
             }
@@ -144,6 +188,59 @@ impl Runner {
     }
 }
 
-// struct Lamp {}
-// struct Sensor{}
-// struct Timer{}
+// #[derive(Debug, )]
+// pub struct Runner {
+//     pub tx_lightmeter: broadcast::Sender<(u8, Option<f32>)>,
+//     pub tx_lamp: broadcast::Sender<(u8, bool)>,
+//     pub task: tokio::task::JoinHandle<()>,
+// }
+// impl Runner {
+//     pub fn new() -> Self {
+//         Self {
+//             tx_lightmeter: broadcast::channel(1).0,
+//             tx_lamp: broadcast::channel(1).0,
+//             task: tokio::spawn(async move {}),
+//         }
+//     }
+
+//     pub fn lightmeter_feedback_sender(
+//         &self,
+//     ) -> broadcast::Sender<(u8, Option<f32>)> {
+//         self.tx_lightmeter.clone()
+//     }
+//     pub fn lamp_cmd_receiver(
+//         &self,
+//     ) -> broadcast::Receiver<(u8, bool)> {
+//         self.tx_lamp.subscribe()
+//     }
+//     pub fn lamp_cmd_sender(
+//         &self,
+//     ) -> broadcast::Sender<(u8, bool)> {
+//         self.tx_lamp.clone()
+//     }
+
+//     // This could handle scheudlineg and to that timed lightchecks, only waking manager if warning
+//     // Keep lamp channel for runner lamp control
+//     pub fn run(&mut self, settings: Settings) {
+//         let mut rx = self.tx_lightmeter.subscribe();
+//         let tx = self.tx_lamp.clone();
+//         self.task = tokio::spawn(async move {
+//             println!("Spawned light runner");
+//             loop {
+//                 tokio::select! {
+//                     Ok(data) = rx.recv() => {
+//                         println!("\tLight level: {:?}", data);
+//                     }
+//                     // Ok(data) = rx_2.recv() => {
+//                     //     println!("Secondary:"" {:?}", data);
+//                     // }
+//                     else => { break }
+//                 };
+//             }
+//         });
+//     }
+// }
+
+// // struct Lamp {}
+// // struct Sensor{}
+// // struct Timer{}

@@ -3,7 +3,7 @@ use core::error::Error;
 use drive_74hc595::ShiftRegister;
 use grow::ops::display::DisplayStatus;
 use grow::ops::display::Indicator;
-use grow::ops::display::ZoneDisplay;
+use grow::zone::ZoneDisplay;
 use rppal::gpio::{Gpio, OutputPin, Trigger};
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
@@ -12,117 +12,195 @@ use embedded_hal::digital::v2::OutputPin as HalOutputPin;
 use grow::ops::Board;
 use parking_lot::RwLock;
 use std::sync::Arc;
+use tokio_util::sync::CancellationToken;
 
+#[repr(u8)]
+#[derive(Debug)]
+// enum Leds {
+//     Blue =          0b00000001,
+//     TankGreen =     0b00000010,
+//     TankYellow =    0b00000100,
+//     TankRed =       0b00001000,
+//     IrrigationRed = 0b00010000,
+//     AirRed =        0b00100000,
+//     LightRed =      0b01000000,
+//     AuxRed =        0b10000000,
+// }
+enum Leds {
+    Blue =          0b10000000,
+    TankGreen =     0b01000000,
+    TankYellow =    0b00100000,
+    TankRed =       0b00010000,
+    IrrigationRed = 0b00001000,
+    AirRed =        0b00000100,
+    LightRed =      0b00000010,
+    AuxRed =        0b00000001,
+}
+
+// #[derive(Debug, )]
 pub struct Shiftreg {
-    // reg: ShiftRegister<OutputPin, OutputPin, OutputPin, OutputPin, OutputPin>,
     reg: Arc<RwLock<ShiftRegister<OutputPin, OutputPin, OutputPin, OutputPin, OutputPin>>>,
     current: u8,
     blink: bool,
+    cancel: CancellationToken,
 }
 impl Board for Shiftreg {
     fn init(
         &mut self,
         rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
     ) -> Result<(), Box<dyn Error>> {
-
         // self.blink_all(Duration::from_millis(1000), Duration::from_millis(1000));
 
+        let cancel = self.cancel.clone();
+        let reg = self.reg.clone();
+        let shutdown_task = tokio::spawn(async move {
+            tokio::select! {
+                _ = cancel.cancelled() => {
+                    println!("Cancel token: shut down shiftreg");
+                    reg.write().output_clear();
+                    reg.write().disable_output();
+                }
+            }
+        });
         Ok(())
     }
 
     fn set(&mut self, zones: Vec<ZoneDisplay>) -> Result<(), Box<dyn Error>> {
         let mut led_byte = 0;
 
+        let mut irrigation_lit = false;
+        let mut blue_lit = false;
         for z in zones {
             match z {
                 ZoneDisplay::Air {
                     id: 1,
                     info: DisplayStatus { indicator, msg: _ },
                 } => match indicator {
-                        Indicator::Red => led_byte += Leds::AirRed as u8,
+                    Indicator::Red => led_byte += Leds::AirRed as u8,
+                    Indicator::Blue => {
+                        if !blue_lit {
+                            led_byte += Leds::Blue as u8;
+                            blue_lit = true;
+                        }
+                    },
                     _ => {}
                 },
                 ZoneDisplay::Aux {
                     id: 1,
                     info: DisplayStatus { indicator, msg: _ },
                 } => match indicator {
-                        Indicator::Red => led_byte += Leds::AirRed as u8,
-                        _ => {}
+                    Indicator::Red => led_byte += Leds::AuxRed as u8,
+                    Indicator::Blue => {
+                        if !blue_lit {
+                            led_byte += Leds::Blue as u8;
+                            blue_lit = true;
+                        }
                     },
+                    _ => {}
+                },
                 ZoneDisplay::Light {
                     id: 1,
                     info: DisplayStatus { indicator, msg: _ },
                 } => match indicator {
                     Indicator::Red => led_byte += Leds::LightRed as u8,
+                    Indicator::Blue => {
+                        if !blue_lit {
+                            led_byte += Leds::Blue as u8;
+                            blue_lit = true;
+                        }
+                    },
                     _ => {}
                 },
                 ZoneDisplay::Irrigation {
                     id: 1,
                     info: DisplayStatus { indicator, msg: _ },
                 } => match indicator {
-                    Indicator::Red => led_byte += Leds::IrrigationRed as u8,
+                    Indicator::Red => {
+                        if !irrigation_lit {
+                            led_byte += Leds::IrrigationRed as u8;
+                            irrigation_lit = true;
+                        }
+                    },
+                    Indicator::Blue => {
+                        if !blue_lit {
+                            led_byte += Leds::Blue as u8;
+                            blue_lit = true;
+                        }
+                    },
                     _ => {}
                 },
                 ZoneDisplay::Irrigation {
                     id: 2,
                     info: DisplayStatus { indicator, msg: _ },
                 } => match indicator {
-                    Indicator::Red => led_byte += Leds::IrrigationRed as u8,
+                    Indicator::Red => {
+                        if !irrigation_lit {
+                            led_byte += Leds::IrrigationRed as u8;
+                            irrigation_lit = true;
+                        }
+                    },
+                    Indicator::Blue => {
+                        if !blue_lit {
+                            led_byte += Leds::Blue as u8;
+                            blue_lit = true;
+                        }
+                    },
                     _ => {}
                 },
                 ZoneDisplay::Pump {
                     id: 1,
                     info: DisplayStatus { indicator, msg: _ },
-                }  => 
-                    match indicator {
-                        Indicator::Red => {} //led_byte += Leds::PumpRed as u8,
+                } => match indicator {
+                    // Indicator::Red => {} led_byte += Leds::PumpRed as u8,
+                    Indicator::Blue => {
+                        if !blue_lit {
+                            led_byte += Leds::Blue as u8;
+                            blue_lit = true;
+                        }
+                    },
                     _ => {}
                 },
                 ZoneDisplay::Tank {
                     id: 1,
                     info: DisplayStatus { indicator, msg: _ },
-                }  => 
-                    match indicator {
-                        Indicator::Red => led_byte += Leds::TankRed as u8,
-                        Indicator::Yellow => led_byte += Leds::TankYellow as u8,
-                        Indicator::Green => led_byte += Leds::TankGreen as u8,
-                        Indicator::Blue => led_byte += Leds::Blue as u8,
+                } => match indicator {
+                    Indicator::Red => led_byte += Leds::TankRed as u8,
+                    Indicator::Yellow => led_byte += Leds::TankYellow as u8,
+                    Indicator::Green => led_byte += Leds::TankGreen as u8,
+                    Indicator::Blue => {
+                        if !blue_lit {
+                            led_byte += Leds::Blue as u8;
+                            blue_lit = true;
+                        }
                     },
+                },
                 _ => continue,
             }
         }
-
+        println!("\tLoading board byte: {:b}", &led_byte);
+        self.reg.write().load(led_byte);
         Ok(())
     }
 
     fn blink_all(&mut self, on: Duration, off: Duration) -> () {
-        // self.reg.begin();
-        // self.reg.enable_output();
-        // self.reg.output_clear();
         let mut led_byte: u8 = 0;
         self.blink = true;
-        // Blink all
         // while self.blink == true {
-        
+
         let reg = self.reg.clone();
         tokio::spawn(async move {
-            
             loop {
                 led_byte = 0b11111111;
-                // println!("loading: {:?}", led_byte);
                 reg.write().load(led_byte);
                 tokio::time::sleep(on).await;
 
                 led_byte = 0b00000000;
-                // println!("loading: {:?}", led_byte);
                 reg.write().load(led_byte);
                 tokio::time::sleep(off).await;
             }
-        // }
-            });
+            // }
+        });
     }
-
-    
 
     fn shutdown(&mut self) -> Result<(), Box<dyn Error>> {
         self.reg.write().output_clear();
@@ -130,10 +208,9 @@ impl Board for Shiftreg {
 
         Ok(())
     }
-
 }
 impl Shiftreg {
-    pub fn new() -> Self {
+    pub fn new(cancel: CancellationToken) -> Self {
         // let sr_data = Gpio::new()?.get(INDICATORS_SR_DATA)?.into_output();
         // let sr_enable = Gpio::new()?.get(INDICATORS_SR_ENABLE)?.into_output();
         // let sr_clk = Gpio::new()?.get(INDICATORS_SR_CLK)?.into_output();
@@ -176,26 +253,12 @@ impl Shiftreg {
             reg: Arc::new(RwLock::new(reg)),
             current: 0b00000000,
             blink: false,
+            cancel,
         };
-        // s.reg.begin();
-        // s.reg.enable_output();
-        // s.reg.output_clear();
+
+       
 
         s
     }
-
-   
-
 }
 
-#[repr(u8)]
-enum Leds {
-    Blue = 0b00000001,
-    TankGreen = 0b00000010,
-    TankYellow = 0b00000100,
-    TankRed = 0b00001000,
-    IrrigationRed = 0b00010000,
-    AirRed = 0b00100000,
-    LightRed = 0b01000000,
-    AuxRed = 0b10000000,
-}

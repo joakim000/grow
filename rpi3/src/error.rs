@@ -2,23 +2,23 @@ use std::error::Error;
 use std::fmt;
 
 #[derive(Debug)]
-pub struct ZoneError {
+pub struct LpuError {
     details: String
 }
 
-impl ZoneError {
-    pub fn new(msg: &str) -> ZoneError {
-        ZoneError{details: msg.to_string()}
+impl LpuError {
+    pub fn new(msg: &str) -> LpuError {
+        LpuError{details: msg.to_string()}
     }
 }
 
-impl fmt::Display for ZoneError {
+impl fmt::Display for LpuError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,"{}",self.details)
     }
 }
 
-impl Error for ZoneError {
+impl Error for LpuError {
     fn description(&self) -> &str {
         &self.details
     }

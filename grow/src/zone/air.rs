@@ -10,6 +10,9 @@ use core::fmt::Debug;
 pub type FanMutex = Arc<Mutex<Box<dyn Fan>>>;
 use super::Zone;
 use crate::ops::display::{Indicator, DisplayStatus};
+use super::*;
+use crate::ops::OpsChannelsTx;
+use crate::ops::SysLog;
 
 pub fn new(id: u8, settings: Settings) -> super::Zone {
     let status = Status {

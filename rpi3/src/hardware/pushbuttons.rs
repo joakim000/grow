@@ -2,10 +2,9 @@ use core::error::Error;
 
 use super::conf::*;
 
-use grow::ops::input::ButtonPanel;
 use grow::ops::input::ButtonInput;
+use grow::ops::input::ButtonPanel;
 use tokio::task::JoinHandle;
-
 
 pub struct PushButtons {
     // id: u8,
@@ -18,11 +17,9 @@ impl ButtonPanel for PushButtons {
         &mut self,
         tx_rc: tokio::sync::broadcast::Sender<ButtonInput>,
     ) -> Result<(), Box<dyn Error>> {
-
         Ok(())
-    }   
+    }
 }
-
 
 impl PushButtons {
     pub fn new() -> Self {

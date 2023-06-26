@@ -8,11 +8,14 @@ use grow::zone::Handles;
 use std::sync::Mutex;
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
-
+use parking_lot::RwLock;
 use core::error::Error;
 use core::result::Result;
 use core::time::Duration;
 pub type AdcMutex = Arc<Mutex<PCF8591>>;
+use tokio_util::sync::CancellationToken;
+use grow::zone::light::LampState;
+
 
 // let mut adc_control = PCF8591::new(ADC_1_BUS, ADC_1_ADDR, ADC_1_VREF)?;
 // let temperature_1: f32 = celcius_from_byte(adc_control.analog_read_byte(TEMP_SENSOR_1)? as &f32);
@@ -71,51 +74,46 @@ impl Adc {
         self.mutex.clone()
     }
 }
-// impl Debug for Adc {
-//     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-//         // write!(f, "PCF8591{{{}}}", self.len())
-//         write!(f, "PCF8591")
-//     }
-// }
-// impl Debug for AdcMutex {
-//     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-//         // write!(f, "PCF8591{{{}}}", self.len())
-//         write!(f, "PCF8591 mutex")
-//     }
-// }
 
-// #[derive( Debug, )]
 pub struct Led {
     id: u8,
     adc: AdcMutex,
+    state: Arc<RwLock<LampState>>,
     control_task: Option<JoinHandle<()>>,
 }
 impl zone::light::Lamp for Led {
     fn id(&self) -> u8 {
         self.id
     }
-    fn set_state(&self, state: zone::light::LampState) -> Result<(), Box<dyn Error + '_>> {
-        match state {
-            zone::light::LampState::On => {
-                let mut lock = self.adc.lock()?;
-                Ok(lock.analog_write_byte(255)?)
-            }
-            zone::light::LampState::Off => {
-                let mut lock = self.adc.lock()?;
-                Ok(lock.analog_write_byte(0)?)
-            }
-        }
-    }
     fn init(
         &mut self,
         rx_control: tokio::sync::broadcast::Receiver<(u8, bool)>,
     ) -> Result<(), Box<dyn Error>> {
+        self.set_state(LampState::Off);
         self.control_task = Some(
             self.lamp_control(rx_control)
                 .expect("Error initializing control task"),
         );
         Ok(())
     }
+    fn set_state(&self, state: zone::light::LampState) -> Result<(), Box<dyn Error + '_>> {
+        match state {
+            zone::light::LampState::On => {
+                let mut lock = self.adc.lock()?;
+                *self.state.write() = LampState::On;
+                Ok(lock.analog_write_byte(255)?)
+            }
+            zone::light::LampState::Off => {
+                let mut lock = self.adc.lock()?;
+                *self.state.write() = LampState::Off;
+                Ok(lock.analog_write_byte(0)?)
+            }
+        }
+    }
+    fn state(&self) -> Result<LampState, Box<dyn Error>> {
+        Ok((*self.state.read()))
+    }
+   
 }
 impl Debug for Led {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -128,6 +126,7 @@ impl Led {
             id,
             adc,
             control_task: None,
+            state: Arc::new(RwLock::new(LampState::Off)), 
         }
     }
     fn lamp_control(
@@ -402,8 +401,10 @@ fn celcius_from_byte(value: f64) -> f64 {
 }
 fn moist_from_byte(value: u8) -> f32 {
     // 115 = 100% moist, 215 = 0% moist
-    // (0f32 - value as f32 + 215f32)
-    value as f32
+    // moist at 4v: 41-174                                  255-41=214  255-174=81  
+    // (0f32 - value as f32 + 215f32)    
+    // value as f32
+    (255f32 - value as f32) - 75f32         // Värden från ca 5 - 140                
 }
 fn light_from_byte(value: u8) -> f32 {
     // 15(240) = dark, 40 = 5v LED up close, 208(47) = very light,

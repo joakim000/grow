@@ -9,6 +9,9 @@ use core::fmt::Debug;
 use super::Zone;
 use crate::ops::display::{Indicator, DisplayStatus};
 use parking_lot::RwLock;
+use super::*;
+use crate::ops::OpsChannelsTx;
+use crate::ops::SysLog;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ArmCmd {
@@ -37,7 +40,7 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
     Zone::Arm  {
         id,
         settings,
-        runner: Runner::new(status_mutex.clone()),
+        runner: Runner::new(id, status_mutex.clone()),
         status: status_mutex,
         interface: Interface {
             arm: None,
@@ -79,7 +82,7 @@ pub trait Arm : Send + Sync {
         tx_axis_z: tokio::sync::broadcast::Sender<((i8, i32))>,
         rx_cmd: tokio::sync::broadcast::Receiver<ArmCmd>,
     ) -> Result<(), Box<dyn Error>>;
-    fn goto(&self, x: i32, y: i32) -> Result<(), Box<dyn Error>>;
+    fn goto(&self, x: i32, y: i32, z: i32) -> Result<(), Box<dyn Error>>;
     fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>>;
     fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>>;
     async fn confirm(&self, x: i32, y: i32) -> Result<bool, Box<dyn Error>>;
@@ -89,7 +92,7 @@ pub trait Arm : Send + Sync {
     fn start_y(&self, speed: i8) -> Result<(), Box<dyn Error>>;
     fn stop_y(&self) -> Result<(), Box<dyn Error>>;
     async fn update_pos(&self) -> Result<(), Box<dyn Error>>;
-    fn position(&self) -> Result<((i32, i32)), Box<dyn Error>>;
+    fn position(&self) -> Result<((i32, i32, i32)), Box<dyn Error>>;
 }
 
 impl Debug for dyn Arm {
@@ -100,6 +103,7 @@ impl Debug for dyn Arm {
 
 #[derive(Debug)]
 pub struct Runner {
+    id: u8,
     pub tx_axis_x: broadcast::Sender<(i8, i32)>,
     pub tx_axis_y: broadcast::Sender<(i8, i32)>,
     pub tx_axis_z: broadcast::Sender<(i8, i32)>,
@@ -108,14 +112,15 @@ pub struct Runner {
     status: Arc<RwLock<Status>>,
 }
 impl Runner {
-    pub fn new(status: Arc<RwLock<Status>>) -> Self {
+    pub fn new(id: u8, status: Arc<RwLock<Status>>) -> Self {
         Self {
-            tx_axis_x: broadcast::channel(8).0,
-            tx_axis_y: broadcast::channel(8).0,
-            tx_axis_z: broadcast::channel(8).0,
+            id,
+            status,
+            tx_axis_x: broadcast::channel(64).0,
+            tx_axis_y: broadcast::channel(64).0,
+            tx_axis_z: broadcast::channel(64).0,
             tx_cmd: broadcast::channel(8).0,
             task: tokio::spawn(async move {}),
-            status,
         }
     }
     pub fn cmd_sender(

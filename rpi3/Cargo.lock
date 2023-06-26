@@ -252,6 +252,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cond_utils"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9f40e034e89ee41e710c37288a3198e654433acb8c0960eb3dc64976ec1a2d2"
+
+[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -650,6 +656,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "cond_utils",
  "parking_lot",
  "text_io",
  "time",
@@ -932,6 +939,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "num_threads"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2819ce041d2ee131036f4fc9d6ae7ae125a3a40e97ba64d04fe799ad9dabbb44"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "objc"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1090,6 +1106,7 @@ dependencies = [
  "text_io",
  "time",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -1364,6 +1381,9 @@ version = "0.3.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea9e1b3cf1243ae005d9e74085d4d542f3125458f3a81af210d901dcd7411efd"
 dependencies = [
+ "itoa",
+ "libc",
+ "num_threads",
  "serde",
  "time-core",
  "time-macros",

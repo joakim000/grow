@@ -1,4 +1,4 @@
-
+use core::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum Indicator {
@@ -7,7 +7,21 @@ pub enum Indicator {
     Yellow,
     Red,
 }
-
+// impl fmt::Display for Indicator {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         let variant = match self  {
+            
+//         };
+        
+//         write!(
+//             f,
+//             "{:#?} on port {} ({:#x}) with {} modes: {:#?}",
+//             self.kind,
+          
+          
+//         )
+//     }
+// }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DisplayStatus {
@@ -20,16 +34,32 @@ pub struct DisplayStatus {
 //     }
 // }
 
+// impl fmt::Display for DisplayStatus {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(
+//             f,
+//             "{:#?} on port {} ({:#x}) with {} modes: {:#?}",
+//             self.kind,
+          
+          
+//         )
+//     }
+// }
 
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum ZoneDisplay {
-    Air {id: u8, info: DisplayStatus},
-    Aux {id: u8, info: DisplayStatus},
-    Light {id: u8, info: DisplayStatus},
-    Irrigation {id: u8, info: DisplayStatus},
-    Arm {id: u8, info: DisplayStatus},
-    Pump {id: u8, info: DisplayStatus},
-    Tank {id: u8, info: DisplayStatus},
-}
+// impl fmt::Display for DisplayStatus {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(
+//             f,
+//             "{:#?} on port {} ({:#x}) with {} modes: {:#?}",
+//             self.kind,
+//             self.port,
+//             self.port,
+//             self.mode_count,
+//             self.modes
+//                 .values()
+//                 .map(|mode| &mode.name[..])
+//                 .collect::<Vec<_>>()
+//         )
+//     }
+// }
 

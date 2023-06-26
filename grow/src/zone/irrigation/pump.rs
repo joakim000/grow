@@ -10,6 +10,9 @@ use std::sync::Mutex;
 use core::fmt::Debug;
 use super::Zone;
 use crate::ops::display::{Indicator, DisplayStatus};
+use super::*;
+use crate::ops::OpsChannelsTx;
+use crate::ops::SysLog;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum PumpCmd {

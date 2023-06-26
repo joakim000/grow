@@ -17,10 +17,10 @@
 pub mod conf;
 pub use conf::*;
 
-pub mod pushbuttons;
 pub mod lpu;
 pub mod lpu_remote;
 pub mod pcf8591;
+pub mod pushbuttons;
 pub mod pwmfan;
 pub mod regshift_leds;
 pub mod ssd1306;

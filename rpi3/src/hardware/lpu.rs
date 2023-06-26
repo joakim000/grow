@@ -3,62 +3,63 @@ use super::conf::*;
 use async_trait::async_trait;
 use grow::ops::display::DisplayStatus;
 
-
+use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
-use std::sync::Arc;
 // use std::sync::Mutex;
-use tokio::sync::Mutex as TokioMutex;
 use core::error::Error;
 use core::time::Duration;
-use tokio::time::sleep as sleep;
 use parking_lot::RwLock;
-
-use lego_powered_up::consts::{named_port, HubType};
+use tokio::sync::Mutex as TokioMutex;
+use tokio::time::sleep;
+use tokio_util::sync::CancellationToken;
+use lego_powered_up::consts::HubPropertyOperation;
+use lego_powered_up::consts::HubPropertyRef;
 use lego_powered_up::consts::MotorSensorMode;
+use lego_powered_up::consts::{named_port, HubType};
 use lego_powered_up::error::{Error as LpuError, OptionContext, Result as LpuResult};
+use lego_powered_up::hubs::HubNotification;
+use lego_powered_up::iodevice::basic::Basic;
 use lego_powered_up::iodevice::modes;
 use lego_powered_up::iodevice::remote::{RcButtonState, RcDevice};
 use lego_powered_up::iodevice::visionsensor::DetectedColor;
+use lego_powered_up::iodevice::visionsensor::VisionSensor;
 use lego_powered_up::iodevice::{hubled::*, motor::*, sensor::*};
 use lego_powered_up::notifications::Power;
+use lego_powered_up::notifications::*;
 use lego_powered_up::HubMutex;
 use lego_powered_up::{ConnectedHub, IoDevice, IoTypeId, PoweredUp};
 use lego_powered_up::{Hub, HubFilter};
-use lego_powered_up::notifications::*;
-use lego_powered_up::hubs::HubNotification;
-use lego_powered_up::iodevice::visionsensor::VisionSensor;
-use lego_powered_up::consts::HubPropertyOperation;
-use lego_powered_up::consts::HubPropertyRef;
-use lego_powered_up::iodevice::basic::Basic;
 
 use crate::hardware::lpu::broadcast::Receiver;
 
-use grow::zone;
-use grow::zone::pump::PumpCmd;
-use grow::zone::arm::ArmCmd;
-use grow::zone::tank::TankLevel;
 use grow::ops::display::Indicator;
+use grow::zone;
+use grow::zone::arm::ArmCmd;
+use grow::zone::pump::PumpCmd;
+use grow::zone::tank::TankLevel;
 
 // #[tokio::main]
-pub async fn init(pu: Arc<TokioMutex<PoweredUp>>) -> Result<HubMutex, Box<dyn Error>> {
+pub async fn init(pu: Arc<TokioMutex<PoweredUp>>,) -> Result<HubMutex, Box<dyn Error>> {
     // let hub = lego_powered_up::setup::single_hub().await?;
     let mut lock = pu.lock().await;
     println!("Waiting for hub...");
-    let hub = lock.wait_for_hub_filter(HubFilter::Kind(HubType::TechnicMediumHub)).await?;
+    let hub = lock
+        .wait_for_hub_filter(HubFilter::Kind(HubType::TechnicMediumHub))
+        .await?;
     println!("Connecting to hub...");
-    let hub = ConnectedHub::setup_hub(
-        lock.create_hub(&hub).await.expect("Error creating hub"))
-    .await
-    .expect("Error setting up hub");
-    
+    let hub = ConnectedHub::setup_hub(lock.create_hub(&hub).await.expect("Error creating hub"))
+        .await
+        .expect("Error setting up hub");
+
     Ok(hub.mutex.clone())
 }
 
 pub struct Vsensor {
     id: u8,
     device: IoDevice,
+    level: Arc<RwLock<TankLevel>>,
     // hub: HubMutex,
     feedback_task: Option<JoinHandle<()>>,
     // color_task: JoinHandle<()>,
@@ -69,9 +70,7 @@ impl zone::irrigation::tank::TankSensor for Vsensor {
     fn id(&self) -> u8 {
         self.id
     }
-    // fn read_level(&self) -> Result<(TankLevel), Box<dyn Error>> {
-    //     Ok(TankLevel::Green)
-    // }
+
     async fn init(
         &mut self,
         tx_tanklevel: tokio::sync::broadcast::Sender<(u8, Option<TankLevel>)>,
@@ -82,6 +81,9 @@ impl zone::irrigation::tank::TankSensor for Vsensor {
                 .expect("Error initializing feedback task"),
         );
         Ok(())
+    }
+    fn read(&self) -> Result<(TankLevel), Box<dyn Error>> {
+        Ok(*self.level.read())
     }
 }
 impl Vsensor {
@@ -100,6 +102,7 @@ impl Vsensor {
         Self {
             id,
             // hub,
+            level: Arc::new(RwLock::new(TankLevel::Red)), // get from save
             device,
             feedback_task: None,
         }
@@ -110,6 +113,7 @@ impl Vsensor {
         tx: broadcast::Sender<(u8, Option<TankLevel>)>,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
+        let level = self.level.clone();
         let (mut rx_color, _color_task) = self.device.visionsensor_color().unwrap();
         Ok(tokio::spawn(async move {
             println!("Spawned tank feedback");
@@ -117,16 +121,20 @@ impl Vsensor {
                 // println!("Tank color: {:?} ", data,);
                 match data {
                     DetectedColor::Blue => {
-                        tx.send((id, Some(TankLevel::Blue)));
+                        tx.send((id, Some(TankLevel::Green)));
+                        *level.write() = TankLevel::Green;
                     }
                     DetectedColor::Green => {
                         tx.send((id, Some(TankLevel::Green)));
+                        *level.write() = TankLevel::Green;
                     }
                     DetectedColor::Yellow => {
                         tx.send((id, Some(TankLevel::Yellow)));
+                        *level.write() = TankLevel::Yellow;
                     }
                     DetectedColor::Red => {
                         tx.send((id, Some(TankLevel::Red)));
+                        *level.write() = TankLevel::Red;
                     }
                     _ => {
                         tx.send((id, None));
@@ -283,13 +291,13 @@ impl zone::irrigation::arm::Arm for BrickArm {
         );
         Ok(())
     }
-    fn goto(&self, x: i32, y: i32) -> Result<(), Box<dyn Error>> {
+    fn goto(&self, x: i32, y: i32, _z: i32) -> Result<(), Box<dyn Error>> {
         self.device_x
             .goto_absolute_position(x, 20, 20, EndState::Brake)?;
-            // .await?;
+        // .await?;
         self.device_y
             .goto_absolute_position(y, 50, 20, EndState::Brake)?;
-            // .await?;
+        // .await?;
         Ok(())
     }
     fn stop(&self) -> Result<(), Box<dyn Error>> {
@@ -301,26 +309,30 @@ impl zone::irrigation::arm::Arm for BrickArm {
         Ok((false)) // TODO
     }
     async fn update_pos(&self) -> Result<(), Box<dyn Error>> {
-        self.device_x.device_mode(modes::TechnicLargeLinearMotorTechnicHub::SPEED, 1, true);
+        self.device_x
+            .device_mode(modes::TechnicLargeLinearMotorTechnicHub::SPEED, 1, true);
         // sleep(Duration::from_millis(100)).await;
-        self.device_y.device_mode(modes::TechnicLargeLinearMotorTechnicHub::SPEED, 1, true);
+        self.device_y
+            .device_mode(modes::TechnicLargeLinearMotorTechnicHub::SPEED, 1, true);
         sleep(Duration::from_millis(100)).await;
-        self.device_x.device_mode(modes::TechnicLargeLinearMotorTechnicHub::POS, 1, true);
+        self.device_x
+            .device_mode(modes::TechnicLargeLinearMotorTechnicHub::POS, 1, true);
         // sleep(Duration::from_millis(100)).await;
-        self.device_y.device_mode(modes::TechnicLargeLinearMotorTechnicHub::POS, 1, true);
+        self.device_y
+            .device_mode(modes::TechnicLargeLinearMotorTechnicHub::POS, 1, true);
 
         Ok(()) // TODO
     }
     fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>> {
         self.device_x
             .goto_absolute_position(x, 50, 20, EndState::Brake)?;
-            // .await?;
+        // .await?;
         Ok(())
     }
     fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>> {
         self.device_y
             .goto_absolute_position(y, 100, 20, EndState::Brake)?;
-            // .await?;
+        // .await?;
         Ok(())
     }
     fn start_x(&self, speed: i8) -> Result<(), Box<dyn Error>> {
@@ -339,8 +351,8 @@ impl zone::irrigation::arm::Arm for BrickArm {
         self.device_y.start_power(Power::Brake)?;
         Ok(())
     }
-    fn position(&self) -> Result<((i32, i32)), Box<dyn Error>> {
-        Ok( (*self.pos_x.read(), *self.pos_y.read()) )
+    fn position(&self) -> Result<((i32, i32, i32)), Box<dyn Error>> {
+        Ok((*self.pos_x.read(), *self.pos_y.read(), 0))
     }
 }
 impl BrickArm {
@@ -361,8 +373,8 @@ impl BrickArm {
             // hub,
             device_x,
             device_y,
-            pos_x: Arc::new(RwLock::new(0)),       // get from save
-            pos_y: Arc::new(RwLock::new(0)),       // get from save
+            pos_x: Arc::new(RwLock::new(0)), // get from save
+            pos_y: Arc::new(RwLock::new(0)), // get from save
             feedback_task: None,
             cmd_task: None,
         }
@@ -388,33 +400,28 @@ impl BrickArm {
                     ArmCmd::StopY => {
                         let _ = device_y.start_power(Power::Brake);
                     }
-                    ArmCmd::Confirm => { }
-                    ArmCmd::StartX { speed } => { 
+                    ArmCmd::Confirm => {}
+                    ArmCmd::StartX { speed } => {
                         // Sign reversal on speed because gearing inverts expected movement direction
                         let _ = device_x.start_speed(-speed, 20);
                     }
                     ArmCmd::StartY { speed } => {
-                        let _ = device_y.start_speed(speed, 20); 
+                        let _ = device_y.start_speed(speed, 20);
                     }
-                    ArmCmd::Goto { x, y } => { 
-                        let _ = device_x
-                        .goto_absolute_position(x, 20, 20, EndState::Brake);
+                    ArmCmd::Goto { x, y } => {
+                        let _ = device_x.goto_absolute_position(x, 20, 20, EndState::Brake);
                         // .await;
-                        let _ = device_y
-                        .goto_absolute_position(y, 20, 20, EndState::Brake);
+                        let _ = device_y.goto_absolute_position(y, 20, 20, EndState::Brake);
                         // .await;
                     }
-                    ArmCmd::GotoX { x } => { 
-                        let _ = device_x
-                        .goto_absolute_position(x, 20, 20, EndState::Brake);
+                    ArmCmd::GotoX { x } => {
+                        let _ = device_x.goto_absolute_position(x, 20, 20, EndState::Brake);
                         // .await;
                     }
-                    ArmCmd::GotoY { y } => { 
-                        let _ = device_y
-                        .goto_absolute_position(y, 20, 20, EndState::Brake);
+                    ArmCmd::GotoY { y } => {
+                        let _ = device_y.goto_absolute_position(y, 20, 20, EndState::Brake);
                         // .await;
                     }
-                    
                 }
             }
         }))
@@ -489,7 +496,7 @@ impl zone::auxiliary::AuxDevice for LpuHub {
     }
 }
 impl LpuHub {
-    pub fn new(id: u8, hub: HubMutex) -> Self {
+    pub fn new(id: u8, hub: HubMutex, cancel: CancellationToken) -> Self {
         Self {
             id,
             hub,
@@ -506,16 +513,27 @@ impl LpuHub {
         let mut rx_hub: Receiver<HubNotification>;
         // let (mut rx_alerts, _color_task) = self.device.visionsensor_color().await.unwrap();
         {
-        //     let mut lock = tokio::task::block_in_place(move || {
-        //         hub.blocking_lock_owned()
-        //     });
+            //     let mut lock = tokio::task::block_in_place(move || {
+            //         hub.blocking_lock_owned()
+            //     });
             let mut lock = hub.lock().await;
-            rx_hub = lock.channels().hubnotification_sender.as_ref().unwrap().subscribe();
+            rx_hub = lock
+                .channels()
+                .hubnotification_sender
+                .as_ref()
+                .unwrap()
+                .subscribe();
             // These will send current status when enabling updates
-            let _ = lock.hub_props(HubPropertyRef::Rssi, HubPropertyOperation::EnableUpdatesDownstream)?;
-            let _ = lock.hub_props(HubPropertyRef::BatteryVoltage, HubPropertyOperation::EnableUpdatesDownstream)?;
+            let _ = lock.hub_props(
+                HubPropertyRef::Rssi,
+                HubPropertyOperation::EnableUpdatesDownstream,
+            )?;
+            let _ = lock.hub_props(
+                HubPropertyRef::BatteryVoltage,
+                HubPropertyOperation::EnableUpdatesDownstream,
+            )?;
 
-            // These will not send current status when enabling updates; request single update first  
+            // These will not send current status when enabling updates; request single update first
             let _ = lock.hub_alerts(AlertType::LowVoltage, AlertOperation::RequestUpdate)?;
             let _ = lock.hub_alerts(AlertType::LowVoltage, AlertOperation::EnableUpdates)?;
 
@@ -525,8 +543,10 @@ impl LpuHub {
             let _ = lock.hub_alerts(AlertType::LowSignalStrength, AlertOperation::RequestUpdate)?;
             let _ = lock.hub_alerts(AlertType::LowSignalStrength, AlertOperation::EnableUpdates)?;
 
-            let _ = lock.hub_alerts(AlertType::OverPowerCondition, AlertOperation::RequestUpdate)?;
-            let _ = lock.hub_alerts(AlertType::OverPowerCondition, AlertOperation::EnableUpdates)?;            
+            let _ =
+                lock.hub_alerts(AlertType::OverPowerCondition, AlertOperation::RequestUpdate)?;
+            let _ =
+                lock.hub_alerts(AlertType::OverPowerCondition, AlertOperation::EnableUpdates)?;
         }
 
         Ok(tokio::spawn(async move {
@@ -534,14 +554,24 @@ impl LpuHub {
             while let Ok(data) = rx_hub.recv().await {
                 // println!("Hub {:?} sent: {:?}", id, data,);
                 match data {
-                   HubNotification {hub_alert: Some(HubAlert{alert_type, payload, ..}), ..} 
-                        if payload == AlertPayload::Alert => {
-                            tx.send((id, DisplayStatus{
+                    HubNotification {
+                        hub_alert:
+                            Some(HubAlert {
+                                alert_type,
+                                payload,
+                                ..
+                            }),
+                        ..
+                    } if payload == AlertPayload::Alert => {
+                        tx.send((
+                            id,
+                            DisplayStatus {
                                 indicator: Indicator::Red,
                                 msg: Some(alert_type.to_string()),
-                             }));
-                        }
-                    _ => { }
+                            },
+                        ));
+                    }
+                    _ => {}
                 }
             }
         }))
@@ -550,8 +580,5 @@ impl LpuHub {
         // Ok(tokio::spawn(async move {
         //     println!("Spawned hub feedback");
         // }))
-
     }
 }
-
-

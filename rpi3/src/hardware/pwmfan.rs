@@ -170,7 +170,6 @@ impl PwmFan {
         }))
     }
 
-   
     fn fan_control(
         &self,
         mut rx: broadcast::Receiver<FanSetting>,

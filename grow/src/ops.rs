@@ -3,7 +3,7 @@
 extern crate alloc;
 use super::House;
 // use super::HouseMapped;
-
+use tokio::sync::{broadcast, mpsc};
 use crate::zone;
 use crate::zone::Zone;
 use crate::ZoneDisplay;
@@ -13,7 +13,7 @@ use alloc::vec::{IntoIter, Vec};
 use core::time::Duration;
 use core::error::Error;
 pub mod conf;
-pub mod running;
+pub mod manager;
 pub mod remote;
 pub mod input;
 // mod warning;
@@ -22,13 +22,13 @@ use core::fmt::Debug;
 
 pub mod display;
 
-pub mod warning {
-    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-    pub struct Settings {}
+// pub mod warning {
+//     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+//     pub struct Settings {}
 
-    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-    pub struct Status {}
-}
+//     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+//     pub struct Status {}
+// }
 #[async_trait]
 pub trait Board : Send + Sync {
     fn init(
@@ -58,22 +58,43 @@ impl Debug for dyn TextDisplay {
 }
 
 
-// pub struct Manager {
+
+// pub enum SysLog {
+//     Irrigation{id: u8, moisture: Option<f32>, status: Option<DisplayStatus>},
 
 // }
+#[derive(Clone, Debug,)]
+pub struct SysLog {
+    msg: String,
+}
+impl SysLog {
+    pub fn new(msg: String) -> Self {
+        Self {
+            msg,
+        }
+    }
+}
 
-// pub fn Manager(house: House) -> Result<JoinHandle<()>, Box<dyn Error>> {
-//     Ok(tokio::spawn(async move {
-//         println!("Spawned manager");
-//         loop {
-//             tokio::select! {
-//                 Ok(data) = rx_rpm.recv() => {
-//                 }
-//                 Ok(data) = rx_temp.recv() => {
-//                 }
-//                 else => { break }
-//             };
-//         }
+pub type SysLogRx = tokio::sync::mpsc::Receiver<SysLog>;
+pub type SysLogTx = tokio::sync::mpsc::Sender<SysLog>;
 
-//     }))
-// }
+pub fn ops_channels() -> (OpsChannelsTx, OpsChannelsRx) {
+    let (syslog_tx, syslog_rx) = mpsc::channel::<SysLog>(128);
+    let rx = OpsChannelsRx {
+        syslog: syslog_rx,
+    };
+    let tx = OpsChannelsTx {
+        syslog: syslog_tx,
+    };
+
+    (tx, rx)
+}
+
+#[derive(Debug, )]
+pub struct OpsChannelsRx {
+    pub syslog: SysLogRx,
+}
+#[derive(Clone, Debug,)]
+pub struct OpsChannelsTx {
+    pub syslog: SysLogTx,
+}

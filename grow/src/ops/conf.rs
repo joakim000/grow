@@ -8,6 +8,7 @@ use crate::zone::Zone;
 use alloc::collections::BTreeMap;
 use alloc::vec::{IntoIter, Vec};
 use anyhow::*;
+use core::time::Duration;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -33,12 +34,15 @@ impl Conf {
         h.zones.push(zone::irrigation::new(
             1,
             zone::irrigation::Settings {
-                moisture_limit_water: 50,
-                moisture_limit_low_warning: 30,
-                moisture_limit_high_warning: 70,
-                pump_id: 0,
+                moisture_limit_water: 50.0,
+                moisture_low_red_warning: 30.0,
+                moisture_high_red_warning: 70.0,
+                moisture_low_yellow_warning: 40.0,
+                moisture_high_yellow_warning: 65.0,
+                pump_id: 1,
+                pump_time: Duration::from_secs(2),
                 position: Some(zone::irrigation::arm::Move {
-                    arm_id: 0,
+                    arm_id: 1,
                     x: 20,
                     y: 100,
                     z: 0,
@@ -48,12 +52,15 @@ impl Conf {
         h.zones.push(zone::irrigation::new(
             2,
             zone::irrigation::Settings {
-                moisture_limit_water: 50,
-                moisture_limit_low_warning: 30,
-                moisture_limit_high_warning: 70,
-                pump_id: 0,
+                moisture_limit_water: 50.0,
+                moisture_low_red_warning: 30.0,
+                moisture_high_red_warning: 70.0,
+                moisture_low_yellow_warning: 40.0,
+                moisture_high_yellow_warning: 65.0,
+                pump_id: 1,
+                pump_time: Duration::from_secs(2),
                 position: Some(zone::irrigation::arm::Move {
-                    arm_id: 0,
+                    arm_id: 1,
                     x: 50,
                     y: 200,
                     z: 0,
@@ -62,7 +69,10 @@ impl Conf {
         )); 
         h.zones.push(zone::light::new(
             1,
-            zone::light::Settings {},
+            zone::light::Settings {
+                lightlevel_low_yellow_warning: 100.0,
+                lightlevel_low_red_alert: 80.0,
+            },
         ));
         h.zones.push(zone::auxiliary::new(
             1,

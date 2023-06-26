@@ -9,6 +9,17 @@ use std::sync::Mutex;
 use core::fmt::Debug;
 use super::Zone;
 use crate::ops::display::{Indicator, DisplayStatus};
+use super::*;
+use crate::ops::OpsChannelsTx;
+use crate::ops::SysLog;
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Ord, PartialOrd, Hash)]
+pub enum TankLevel {
+    Blue,
+    Green,
+    Yellow,
+    Red,
+}
 
 pub fn new(id: u8, settings: Settings) -> super::Zone {
     let status = Status { 
@@ -21,11 +32,11 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
     Zone::Tank {
         id,
         settings,
+        runner: Runner::new(id, status_mutex.clone()),
         status: status_mutex,
         interface: Interface {
             tank_sensor: None,
         },
-        runner: Runner::new(),
     }
 }
 
@@ -49,6 +60,7 @@ pub trait TankSensor : Send + Sync {
         &mut self,
         tx_tank: tokio::sync::broadcast::Sender<(u8, Option<TankLevel>)>
     ) -> Result<(), Box<dyn Error>>;
+    fn read(&self) -> Result<(TankLevel), Box<dyn Error>>;
 }
 impl Debug for dyn TankSensor {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -59,46 +71,71 @@ impl Debug for dyn TankSensor {
 
 #[derive(Debug, )]
 pub struct Runner {
-    pub tx: broadcast::Sender<(u8, Option<TankLevel>)>,
-    pub task: tokio::task::JoinHandle<()>,
+    id: u8,
+    tx_tank: broadcast::Sender<(u8, Option<TankLevel>)>,
+    task: tokio::task::JoinHandle<()>,
+    status: Arc<RwLock<Status>>,
 }
 impl Runner {
-    pub fn new() -> Self {
+    pub fn new(id: u8, status: Arc<RwLock<Status>>) -> Self {
         Self {
-            tx: broadcast::channel(8).0,
+            id,
+            status,
+            tx_tank: broadcast::channel(16).0,
             task: tokio::spawn(async move {}),
         }
     }
 
-    pub fn channel(
+    pub fn tank_feedback_sender(
         &self,
     ) -> broadcast::Sender<(u8, Option<TankLevel>)> {
-        self.tx.clone()
+        self.tx_tank.clone()
     }
 
-    pub fn run(&mut self, settings: Settings) {
-        let mut rx = self.tx.subscribe();
+    pub fn run(&mut self, settings: Settings, zone_channels: ZoneChannelsTx, ops_channels: OpsChannelsTx) {
+        let id = self.id;
+        let to_manager = zone_channels.zoneupdate;
+        let to_status_subscribers = zone_channels.zonestatus; 
+        let to_logger = zone_channels.zonelog;
+        let to_syslog = ops_channels.syslog;
+        let mut rx = self.tx_tank.subscribe();
+        let status = self.status.clone();
         self.task = tokio::spawn(async move {
-            println!("Spawned tank runner");
+            to_syslog.send(SysLog::new(format!("Spawned tank runner id {}", &id))).await;
+            let set_and_send = |ds: DisplayStatus | {
+                *&mut status.write().disp = ds.clone(); 
+                &to_status_subscribers.send(ZoneDisplay::Tank { id, info: ds });        
+            };
+            set_and_send( DisplayStatus {indicator: Indicator::Green, msg: Some(format!("Tank running"))} );
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {
-                        println!("\tTank: {:?}", data);
+                        let mut o_ds: Option<DisplayStatus> = None;
+                        println!("Tank: {:?}", data);
+                        match data {
+                            (id, None) => {
+                                o_ds = Some(DisplayStatus {indicator: Indicator::Red, msg: Some(format!("No data from tank sensor"))} );
+                            },
+                            (id, Some(TankLevel::Green)) => { 
+                                o_ds = Some(DisplayStatus {indicator: Indicator::Green, msg: Some(format!("Tank ok"))} );
+                            },
+                            (id, Some(TankLevel::Yellow)) => { 
+                                o_ds = Some(DisplayStatus {indicator: Indicator::Yellow, msg: Some(format!("Tank low"))} );
+                            },
+                            (id, Some(TankLevel::Red)) => { 
+                                o_ds = Some(DisplayStatus {indicator: Indicator::Red, msg: Some(format!("Tank empty"))} );
+                            },
+                            _ => () 
+                        }
+                        to_logger.send(ZoneLog::Tank {id: data.0, changed_status: o_ds.clone() }).await;
+                        match o_ds {
+                            Some(ds) => { set_and_send(ds); }
+                            None => {}
+                        }
                     }
-                    // Ok(data) = rx_2.recv() => {
-                    //     println!("Secondary:"" {:?}", data);
-                    // }
                     else => { break }
                 };
             }
         });
     }
-}
-
-#[derive(Debug, PartialEq, Eq, Copy, Clone, Ord, PartialOrd, Hash)]
-pub enum TankLevel {
-    Blue,
-    Green,
-    Yellow,
-    Red,
 }
