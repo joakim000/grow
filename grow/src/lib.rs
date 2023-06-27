@@ -50,9 +50,8 @@ impl House {
                     let _ = interface.fan.as_mut().unwrap()
                         .init(channels.0, channels.1);
                     let _ = interface.thermo.as_mut().unwrap()
-                        .init(runner.thermo_channel());
-                    runner.run(settings.clone());
-                    // runner.run(settings.clone(), zone_channels.clone(), ops_channels.clone() );
+                        .init(runner.thermo_feedback_sender());
+                    runner.run(settings.clone(), zone_channels.clone(), ops_channels.clone() );
                 },
                 Zone::Aux {
                     settings,
@@ -399,7 +398,28 @@ impl House {
         }
         return Err(Box::new(ZoneError::new("Zone not found")))
     }
-
+    pub async fn arm_calibrate_x(&mut self, zid: u8) -> Result<(i32, i32, i32), Box<dyn Error + '_>> { 
+        for z in self.zones() {
+            match z {
+                Zone::Arm {id, interface, ..} if id == &zid => {
+                    return interface.arm.as_ref().expect("Interface not found").calibrate_x().await;
+                }
+                _ => continue
+            }
+        }
+        return Err(Box::new(ZoneError::new("Zone not found")))
+    }
+    pub async fn arm_calibrate_y(&mut self, zid: u8) -> Result<(i32, i32, i32), Box<dyn Error + '_>> { 
+        for z in self.zones() {
+            match z {
+                Zone::Arm {id, interface, ..} if id == &zid => {
+                    return interface.arm.as_ref().expect("Interface not found").calibrate_y().await;
+                }
+                _ => continue
+            }
+        }
+        return Err(Box::new(ZoneError::new("Zone not found")))
+    }
     
 
     

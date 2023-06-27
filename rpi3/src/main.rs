@@ -29,6 +29,10 @@ use drive_74hc595::ShiftRegister;
 use lego_powered_up::PoweredUp;
 use pcf8591::{Pin, PCF8591};
 
+// impl Drop for PoweredUp {
+//     println!("Dropping PoweredUp!");
+// }
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     // construct a subscriber that prints formatted traces to stdout
@@ -67,8 +71,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     // Cleanup
     cancel_token.cancel();
+    println!("Main cancel token cancelled!");
     cmd_task.unwrap().abort();
-    sleep(Duration::from_millis(500)).await;
+    sleep(Duration::from_millis(1500)).await;
 
     // lpu_hub.lock().await.disconnect().await;
 

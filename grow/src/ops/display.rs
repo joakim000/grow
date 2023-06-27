@@ -7,59 +7,46 @@ pub enum Indicator {
     Yellow,
     Red,
 }
-// impl fmt::Display for Indicator {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         let variant = match self  {
-            
-//         };
+impl fmt::Display for Indicator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let variant = match self  {
+            Indicator::Blue => "Blue",
+            Indicator::Green => "Green",
+            Indicator::Yellow => "Yellow",
+            Indicator::Red => "Red",
+        };
         
-//         write!(
-//             f,
-//             "{:#?} on port {} ({:#x}) with {} modes: {:#?}",
-//             self.kind,
-          
-          
-//         )
-//     }
-// }
+        write!(
+            f, "{}", variant
+        )
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DisplayStatus {
     pub indicator: Indicator,
     pub msg: Option<String>,
 }
-// impl DisplayStatus {
-//     pub fn indicator(&self) -> Indicator {
-//         self.indicator.clone()
-//     }
-// }
+impl fmt::Display for DisplayStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.msg {
+            None => {
+                write!(
+                    f,
+                    "[{}] No message",
+                    self.indicator,
+                )
+            }, 
+            Some(inner) => {
+                write!(
+                    f,
+                    "[{}] {}",
+                    self.indicator,
+                    inner,
+                )
+            }
+        }
+    }
+}
 
-// impl fmt::Display for DisplayStatus {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(
-//             f,
-//             "{:#?} on port {} ({:#x}) with {} modes: {:#?}",
-//             self.kind,
-          
-          
-//         )
-//     }
-// }
-
-// impl fmt::Display for DisplayStatus {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(
-//             f,
-//             "{:#?} on port {} ({:#x}) with {} modes: {:#?}",
-//             self.kind,
-//             self.port,
-//             self.port,
-//             self.mode_count,
-//             self.modes
-//                 .values()
-//                 .map(|mode| &mode.name[..])
-//                 .collect::<Vec<_>>()
-//         )
-//     }
-// }
 

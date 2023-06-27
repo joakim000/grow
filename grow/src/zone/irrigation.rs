@@ -28,7 +28,8 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
         disp: DisplayStatus {
             indicator: Default::default(),
             msg: None,
-        }
+        },
+        kind: None,
        };
     let status_mutex = Arc::new(RwLock::new(status));
     Zone::Irrigation  {
@@ -58,6 +59,7 @@ pub struct Settings {
 pub struct Status {
     pub moisture_level: Option<f32>,
     pub disp: DisplayStatus,
+    kind: Option<IrrigationStatusKind>,
 }
 
 #[async_trait]
@@ -127,27 +129,35 @@ impl Runner {
                         // println!("\tMoisture: {:?}", data);
                         let mut o_ds: Option<DisplayStatus> = None;
                         match data {
-                            (id, None) => {
+                            (id, None) if status.read().kind.as_ref().is_some_and(|k| k != &IrrigationStatusKind::NoData) => {
                                 o_ds = Some(DisplayStatus {indicator: Indicator::Red, msg: Some(format!("No data from moisture sensor"))} );
                             },
                             (id, Some(moisture)) => {
+                                // Watering needed
                                 if moisture < settings.moisture_limit_water {
                                     to_manager.send(ZoneUpdate::Irrigation{id, moisture}).await;
                                 }
-                                if (moisture < settings.moisture_low_red_warning) {   
+
+                                // Status update
+                                if (moisture < settings.moisture_low_red_warning) { //& (status.read().kind.as_ref().is_some_and(|k| k != &IrrigationStatusKind::AlertLow)) {  
                                     o_ds = Some(DisplayStatus {indicator: Indicator::Red, msg: Some(format!("Alert: Moisture LOW {}", moisture))} );
+                                    status.write().kind == Some(IrrigationStatusKind::AlertLow);
                                 } 
-                                else if (moisture > settings.moisture_high_red_warning) {
+                                else if (moisture > settings.moisture_high_red_warning) { //& !(status.read().kind.as_ref().is_some_and(|k| k == &IrrigationStatusKind::AlertHigh)) {  
                                     o_ds = Some(DisplayStatus {indicator: Indicator::Red, msg: Some(format!("Alert: Moisture HIGH {}", moisture))} );
+                                    status.write().kind == Some(IrrigationStatusKind::AlertHigh);
                                 }
-                                else if (moisture < settings.moisture_low_yellow_warning)  {  
+                                else if (moisture < settings.moisture_low_yellow_warning)  { //& (status.read().kind.as_ref().is_some_and(|k| k != &IrrigationStatusKind::WarningLow)) {    
                                     o_ds = Some(DisplayStatus {indicator: Indicator::Yellow, msg: Some(format!("Warning: Moisture LOW {}", moisture))} );
+                                    status.write().kind == Some(IrrigationStatusKind::WarningLow);
                                 }
-                                else if (moisture > settings.moisture_high_yellow_warning) {  
+                                else if (moisture > settings.moisture_high_yellow_warning) { //& (status.read().kind.as_ref().is_some_and(|k| k != &IrrigationStatusKind::WarningLow)) {    
                                     o_ds = Some(DisplayStatus {indicator: Indicator::Yellow, msg: Some(format!("Warning: Moisture LOW{}", moisture))} );
+                                    status.write().kind == Some(IrrigationStatusKind::WarningLow);
                                 }
-                                else { 
+                                else { // if (status.read().kind.as_ref().is_some_and(|k| k != &IrrigationStatusKind::Ok)) {   
                                     o_ds = Some(DisplayStatus {indicator: Indicator::Green, msg: Some(format!("Moisture {}", moisture))} );
+                                    status.write().kind == Some(IrrigationStatusKind::Ok);
                                 }
                             },
                             _ => () 
@@ -167,67 +177,12 @@ impl Runner {
 }
 
 
-
-// let set_and_send = |indicator:Indicator, msg:Option<String> | {
-//     let ds = DisplayStatus { indicator, msg };
-//     *&mut status.write().disp = ds.clone(); 
-//     &to_status_subscribers.send(ZoneDisplay::Irrigation { id, info: ds });        
-// };
-// Ok(data) = rx.recv() => {
-//     println!("\tMoisture: {:?}", data);
-//     match data {
-//         (id, None) => {
-//             set_and_send(Indicator::Red, Some(format!("No data from moisture sensor")) );
-//         }
-//         (id, Some(moisture)) if !(moisture.between(settings.moisture_high_red_warning, settings.moisture_low_red_warning)) => {   
-//             to_manager.send(ZoneUpdate::Irrigation{id, moisture}).await;
-//             set_and_send(Indicator::Red, Some(format!("Moisture: {}", moisture)));
-//         },
-//         (id, Some(moisture)) if !(moisture.between(settings.moisture_high_yellow_warning, settings.moisture_low_yellow_warning)) => {   
-//             to_manager.send(ZoneUpdate::Irrigation{id, moisture}).await;
-//             set_and_send(Indicator::Yellow, Some(format!("Moisture: {}", moisture)));
-//         },
-//         (id, Some(moisture)) if moisture < settings.moisture_limit_water => {
-//             to_manager.send(ZoneUpdate::Irrigation{id, moisture}).await;
-//         },
-//         _ => () 
-//     }
-//     to_logger.send(ZoneLog::Irrigation{id: data.0, moisture: data.1, status: None }).await;
-// }
-
-
-
-// match data {
-//     (id, None) => {
-//         o_ds = Some(DisplayStatus {indicator: Indicator::Red, msg: Some(format!("No data from moisture sensor"))} );
-//     },
-//     (id, Some(moisture)) => {
-//         if moisture < settings.moisture_limit_water {
-//             to_manager.send(ZoneUpdate::Irrigation{id, moisture}).await;
-//         }
-//         if (moisture < settings.moisture_low_red_warning) &
-//             (status.read().disp.indicator != Indicator::Red) {   
-//             o_ds = Some(DisplayStatus {indicator: Indicator::Red, msg: Some(format!("Alert: Moisture HIGH {}", moisture))} );
-//         } 
-//         else if (moisture > settings.moisture_high_red_warning) &
-//            (status.read().disp.indicator != Indicator::Red) {   
-//             o_ds = Some(DisplayStatus {indicator: Indicator::Red, msg: Some(format!("Alert: Moisture LOW {}", moisture))} );
-//         }
-//         else if (moisture < settings.moisture_low_yellow_warning) &
-//             (status.read().disp.indicator != Indicator::Red) & 
-//             (status.read().disp.indicator != Indicator::Yellow) {  
-//                  o_ds = Some(DisplayStatus {indicator: Indicator::Yellow, msg: Some(format!("Warning: Moisture {}", moisture))} );
-//             }
-//         else if !(moisture.between(settings.moisture_high_yellow_warning, settings.moisture_low_yellow_warning)) &
-//                 (status.read().disp.indicator != Indicator::Red) & 
-//                 (status.read().disp.indicator != Indicator::Yellow) {  
-//             o_ds = Some(DisplayStatus {indicator: Indicator::Yellow, msg: Some(format!("Warning: Moisture {}", moisture))} );
-//         }
-//         else if (status.read().disp.indicator != Indicator::Red) &
-//                 (status.read().disp.indicator != Indicator::Yellow) &
-//                 (status.read().disp.indicator != Indicator::Green)  { 
-//             o_ds = Some(DisplayStatus {indicator: Indicator::Green, msg: Some(format!("Moisture {}", moisture))} );
-//         }
-//     },
-//     _ => () 
-// }
+#[derive(Clone, Debug, PartialEq)]
+enum IrrigationStatusKind {
+    AlertLow,
+    AlertHigh,
+    WarningLow,
+    WarningHigh,
+    Ok,
+    NoData,
+}

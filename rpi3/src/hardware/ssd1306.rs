@@ -8,7 +8,7 @@ use tokio_util::sync::CancellationToken;
 
 use rppal::gpio::{Gpio, OutputPin, Trigger};
 use rppal::hal::Timer;
-
+use async_trait::async_trait;
 use core::fmt::Write;
 use embedded_graphics::{
     mono_font::{ascii::*, MonoTextStyle, MonoTextStyleBuilder},
@@ -24,6 +24,7 @@ use ssd1306::{command, mode::TerminalMode, prelude::*, I2CDisplayInterface, Ssd1
 use grow::ops::TextDisplay;
 
 pub struct Oled {}
+#[async_trait]
 impl TextDisplay for Oled {
     fn init(
         &mut self,

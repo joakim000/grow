@@ -16,22 +16,13 @@ use tokio::task::JoinHandle;
 
 #[derive(Clone, Debug)]
 pub enum ZoneCmd {
-    // Air {id: u8, info: DisplayStatus},
-    // Aux {id: u8, info: DisplayStatus},
-    Light {
-        id: u8,
-        sender: broadcast::Sender<(u8, bool)>,
-    },
-    // Irrigation {id: u8, info: DisplayStatus},
-    Arm {
-        id: u8,
-        sender: broadcast::Sender<ArmCmd>,
-    },
-    Pump {
-        id: u8,
-        sender: broadcast::Sender<(u8, PumpCmd)>,
-    },
-    // Tank {id: u8, info: DisplayStatus},
+    // Air { id: u8, sender: broadcast::Sender<AirCmd>, },
+    // Aux { id: u8, sender: broadcast::Sender<AuxCmd>, },
+    Light { id: u8, sender: broadcast::Sender<(u8, bool)>, },
+    // Irrigation { id: u8, sender: broadcast::Sender<IrrigationCmd>, },
+    Arm { id: u8, sender: broadcast::Sender<ArmCmd>, },
+    Pump { id: u8, sender: broadcast::Sender<(u8, PumpCmd)>, },
+    // Tank { id: u8, sender: broadcast::Sender<(u8, TankCmd)>, },
 }
 
 pub fn collect_cmd_senders(mut house: HouseMutex) -> Vec<ZoneCmd> {
@@ -202,13 +193,30 @@ pub fn manual_cmds(
                     }
                     tokio::task::yield_now().await;
                 }
+                line if line.contains("calibx") => {
+                    {
+                        let mut lock = house.lock().await;
+                        let result = lock.arm_calibrate_x(1).await;
+                        println!("Calibrated X from: {:?}", result);
+                    }
+                    tokio::task::yield_now().await;
+                }
+                line if line.contains("caliby") => {
+                    {
+                        let mut lock = house.lock().await;
+                        let result = lock.arm_calibrate_y(1).await;
+                        println!("Calibrated Y from: {:?}", result);
+                    }
+                    tokio::task::yield_now().await;
+                }
+               
+                
+                // Special commands
                 line if line.contains("remote") => {
                     // Connect to remote
                     let _ = manager.lock().await.position_from_rc(1).await;
                     tokio::task::yield_now().await;
                 }
-                
-                // Special commands
                 line if line.contains("l") => {
                    // TODO list commands
                 }

@@ -28,7 +28,9 @@ impl Conf {
                     zone::air::Settings {
                         temp_fan_low: 25.0,
                         temp_fan_high: 30.0,
-                        temp_warning: 35.0,
+                        temp_high_yellow_warning: 35.0,
+                        temp_high_red_alert: 40.0,
+                        fan_rpm_low_red_alert: 10.0,
                     },
                 ));
         h.zones.push(zone::irrigation::new(

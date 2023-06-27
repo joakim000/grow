@@ -1,7 +1,5 @@
 use grow::zone;
-use grow::zone::Handles;
 
-// use anyhow;
 use core::time::Duration;
 use rppal::gpio::InputPin;
 use std::time::Instant;
@@ -159,10 +157,12 @@ impl PwmFan {
                         if (rpm - previous).abs() >= FAN_1_DELTA {
                             previous = rpm;
                             tx.send((id, fan_rpm));
+                            // println!("sent rpm: {:?}", &fan_rpm);
                         }
                     }
                     None => {
                         tx.send((id, fan_rpm));
+                        // println!("sent rpm: {:?}", &fan_rpm);
                     }
                 }
                 tokio::time::sleep(Duration::from_secs(DELAY_FAN_1)).await;
@@ -177,7 +177,7 @@ impl PwmFan {
         let pwm = self.pwm_channel.clone();
         Ok(tokio::spawn(async move {
             while let Ok(data) = rx.recv().await {
-                println!("Received fansetting: {:?}", data);
+                // println!("Received fansetting: {:?}", data);
                 match data {
                     FanSetting::Off => {
                         let _ = pwm.lock().unwrap().set_duty_cycle(0.0);
@@ -185,9 +185,9 @@ impl PwmFan {
                     FanSetting::Low => {
                         let _ = pwm.lock().unwrap().set_duty_cycle(0.2);
                     }
-                    // FanSetting::Medium => {
-                    //     let _ = pwm.lock().unwrap().set_duty_cycle(0.5);
-                    // }
+                    FanSetting::Medium => {
+                        let _ = pwm.lock().unwrap().set_duty_cycle(0.5);
+                    }
                     FanSetting::High => {
                         let _ = pwm.lock().unwrap().set_duty_cycle(1.0);
                     }

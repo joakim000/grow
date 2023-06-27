@@ -93,6 +93,9 @@ pub trait Arm : Send + Sync {
     fn stop_y(&self) -> Result<(), Box<dyn Error>>;
     async fn update_pos(&self) -> Result<(), Box<dyn Error>>;
     fn position(&self) -> Result<((i32, i32, i32)), Box<dyn Error>>;
+    async fn calibrate_x(&self) -> Result<(i32, i32, i32), Box<dyn Error>>;
+    async fn calibrate_y(&self) -> Result<(i32, i32, i32), Box<dyn Error>>;
+    async fn calibrate_both_ends(&self) -> Result<(), Box<dyn Error>>;
 }
 
 impl Debug for dyn Arm {

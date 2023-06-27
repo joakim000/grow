@@ -111,7 +111,7 @@ impl Runner {
                 tokio::select! {
                     Ok(data) = rx.recv() => {
                         let mut o_ds: Option<DisplayStatus> = None;
-                        println!("Tank: {:?}", data);
+                        // println!("Tank: {:?}", data);
                         match data {
                             (id, None) => {
                                 o_ds = Some(DisplayStatus {indicator: Indicator::Red, msg: Some(format!("No data from tank sensor"))} );

@@ -13,6 +13,7 @@ use grow::ops::Board;
 use parking_lot::RwLock;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
+use async_trait::async_trait;
 
 #[repr(u8)]
 #[derive(Debug)]
@@ -44,6 +45,7 @@ pub struct Shiftreg {
     blink: bool,
     cancel: CancellationToken,
 }
+#[async_trait]
 impl Board for Shiftreg {
     fn init(
         &mut self,
@@ -51,21 +53,23 @@ impl Board for Shiftreg {
     ) -> Result<(), Box<dyn Error>> {
         // self.blink_all(Duration::from_millis(1000), Duration::from_millis(1000));
 
-        let cancel = self.cancel.clone();
-        let reg = self.reg.clone();
-        let shutdown_task = tokio::spawn(async move {
-            tokio::select! {
-                _ = cancel.cancelled() => {
-                    println!("Cancel token: shut down shiftreg");
-                    reg.write().output_clear();
-                    reg.write().disable_output();
-                }
-            }
-        });
+        println!("********** Shiftreg init ***********");
+
+        // let cancel = self.cancel.clone();
+        // let reg = self.reg.clone();
+        // let shutdown_task = tokio::spawn(async move {
+        //     tokio::select! {
+        //         _ = cancel.cancelled() => {
+        //             println!("Cancel token: shut down shiftreg");
+        //             reg.write().output_clear();
+        //             reg.write().disable_output();
+        //         }
+        //     }
+        // });
         Ok(())
     }
 
-    fn set(&mut self, zones: Vec<ZoneDisplay>) -> Result<(), Box<dyn Error>> {
+    async fn set(&mut self, zones: Vec<ZoneDisplay>) -> Result<(), Box<dyn Error>> {
         let mut led_byte = 0;
 
         let mut irrigation_lit = false;
@@ -177,7 +181,11 @@ impl Board for Shiftreg {
                 _ => continue,
             }
         }
-        println!("\tLoading board byte: {:b}", &led_byte);
+        // println!("\tLoading board byte: {:b}", &led_byte);
+        self.reg.write().load(led_byte);
+        sleep(Duration::from_millis(200));
+        self.reg.write().load(led_byte);
+        sleep(Duration::from_millis(200));
         self.reg.write().load(led_byte);
         Ok(())
     }
@@ -247,18 +255,35 @@ impl Shiftreg {
         reg.enable_output();
         reg.output_clear();
 
-        // let mut sr = ShiftRegister::new(sr_enable, sr_data, sr_reset, sr_clk, sr_latch);
-        let mut s = Self {
-            // let reg: ShiftRegister::new(sr_enable, sr_data, sr_reset, sr_clk, sr_latch),
-            reg: Arc::new(RwLock::new(reg)),
+        let reg_rw = Arc::new(RwLock::new(reg));
+
+        let reg_clone = reg_rw.clone();
+        let cancel_clone = cancel.clone();
+        let shutdown_task = tokio::spawn(async move {
+            tokio::select! {
+                _ = cancel_clone.cancelled() => {
+                    println!("Cancel token: shut down shiftreg");
+                    reg_clone.write().output_clear();
+                    reg_clone.write().disable_output();
+                }
+            }
+        });
+
+        // let mut s = Self {
+        //     reg: reg_rw,
+        //     current: 0b00000000,
+        //     blink: false,
+        //     cancel,
+        // };
+        // s
+
+        Self {
+            reg: reg_rw,
             current: 0b00000000,
             blink: false,
             cancel,
-        };
+        }
 
-       
-
-        s
     }
 }
 

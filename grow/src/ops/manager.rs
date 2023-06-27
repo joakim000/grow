@@ -28,34 +28,7 @@ use super::remote::*;
 use crate::zone::irrigation::arm::Arm;
 use super::input::ButtonPanel;
 
-// pub struct Runner {
-//     house: Vec<Zone>,
-
-// }
-
-
-// pub fn create_manager_channels() -> (TxToManagerChannels, RxInManagerChannels) {
-//     let (irrigation_tx, mut irrigation_rx) = mpsc::channel::<(u8, f32)>(128);
-
-//     let tx_to_manager = TxToManagerChannels {
-//         irrigation: irrigation_tx,
-//     };
-
-//     let rx_in_manager = RxInManagerChannels {
-//         irrigation: irrigation_rx,
-//     };
-
-//     (tx_to_manager, rx_in_manager)
-// }
-// #[derive(Clone, Debug, )]
-// pub struct TxToManagerChannels {
-//     pub irrigation: mpsc::Sender<(u8, f32)>,
-// }
-// #[derive(Debug, )]
-// pub struct RxInManagerChannels {
-//     pub irrigation: mpsc::Receiver<(u8, f32)>,
-// }
-
+#[derive(Debug, )]
 enum RcModeExit {
     Confirm,
     Cancel,
@@ -63,8 +36,6 @@ enum RcModeExit {
     SwitchFromPositionMode,
     ElseExit
 }
-
-
 #[derive(Debug, )]
 pub struct Manager {
     house: HouseMutex,
@@ -96,11 +67,12 @@ impl Manager {
 
     pub fn init(&mut self, mut from_zones: ZoneChannelsRx, ops_tx: OpsChannelsTx,  mut ops_rx:OpsChannelsRx,
             selfmutex: crate::ManagerMutex) -> () {
-        let (log_enable_tx, mut log_enable_rx) = tokio::sync::watch::channel(true);
+        let (log_enable_tx, mut log_enable_rx) = tokio::sync::watch::channel(false);
         self.log_enable = Some(log_enable_tx);
 
         let manager_mutex = selfmutex.clone();
         let to_log = ops_tx.syslog.clone();
+        
         let log_handler = tokio::spawn(async move {
             let mut enabled = *log_enable_rx.borrow(); 
             to_log.send(SysLog {msg: format!("Spawned log handler")}).await;
@@ -118,11 +90,17 @@ impl Manager {
                     Some(data) = from_zones.zonelog.recv() => {
                         if enabled { 
                             let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
-                            println!("{} {:?}", now.format(&Rfc2822).expect("Time formatting error"), &data); 
+                            println!("{} {}", now.format(&Rfc2822).expect("Time formatting error"), &data); 
                         }
                     }
                     Ok(data) = from_zones.zonestatus.recv() => {
-                        { manager_mutex.lock().await.update_board().await;}
+                        if true { 
+                            let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
+                            println!("{} {}", now.format(&Rfc2822).expect("Time formatting error"), &data); 
+                        }
+                        { 
+                            manager_mutex.lock().await.update_board().await;
+                        }
                     }
                     else => { break }
                 };

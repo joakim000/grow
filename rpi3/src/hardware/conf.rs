@@ -18,7 +18,6 @@ pub const PULSES_PER_ROTATION: f32 = 4.0;
 pub const PWM_FREQ_FAN_1: f64 = 25000.0; // PWM frequency target 25 kHz
 pub const PWM_FAN_1: rppal::pwm::Channel = rppal::pwm::Channel::Pwm0;
 pub const PWM_POLARITY_FAN_1: rppal::pwm::Polarity = rppal::pwm::Polarity::Inverse;
-pub const FAN_1_DELTA: f32 = 50f32;
 
 // I2C
 pub const ADC_1_ADDR: u16 = 0x48;
@@ -40,8 +39,13 @@ pub const PUMP_ADDR: u8 = 0x02; // Ext hub port C
 pub const TANK_SENSOR_ADDR: u8 = 0x03; // Ext hub port D
 
 // Poll intervals
-pub const DELAY_TEMP_1: u64 = 10;
-pub const DELAY_MOIST_1: u64 = 10;
-pub const DELAY_MOIST_2: u64 = 10;
-pub const DELAY_LIGHT_1: u64 = 2;
+pub const DELAY_TEMP_1: u64 = 7;
+pub const DELAY_MOIST_1: u64 = 9;
+pub const DELAY_MOIST_2: u64 = 11;
+pub const DELAY_LIGHT_1: u64 = 5;
 pub const DELAY_FAN_1: u64 = 2;
+
+// Report delta
+pub const FAN_1_DELTA: f32 = 20f32;
+pub const LIGHT_1_DELTA: f32 = 5f32;
+pub const MOIST_1_AND_2_DELTA: f32 = 5f32;

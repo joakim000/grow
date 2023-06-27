@@ -1,10 +1,6 @@
-use super::conf::*;
-use pcf8591::{LinuxI2CError, Pin, PCF8591};
 use std::sync::Arc;
 // use tokio::sync::Mutex;
 use core::fmt::Debug;
-use grow::zone;
-use grow::zone::Handles;
 use std::sync::Mutex;
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
@@ -12,25 +8,14 @@ use parking_lot::RwLock;
 use core::error::Error;
 use core::result::Result;
 use core::time::Duration;
-pub type AdcMutex = Arc<Mutex<PCF8591>>;
 use tokio_util::sync::CancellationToken;
+use pcf8591::{LinuxI2CError, Pin, PCF8591};
+
+pub type AdcMutex = Arc<Mutex<PCF8591>>;
+use grow::zone;
 use grow::zone::light::LampState;
+use super::conf::*;
 
-
-// let mut adc_control = PCF8591::new(ADC_1_BUS, ADC_1_ADDR, ADC_1_VREF)?;
-// let temperature_1: f32 = celcius_from_byte(adc_control.analog_read_byte(TEMP_SENSOR_1)? as &f32);
-
-// let light_1: u8 = light_from_byte(adc_control.analog_read_byte(LIGHT_SENSOR_1)? as &u8);
-// let moisture_1: i16 = moist_from_byte(adc_control.analog_read_byte(MOIST_SENSOR_1)? as &i16);
-
-// newtype pattern
-// struct PCF8591Wrapper(PCF8591);
-// impl Debug for PCF8591Wrapper {
-//     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-//         // write!(f, "PCF8591{{{}}}", self.len())
-//         write!(f, "PCF8591")
-//     }
-// }
 
 // #[derive( Debug, )]
 pub struct Adc {
@@ -295,7 +280,8 @@ impl Photoresistor {
                     Ok(raw_reading) => {
                         reading = light_from_byte(raw_reading.into());
                         // println!("Light {:?}   reading {:?}   previous {:?}", &id, &reading, &previous);
-                        if reading != previous {
+                        if (reading - previous).abs() >= LIGHT_1_DELTA {
+                        // if reading != previous {
                             tx.send((id, Some(reading)));
                             previous = reading;
                         }
@@ -372,7 +358,8 @@ impl CapacitiveMoistureSensor {
                     Ok(raw_reading) => {
                         reading = moist_from_byte(raw_reading.into());
                         // println!("Moist {:?}   reading {:?}   previous {:?}", &id, &reading, &previous);
-                        if reading != previous {
+                        if (reading - previous).abs() >= MOIST_1_AND_2_DELTA {
+                        // if reading != previous {
                             tx.send((id, Some(reading)));
                             previous = reading;
                         }

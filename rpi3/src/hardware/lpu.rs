@@ -2,14 +2,13 @@ use super::conf::*;
 
 use async_trait::async_trait;
 use grow::ops::display::DisplayStatus;
-
+use core::time::Duration;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 // use std::sync::Mutex;
 use core::error::Error;
-use core::time::Duration;
 use parking_lot::RwLock;
 use tokio::sync::Mutex as TokioMutex;
 use tokio::time::sleep;
@@ -120,6 +119,10 @@ impl Vsensor {
             while let Ok(data) = rx_color.recv().await {
                 // println!("Tank color: {:?} ", data,);
                 match data {
+                    DetectedColor::NoObject => {
+                        tx.send((id, Some(TankLevel::Blue)));
+                        *level.write() = TankLevel::Blue;
+                    }
                     DetectedColor::Blue => {
                         tx.send((id, Some(TankLevel::Green)));
                         *level.write() = TankLevel::Green;
@@ -266,6 +269,7 @@ pub struct BrickArm {
     // hub: HubMutex,
     feedback_task: Option<JoinHandle<()>>,
     cmd_task: Option<JoinHandle<()>>,
+    cancel: CancellationToken,
 }
 #[async_trait]
 impl zone::irrigation::arm::Arm for BrickArm {
@@ -280,12 +284,12 @@ impl zone::irrigation::arm::Arm for BrickArm {
         rx_cmd: tokio::sync::broadcast::Receiver<ArmCmd>,
     ) -> Result<(), Box<dyn Error>> {
         self.feedback_task = Some(
-            self.arm_feedback(tx_axis_x, tx_axis_y)
+            self.arm_feedback(tx_axis_x, tx_axis_y, self.cancel.clone())
                 .await
                 .expect("Error initializing feedback task"),
         );
         self.cmd_task = Some(
-            self.arm_cmd(rx_cmd)
+            self.arm_cmd(rx_cmd, self.cancel.clone())
                 .await
                 .expect("Error initializing cmd task"),
         );
@@ -354,6 +358,115 @@ impl zone::irrigation::arm::Arm for BrickArm {
     fn position(&self) -> Result<((i32, i32, i32)), Box<dyn Error>> {
         Ok((*self.pos_x.read(), *self.pos_y.read(), 0))
     }
+    async fn calibrate_x(&self) -> Result<(i32, i32, i32), Box<dyn Error>> {
+        let cancel = CancellationToken::new();
+        let guard = cancel.clone().drop_guard();
+        let device_x = self.device_x.clone();
+        let device_y = self.device_y.clone();
+        let (tx_axis_x, mut rx_axis_x) = broadcast::channel::<(i8, i32)>(16);
+        let (tx_axis_y, mut rx_axis_y) = broadcast::channel::<(i8, i32)>(16);
+
+        let feedback_task = Some(
+            self.arm_feedback(tx_axis_x, tx_axis_y, cancel.clone())
+                .await
+                .expect("Error initializing feedback task"),
+        );
+        
+        let calibration_task_x = tokio::spawn(async move {
+            device_x.start_speed(-20, 20);
+            sleep(Duration::from_millis(500)).await;
+            loop {
+                tokio::select! {
+                    Ok(data) = rx_axis_x.recv() => {
+                        if (data.0 >= 0) {
+                            device_x.start_power(Power::Brake);
+                            println!("Calib X stopped");
+                            break;
+                        }
+                    }
+                    else => { break }
+                };
+            }
+        });
+        let calibration_task_y = tokio::spawn(async move {
+            // device_y.start_speed(-20, 20);
+            // sleep(Duration::from_millis(500)).await;
+            // loop {
+            //     tokio::select! {
+            //         Ok(data) = rx_axis_y.recv() => {
+            //             if (data.0 >= 0) {
+            //                 device_y.start_power(Power::Brake);
+            //                 break;
+            //             }
+            //         }
+            //         else => { break }
+            //     };
+            // }
+        });
+        tokio::join!(calibration_task_x, calibration_task_y);
+        println!("Calib tasks joined");
+        let before = (*self.pos_x.read(), *self.pos_y.read(), 0);
+        self.device_x.preset_encoder(0);
+        // self.device_y.preset_encoder(0);
+        
+        Ok(before)
+    }
+    async fn calibrate_y(&self) -> Result<(i32, i32, i32), Box<dyn Error>> {
+        let cancel = CancellationToken::new();
+        let guard = cancel.clone().drop_guard();
+        let device_x = self.device_x.clone();
+        let device_y = self.device_y.clone();
+        let (tx_axis_x, mut rx_axis_x) = broadcast::channel::<(i8, i32)>(16);
+        let (tx_axis_y, mut rx_axis_y) = broadcast::channel::<(i8, i32)>(16);
+
+        let feedback_task = Some(
+            self.arm_feedback(tx_axis_x, tx_axis_y, cancel.clone())
+                .await
+                .expect("Error initializing feedback task"),
+        );
+        
+        let calibration_task_x = tokio::spawn(async move {
+            // device_x.start_speed(-20, 20);
+            // sleep(Duration::from_millis(500)).await;
+            // loop {
+            //     tokio::select! {
+            //         Ok(data) = rx_axis_x.recv() => {
+            //             if (data.0 >= 0) {
+            //                 device_x.start_power(Power::Brake);
+            //                 break;
+            //             }
+            //         }
+            //         else => { break }
+            //     };
+            // }
+        });
+        let calibration_task_y = tokio::spawn(async move {
+            device_y.start_speed(-20, 20);
+            sleep(Duration::from_millis(500)).await;
+            loop {
+                tokio::select! {
+                    Ok(data) = rx_axis_y.recv() => {
+                        if (data.0 >= 0) {
+                            device_y.start_power(Power::Brake);
+                            println!("Calib Y stopped");
+                            break;
+                        }
+                    }
+                    else => { break }
+                };
+            }
+        });
+        tokio::join!(calibration_task_x, calibration_task_y);
+        println!("Calib tasks joined");
+        let before = (*self.pos_x.read(), *self.pos_y.read(), 0);
+        // self.device_x.preset_encoder(0);
+        self.device_y.preset_encoder(0);
+        
+        Ok(before)
+    }
+    async fn calibrate_both_ends(&self) -> Result<(), Box<dyn Error>> {
+        Ok(())
+    }
 }
 impl BrickArm {
     pub async fn new(id: u8, hub: HubMutex) -> Self {
@@ -377,11 +490,13 @@ impl BrickArm {
             pos_y: Arc::new(RwLock::new(0)), // get from save
             feedback_task: None,
             cmd_task: None,
+            cancel: CancellationToken::new()
         }
     }
     async fn arm_cmd(
         &self,
         mut rx_cmd: broadcast::Receiver<ArmCmd>,
+        cancel: CancellationToken,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
         let device_x = self.device_x.clone();
@@ -426,41 +541,81 @@ impl BrickArm {
             }
         }))
     }
-    async fn arm_feedback(
+    // async fn arm_feedback_pos_only(
+    //     &self,
+    //     tx_axis_x: tokio::sync::broadcast::Sender<((i8, i32))>,
+    //     tx_axis_y: tokio::sync::broadcast::Sender<((i8, i32))>,
+    // ) -> Result<JoinHandle<()>, Box<dyn Error>> {
+    //     let id = self.id;
+    //     let pos_x = self.pos_x.clone();
+    //     let pos_y = self.pos_y.clone();
+    //     let (mut rx_axis_x, _axis_x_task) = self
+    //         .device_x
+    //         .enable_32bit_sensor(modes::InternalMotorTacho::POS, 1)
+    //         // .await
+    //         .unwrap();
+    //     let (mut rx_axis_y, _axis_y_task) = self
+    //         .device_y
+    //         .enable_32bit_sensor(modes::InternalMotorTacho::POS, 1)
+    //         // .await
+    //         .unwrap();
+    //     Ok(tokio::spawn(async move {
+    //         println!("Spawned arm feedback");
+    //         loop {
+    //             tokio::select! {
+    //                 Ok(data) = rx_axis_x.recv() => {
+    //                     println!("Arm X feedback: {:?} ", data,);
+    //                     if data.len() > 0 {
+    //                         tx_axis_x.send( (0i8, data[0]) );
+    //                         *pos_x.write() = data[0];
+    //                     }
+    //                 }
+    //                 Ok(data) = rx_axis_y.recv() => {
+    //                     println!("Arm Y feedback: {:?} ", data,);
+    //                     if data.len() > 0 {
+    //                         tx_axis_y.send( (0i8, data[0]) );
+    //                         *pos_y.write() = data[0];
+    //                     }
+    //                 }
+    //                 else => { break }
+    //             };
+    //         }
+    //     }))
+    // }
+    async fn arm_feedback (
         &self,
         tx_axis_x: tokio::sync::broadcast::Sender<((i8, i32))>,
         tx_axis_y: tokio::sync::broadcast::Sender<((i8, i32))>,
+        cancel: CancellationToken,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
         let pos_x = self.pos_x.clone();
         let pos_y = self.pos_y.clone();
         let (mut rx_axis_x, _axis_x_task) = self
             .device_x
-            .enable_32bit_sensor(modes::InternalMotorTacho::POS, 1)
-            // .await
+           .motor_combined_sensor_enable(1, 1)
+            .await
             .unwrap();
         let (mut rx_axis_y, _axis_y_task) = self
             .device_y
-            .enable_32bit_sensor(modes::InternalMotorTacho::POS, 1)
-            // .await
+            .motor_combined_sensor_enable(1, 1)
+            .await
             .unwrap();
         Ok(tokio::spawn(async move {
             println!("Spawned arm feedback");
             loop {
                 tokio::select! {
                     Ok(data) = rx_axis_x.recv() => {
-                        println!("Arm X feedback: {:?} ", data,);
-                        if data.len() > 0 {
-                            tx_axis_x.send( (0i8, data[0]) );
-                            *pos_x.write() = data[0];
-                        }
+                            tx_axis_x.send( data );
+                            *pos_x.write() = data.1;
                     }
                     Ok(data) = rx_axis_y.recv() => {
-                        println!("Arm Y feedback: {:?} ", data,);
-                        if data.len() > 0 {
-                            tx_axis_y.send( (0i8, data[0]) );
-                            *pos_y.write() = data[0];
-                        }
+                            tx_axis_y.send( data );
+                            *pos_y.write() = data.1;
+                    }
+                    _ = cancel.cancelled() => {
+                        println!("Arm feedback task canceled");
+                        break;
                     }
                     else => { break }
                 };
@@ -483,7 +638,6 @@ impl zone::auxiliary::AuxDevice for LpuHub {
         &mut self,
         tx_status: tokio::sync::broadcast::Sender<(u8, DisplayStatus)>,
     ) -> Result<(), Box<dyn Error>> {
-        println!("\t\tAUXDEVICE INIT");
         self.feedback_task = Some(
             self.hub_feedback(tx_status)
                 .await

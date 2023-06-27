@@ -22,20 +22,13 @@ use core::fmt::Debug;
 
 pub mod display;
 
-// pub mod warning {
-//     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-//     pub struct Settings {}
-
-//     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-//     pub struct Status {}
-// }
 #[async_trait]
 pub trait Board : Send + Sync {
     fn init(
         &mut self,
         rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
     ) -> Result<(), Box<dyn Error>>;
-    fn set(&mut self, zones: Vec<ZoneDisplay>) -> Result<(), Box<dyn Error>>;
+    async fn set(&mut self, zones: Vec<ZoneDisplay>) -> Result<(), Box<dyn Error>>;
     fn blink_all(&mut self, on: Duration, off: Duration) -> ();
     fn shutdown(&mut self) -> Result<(), Box<dyn Error>>;
 
@@ -45,7 +38,8 @@ impl Debug for dyn Board {
         write!(f, "Indicator board: {{{}}}", 0)
     }
 }
-pub trait TextDisplay : Send {
+#[async_trait]
+pub trait TextDisplay : Send + Sync {
     fn init(
         &mut self,
         rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
@@ -56,11 +50,6 @@ impl Debug for dyn TextDisplay {
         write!(f, "Text display: {{{}}}", 0)
     }
 }
-
-
-
-// pub enum SysLog {
-//     Irrigation{id: u8, moisture: Option<f32>, status: Option<DisplayStatus>},
 
 // }
 #[derive(Clone, Debug,)]
