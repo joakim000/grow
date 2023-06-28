@@ -45,6 +45,7 @@ pub struct Manager {
     remote: Box<dyn RemoteControl>,
     buttons: Box<dyn ButtonPanel>,
     log_enable: Option<watch::Sender<bool>>,
+    status_enable: Option<watch::Sender<bool>>,
     // ops_tx: Option<OpsChannelsTx>,
     ops_tx: OpsChannelsTx,
     zone_tx: ZoneChannelsTx,
@@ -66,7 +67,7 @@ impl Manager {
             remote,
             buttons,
             log_enable: None,
-            // ops_tx: None,
+            status_enable: None,
             ops_tx,
             zone_tx,
         }
@@ -81,12 +82,15 @@ impl Manager {
     ) -> () {
         let (log_enable_tx, mut log_enable_rx) = tokio::sync::watch::channel(false);
         self.log_enable = Some(log_enable_tx);
+        let (status_enable_tx, mut status_enable_rx) = tokio::sync::watch::channel(false);
+        self.status_enable = Some(status_enable_tx);
 
         let manager_mutex = selfmutex.clone();
         let to_log = self.ops_tx.syslog.clone();
 
         let log_handler = tokio::spawn(async move {
-            let mut enabled = *log_enable_rx.borrow();
+            let mut log_enabled = *log_enable_rx.borrow();
+            let mut status_enabled = *status_enable_rx.borrow();
             to_log
                 .send(SysLog {
                     msg: format!("Spawned log handler"),
@@ -95,7 +99,8 @@ impl Manager {
             loop {
                 tokio::select! {
                     Ok(()) = log_enable_rx.changed() => {
-                        enabled = *log_enable_rx.borrow();
+                        log_enabled = *log_enable_rx.borrow();
+                        status_enabled = *status_enable_rx.borrow();
                     }
                     Some(data) = ops_rx.syslog.recv() => {
                         if true {
@@ -104,13 +109,13 @@ impl Manager {
                         }
                     }
                     Some(data) = from_zones.zonelog.recv() => {
-                        if enabled {
+                        if log_enabled {
                             let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
                             println!("{} {}", now.format(&Rfc2822).expect("Time formatting error"), &data);
                         }
                     }
                     Ok(data) = from_zones.zonestatus.recv() => {
-                        if true {
+                        if status_enabled {
                             let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
                             println!("{} {}", now.format(&Rfc2822).expect("Time formatting error"), &data);
                         }
@@ -123,8 +128,10 @@ impl Manager {
             }
         });
 
-        self.display.init();
-        self.display.set(self.zone_tx.zonestatus.subscribe());
+        self.display.init(self.zone_tx.zonestatus.subscribe(), 
+                self.ops_tx.syslog.clone() );
+
+        // self.display.set(self.zone_tx.zonestatus.subscribe());
 
         let to_log = self.ops_tx.syslog.clone();
         let house_mutex = self.house.clone();
@@ -164,6 +171,14 @@ impl Manager {
 
     pub fn log_enable(&self, val: bool) {
         match &self.log_enable {
+            Some(sender) => {
+                sender.send(val);
+            }
+            None => {}
+        }
+    }
+    pub fn status_enable(&self, val: bool) {
+        match &self.status_enable {
             Some(sender) => {
                 sender.send(val);
             }

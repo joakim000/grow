@@ -143,23 +143,23 @@ impl Runner {
 
                                 // Status update
                                 if (moisture < settings.moisture_low_red_alert) { //& (status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::AlertLow)) {
-                                    o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Alert: Moisture LOW {}", moisture) )) );
+                                    o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Moisture LOW {}", moisture) )) );
                                     status.write().kind == Some(WaterStatusKind::AlertLow);
                                 }
                                 else if (moisture > settings.moisture_high_red_alert) { //& !(status.read().kind.as_ref().is_some_and(|k| k == &WaterStatusKind::AlertHigh)) {
-                                    o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Alert: Moisture HIGH {}", moisture) )) );
+                                    o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Moisture HIGH {}", moisture) )) );
                                     status.write().kind == Some(WaterStatusKind::AlertHigh);
                                 }
                                 else if (moisture < settings.moisture_low_yellow_warning)  { //& (status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::WarningLow)) {
-                                    o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("Warning: Moisture LOW {}", moisture) )) );
+                                    o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("Moisture LOW {}", moisture) )) );
                                     status.write().kind == Some(WaterStatusKind::WarningLow);
                                 }
                                 else if (moisture > settings.moisture_high_yellow_warning) { //& (status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::WarningLow)) {
-                                    o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("Warning: Moisture HIGH {}", moisture) )) );
+                                    o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("Moisture HIGH {}", moisture) )) );
                                     status.write().kind == Some(WaterStatusKind::WarningLow);
                                 }
                                 else { // if (status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::Ok)) {
-                                    o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Ok: Moisture {}", moisture) )) );
+                                    o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Moisture {}", moisture) )) );
                                     status.write().kind == Some(WaterStatusKind::Ok);
                                 }
                             },

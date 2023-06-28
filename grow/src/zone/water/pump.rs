@@ -109,7 +109,7 @@ impl Runner {
             loop {
                 tokio::select! {
                     Ok(data) = rx_feedback.recv() => {
-                        println!("\tPump speed: {:?}", data);
+                        // println!("\tPump speed: {:?}", data);
                     }
                     else => { break }
                 };

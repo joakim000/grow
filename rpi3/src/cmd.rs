@@ -35,7 +35,7 @@ pub enum ZoneCmd {
 }
 
 pub fn list_cmds() {
-    println!("board\nupdate\nblink\nlogstart\nlogstop\nmoist\nlight1\ntemp1\nfan1\ntank1\nlamp1on\nlamp1off\nfan1dc\npump1run\npump1\nps\narm1x\narm1y\narmupdate\narmpos\ncalib\ncalibx\ncaliby\nwaterpos\n");
+    println!("board\nupdate\nblink\nlog on\nlog off\nst on\nst off\nmoist\nlight1\ntemp1\nfan1\ntank1\nlamp1on\nlamp1off\nfan1dc\npump1run\npump1\nps\narm1x\narm1y\narmupdate\narmpos\ncalib\ncalibx\ncaliby\nwaterpos\n");
 }
 
 pub fn manual_cmds(
@@ -74,12 +74,20 @@ pub fn manual_cmds(
                     let _ = manager.lock().await.blink().await;
                     tokio::task::yield_now().await;
                 }
-                _line if _line.contains("logstart") => {
+                _line if _line.contains("log on") => {
                     let _ = manager.lock().await.log_enable(true);
                     tokio::task::yield_now().await;
                 }
-                _line if _line.contains("logstop") => {
+                _line if _line.contains("log off") => {
                     let _ = manager.lock().await.log_enable(false);
+                    tokio::task::yield_now().await;
+                }
+                _line if _line.contains("st on") => {
+                    let _ = manager.lock().await.status_enable(true);
+                    tokio::task::yield_now().await;
+                }
+                _line if _line.contains("st off") => {
+                    let _ = manager.lock().await.status_enable(false);
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("remote") => {
@@ -100,12 +108,18 @@ pub fn manual_cmds(
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("waterpos") => {
-                    print!("Show settings from Water zone > ");
-                    let _line: String = read!("{}\n");
-                    let zid = _line.trim().parse::<u8>().unwrap();
+                    // print!("Show settings from Water zone > ");
+                    // let _line: String = read!("{}\n");
+                    // let zid = _line.trim().parse::<u8>().unwrap();
+                    // let mut lock = house.lock().await;
+                    // let response = lock.get_water_settings(zid);
+                    // println!("\tWater zone {} settings: {:#?}", &zid, &response);
+
                     let mut lock = house.lock().await;
-                    let response = lock.get_water_settings(zid);
-                    println!("\tWater zone {} settings: {:#?}", &zid, &response);
+                    let response1 = lock.get_water_settings(1);
+                    let response2 = lock.get_water_settings(2);
+                    println!("\tWater zone 1 settings: {:#?}", &response1);
+                    println!("\tWater zone 2 settings: {:#?}", &response2);
                     tokio::task::yield_now().await;
                 }
 

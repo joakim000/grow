@@ -38,14 +38,14 @@ pub struct Shiftreg {
 }
 #[async_trait]
 impl Board for Shiftreg {
-    fn init(
-        &mut self,
-        rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
-    ) -> Result<(), Box<dyn Error>> {
-        // self.blink_all(Duration::from_millis(1000), Duration::from_millis(1000));
+    // fn init(
+    //     &mut self,
+    //     rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
+    // ) -> Result<(), Box<dyn Error>> {
+    //     // self.blink_all(Duration::from_millis(1000), Duration::from_millis(1000));
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     async fn set(&mut self, zones: Vec<ZoneDisplay>) -> Result<(), Box<dyn Error>> {
         let mut led_byte = 0;

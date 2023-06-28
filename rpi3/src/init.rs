@@ -127,7 +127,7 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
     let manager = Manager::new(
         house_mutex.clone(),
         Box::new(hardware::regshift_leds::Shiftreg::new(cancel.clone())),
-        Box::new(hardware::ssd1306::Oled::new(cancel.clone(), ops_tx.clone())),
+        Box::new(hardware::ssd1306::Oled::new(cancel.clone())),
         Box::new(hardware::lpu_remote::LpuRemote::new(pu, cancel.clone())),
         Box::new(hardware::pushbuttons::PushButtons::new()),
         ops_tx.clone(),

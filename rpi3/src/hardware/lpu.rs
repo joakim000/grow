@@ -16,7 +16,6 @@ use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 
 use lego_powered_up::consts::HubPropertyOperation;
-use lego_powered_up::notifications::HubPropertyValue;
 use lego_powered_up::consts::HubPropertyRef;
 use lego_powered_up::consts::MotorSensorMode;
 use lego_powered_up::consts::{named_port, HubType};
@@ -28,6 +27,7 @@ use lego_powered_up::iodevice::remote::{RcButtonState, RcDevice};
 use lego_powered_up::iodevice::visionsensor::DetectedColor;
 use lego_powered_up::iodevice::visionsensor::VisionSensor;
 use lego_powered_up::iodevice::{hubled::*, motor::*, sensor::*};
+use lego_powered_up::notifications::HubPropertyValue;
 use lego_powered_up::notifications::Power;
 use lego_powered_up::notifications::*;
 use lego_powered_up::HubMutex;
@@ -777,7 +777,7 @@ impl LpuHub {
                                 match property {
                                     HubPropertyValue::Button(state) =>  {
 
-                                    } 
+                                    }
                                     HubPropertyValue::BatteryType(t) => {
 
                                     }
@@ -790,7 +790,7 @@ impl LpuHub {
                                         }
                                         else {
                                             tx.send(( id, DisplayStatus::new(Indicator::Green, Some( format!("Battery: {}%", v) )) ));
-                                        }  
+                                        }
 
                                     }
                                     HubPropertyValue::Rssi(signal) => {
@@ -798,7 +798,7 @@ impl LpuHub {
                                     }
                                     _ => {}
                                 }
-                                    
+
                             }
                             _ => {}
                         }

@@ -165,11 +165,11 @@ impl Runner {
                 tokio::select! {
                     Ok(data) = rx_axis_x.recv() => {
                         status.write().pos_x = data.1;
-                        println!("\tArm X: {:?}", data);
+                        print!("\tX:{:?} ", data);
                     }
                     Ok(data) = rx_axis_y.recv() => {
                         status.write().pos_y = data.1;
-                        println!("\tArm Y: {:?}", data);
+                        print!("\tY:{:?} ", data);
                     }
                     Ok(data) = rx_axis_z.recv() => {
                         status.write().pos_z = data.1;

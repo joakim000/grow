@@ -19,15 +19,15 @@ pub mod remote;
 // mod warning;
 use core::fmt::Debug;
 use tokio::task::JoinHandle;
-
+use zone::ZoneStatusRx;
 pub mod display;
 
 #[async_trait]
 pub trait Board: Send + Sync {
-    fn init(
-        &mut self,
-        rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
-    ) -> Result<(), Box<dyn Error>>;
+    // fn init(
+    //     &mut self,
+    //     rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
+    // ) -> Result<(), Box<dyn Error>>;
     async fn set(&mut self, zones: Vec<ZoneDisplay>) -> Result<(), Box<dyn Error>>;
     fn blink_all(&mut self, on: Duration, off: Duration) -> ();
     fn shutdown(&mut self) -> Result<(), Box<dyn Error>>;
@@ -38,10 +38,18 @@ impl Debug for dyn Board {
     }
 }
 #[async_trait]
-pub trait TextDisplay: Send  {
-    fn init(
-        &mut self,
+pub trait TextDisplay: Send {
+    // fn init(
+        // &mut self,
         // rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
+    // ) -> Result<(), Box<dyn Error>>;
+    fn init(
+        &self,
+        from_zones: ZoneStatusRx,
+        to_syslog: SysLogTx,
+        // mut from_syslog: ,
+        // mutex: DisplayMutex,
+        // display: dyn TextDisplay,
     ) -> Result<(), Box<dyn Error>>;
     fn set(
         &mut self,

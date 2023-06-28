@@ -44,14 +44,14 @@ impl fmt::Display for DisplayStatus {
             None => {
                 write!(
                     f,
-                    "[{:>5}] No message",
+                    "{:>5} No message",
                     self.indicator,
                 )
             }, 
             Some(inner) => {
                 write!(
                     f,
-                    "[{:>5}] {}",
+                    "{:>5} {}",
                     self.indicator,
                     inner,
                 )
