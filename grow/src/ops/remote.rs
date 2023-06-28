@@ -1,15 +1,14 @@
-
-use core::error::Error;
 use alloc::collections::BTreeMap;
 use async_trait::async_trait;
-use tokio::sync::broadcast;
+use core::error::Error;
 use std::sync::Arc;
+use tokio::sync::broadcast;
 // use tokio::sync::Mutex;
-use std::sync::Mutex;
-use core::fmt::Debug;
 use super::Zone;
-use crate::ops::display::{Indicator, DisplayStatus};
-
+use crate::ops::display::{DisplayStatus, Indicator};
+use core::fmt::Debug;
+use std::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum RcInput {
@@ -22,19 +21,28 @@ pub enum RcInput {
     Up,
     UpUp,
 
-    Back,       // Back / Cancel
+    Back, // Back / Cancel
     BackUp,
-    Confirm,    // Forward / Confirm
+    Confirm, // Forward / Confirm
     ConfirmUp,
-    Mode,       // Mode / Menu
+    Mode, // Mode / Menu
     ModeUp,
 
     Exit,
 }
 
 #[derive(Debug)]
+pub enum RcModeExit {
+    Confirm,
+    Cancel,
+    SwitchFromOpsMode,
+    SwitchFromPositionMode,
+    ElseExit,
+}
+
+#[derive(Debug)]
 pub struct Rc {
-    interface: Option<Box<dyn RemoteControl>>
+    interface: Option<Box<dyn RemoteControl>>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -45,14 +53,14 @@ pub struct Status {
 }
 
 #[async_trait]
-pub trait RemoteControl : Send {
+pub trait RemoteControl: Send {
     async fn init(
         &mut self,
         // tx_rc: tokio::sync::broadcast::Sender<RcInput>,
         tx_rc: tokio::sync::mpsc::Sender<RcInput>,
-    ) -> Result<(), Box<dyn Error + '_>>;   
+        cancel: CancellationToken,
+    ) -> Result<(), Box<dyn Error + '_>>;
     // fn read(&self) -> Result<(f32), Box<dyn Error  + '_>>;
-    
 }
 impl Debug for dyn RemoteControl {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -60,8 +68,7 @@ impl Debug for dyn RemoteControl {
     }
 }
 
-
-#[derive(Debug, )]
+#[derive(Debug)]
 pub struct Runner {
     pub tx_from_rc: broadcast::Sender<RcInput>,
     pub tx_to_manager: broadcast::Sender<RcInput>,
@@ -76,15 +83,13 @@ impl Runner {
         }
     }
 
-    pub fn channel(
-        &self,
-    ) -> broadcast::Sender<RcInput> {
+    pub fn channel(&self) -> broadcast::Sender<RcInput> {
         self.tx_from_rc.clone()
     }
 
     pub fn run(&mut self) {
         let mut rx = self.tx_from_rc.subscribe();
-        let tx = self.tx_to_manager.clone();      // Få från manager i init istället
+        let tx = self.tx_to_manager.clone(); // Få från manager i init istället
         self.task = tokio::spawn(async move {
             println!("Spawned remote runner");
             loop {
@@ -101,4 +106,3 @@ impl Runner {
         });
     }
 }
-

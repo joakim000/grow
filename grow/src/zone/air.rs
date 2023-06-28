@@ -2,17 +2,20 @@ use alloc::collections::BTreeMap;
 use async_trait::async_trait;
 use core::error::Error;
 use parking_lot::RwLock;
-use tokio::sync::broadcast;
 use std::sync::Arc;
+use tokio::sync::broadcast;
 // use tokio::sync::Mutex;
-use std::sync::Mutex;
 use core::fmt::Debug;
+use std::sync::Mutex;
+use time::OffsetDateTime;
+
 pub type FanMutex = Arc<Mutex<Box<dyn Fan>>>;
 use super::Zone;
-use crate::ops::display::{Indicator, DisplayStatus};
 use super::*;
+use crate::ops::display::{DisplayStatus, Indicator};
 use crate::ops::OpsChannelsTx;
 use crate::ops::SysLog;
+use crate::TIME_OFFSET;
 
 pub fn new(id: u8, settings: Settings) -> super::Zone {
     let status = Status {
@@ -22,7 +25,8 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
         disp: DisplayStatus {
             indicator: Default::default(),
             msg: None,
-        }
+            changed: OffsetDateTime::UNIX_EPOCH,
+        },
     };
     let status_mutex = Arc::new(RwLock::new(status));
     Zone::Air {
@@ -52,10 +56,9 @@ pub struct Status {
     pub fan_rpm: Option<f32>,
     pub fan_mode: Option<FanSetting>,
     pub disp: DisplayStatus,
-   
 }
 
-#[derive( Debug, )]
+#[derive(Debug)]
 pub struct Interface {
     pub fan: Option<Box<dyn Fan>>,
     pub thermo: Option<Box<dyn Thermometer>>,
@@ -69,18 +72,15 @@ impl Interface {
     // }
 }
 
-
-
-
 #[async_trait]
-pub trait Fan : Send  {
+pub trait Fan: Send {
     fn id(&self) -> u8;
     fn init(
         &mut self,
         tx_rpm: tokio::sync::broadcast::Sender<(u8, Option<f32>)>,
         rx_control: tokio::sync::broadcast::Receiver<FanSetting>,
     ) -> Result<(), Box<dyn Error>>;
-    fn read(&mut self) -> Result<Option<f32>, Box<dyn Error  + '_>>;
+    fn read(&mut self) -> Result<Option<f32>, Box<dyn Error + '_>>;
     fn to_high(&self) -> Result<(), Box<dyn Error + '_>>;
     fn to_low(&self) -> Result<(), Box<dyn Error + '_>>;
     fn set_duty_cycle(&self, duty_cycle: f64) -> Result<(), Box<dyn Error + '_>>;
@@ -90,13 +90,13 @@ impl Debug for dyn Fan {
         write!(f, "Fan: {{{}}}", self.id())
     }
 }
-pub trait Thermometer : Send {
+pub trait Thermometer: Send {
     fn id(&self) -> u8;
     fn init(
         &mut self,
-        tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f64>)>
+        tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f64>)>,
     ) -> Result<(), Box<dyn Error>>;
-    fn read(&self) -> Result<(f64), Box<dyn Error  + '_>>;
+    fn read(&self) -> Result<(f64), Box<dyn Error + '_>>;
 }
 impl Debug for dyn Thermometer {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -104,7 +104,7 @@ impl Debug for dyn Thermometer {
     }
 }
 
-#[derive(Debug, PartialEq, Copy, Clone, PartialOrd, )]
+#[derive(Debug, PartialEq, Copy, Clone, PartialOrd)]
 pub enum FanSetting {
     Off,
     Low,
@@ -112,10 +112,9 @@ pub enum FanSetting {
     High,
     // Low(f32),
     // High(f32),
-
 }
 
-#[derive(Debug, )]
+#[derive(Debug)]
 pub struct Runner {
     id: u8,
     tx_fan_control: broadcast::Sender<FanSetting>,
@@ -144,50 +143,57 @@ impl Runner {
     ) {
         (self.tx_fan_rpm.clone(), self.tx_fan_control.subscribe())
     }
-    pub fn thermo_feedback_sender(
-        &self,
-    ) -> broadcast::Sender<(u8, Option<f64>)> {
+    pub fn thermo_feedback_sender(&self) -> broadcast::Sender<(u8, Option<f64>)> {
         self.temp.clone()
     }
 
-    pub fn run(&mut self, settings: Settings, zone_channels: ZoneChannelsTx, ops_channels: OpsChannelsTx) {
+    pub fn run(
+        &mut self,
+        settings: Settings,
+        zone_channels: ZoneChannelsTx,
+        ops_channels: OpsChannelsTx,
+    ) {
         let id = self.id;
         let to_manager = zone_channels.zoneupdate;
-        let to_status_subscribers = zone_channels.zonestatus; 
+        let to_status_subscribers = zone_channels.zonestatus;
         let to_logger = zone_channels.zonelog;
         let to_syslog = ops_channels.syslog;
         let status = self.status.clone();
         let mut rx_rpm = self.tx_fan_rpm.subscribe();
         let mut rx_temp = self.temp.subscribe();
         let tx_fan = self.tx_fan_control.clone();
-        // let mut current_fan_mode = FanSetting::Off;
         let mut requested_fan_mode: FanSetting = FanSetting::Off;
+        
         self.task = tokio::spawn(async move {
-            // println!("Spawned air runner");
-            to_syslog.send(SysLog::new(format!("Spawned air runner id {}", &id))).await;
-            let set_and_send = |ds: DisplayStatus | {
-                *&mut status.write().disp = ds.clone(); 
-                &to_status_subscribers.send(ZoneDisplay::Air { id, info: ds });        
+            to_syslog
+                .send(SysLog::new(format!("Spawned air runner id {}", &id)))
+                .await;
+            let set_and_send = |ds: DisplayStatus| {
+                *&mut status.write().disp = ds.clone();
+                &to_status_subscribers.send(ZoneDisplay::Air { id, info: ds });
             };
-            set_and_send( DisplayStatus {indicator: Indicator::Green, msg: Some(format!("Air running"))} );
+            set_and_send(DisplayStatus::new(Indicator::Green, Some( format!("Air running") )) );
+
+            // Workaround for temp and fan statuses overlappning in this zone. Not sure if zone should be refactored or DisplayStatus system, probably the latter.
+            // let buf_temp = 0f64;
+            // let buf_rpm: f32 = 0f32;
             loop {
                 tokio::select! {
                     Ok(data) = rx_rpm.recv() => {
-                        println!("\tFan rpm: {:?}", data);
+                        // println!("\tFan rpm: {:?}", data);
                         let mut o_ds: Option<DisplayStatus> = None;
                         match data {
                             (id, None) => {
                                 if (status.read().fan_rpm.is_some()) {
-                                    o_ds = Some(DisplayStatus {indicator: Indicator::Red, msg: Some(format!("No fan rpm data"))} );
-                                    status.write().fan_rpm = data.1;            
+                                    o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("No fan rpm data") )) );
+                                    status.write().fan_rpm = data.1;
                                 }
                             }
                             (id, Some(rpm)) if rpm < settings.fan_rpm_low_red_alert => {
-                                o_ds = Some(DisplayStatus {indicator: Indicator::Red, msg: Some(format!("Fan LOW: {} rpm", rpm))} );
-                                
+                                o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Fan LOW: {:.0} rpm", rpm) )) );
                             }
                             (id, Some(rpm)) if (status.read().disp.indicator != Indicator::Green) => {
-                                o_ds = Some(DisplayStatus {indicator: Indicator::Green, msg: Some(format!("Fan ok: {} C", rpm))} );
+                                o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Fan ok: {:.0} rpm", rpm) )) );
                             }
                             _ => {}
                         }
@@ -205,29 +211,28 @@ impl Runner {
                         status.write().temp = data.1;
                         match data {
                             (id, None) => {
-                                o_ds = Some(DisplayStatus {indicator: Indicator::Red, msg: Some(format!("No data from thermometer"))} );
+                                o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("No data from thermometer") )) );
                             }
                             (id, Some(temp)) => {
                                 // Fan control
                                 if temp > settings.temp_fan_high.into() { requested_fan_mode = FanSetting::High }
                                 else if temp > settings.temp_fan_low.into() { requested_fan_mode = FanSetting::Low }
                                 else { requested_fan_mode = FanSetting::Off; }
-                                
+
                                 // Status from temperature
                                 if temp > settings.temp_high_red_alert {
-                                    o_ds = Some(DisplayStatus {indicator: Indicator::Red, msg: Some(format!("Temp alert: {} C", &temp))} );
+                                    o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Temp alert: {:.1}°C", &temp) )) );
                                 }
                                 else if temp > settings.temp_high_yellow_warning {
-                                    o_ds = Some(DisplayStatus {indicator: Indicator::Yellow, msg: Some(format!("Temp warning: {} C", &temp))} );
+                                    o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("Temp warning: {:.1}°C", &temp) )) );
                                 }
-                                else if (status.read().disp.indicator != Indicator::Green) {
-                                    o_ds = Some(DisplayStatus {indicator: Indicator::Green, msg: Some(format!("Temp ok: {} C", &temp))} );
+                                else {
+                                    o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Temp ok: {:.1}°C", &temp) )) );
                                 }
                             }
                         }
 
                         let current_mode = status.read().fan_mode;
-                        // if (status.read().fan_mode.expect("Fan mode not found").is_s) 
                         if !(current_mode.is_some_and(|x|x == requested_fan_mode))  {
                             match tx_fan.send(requested_fan_mode) {
                                 Ok(_) => {
@@ -236,7 +241,6 @@ impl Runner {
                                 },
                                 Err(e) => {
                                     to_syslog.send(SysLog::new(format!("Air {} fan error: {:?}", &id, e))).await;
-                                    // eprintln!("Fan control error: {:?}", e);
                                 }
                             }
                         }
@@ -254,4 +258,3 @@ impl Runner {
         });
     }
 }
-

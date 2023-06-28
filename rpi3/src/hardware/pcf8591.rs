@@ -1,28 +1,27 @@
 use std::sync::Arc;
 // use tokio::sync::Mutex;
+use core::error::Error;
 use core::fmt::Debug;
+use core::result::Result;
+use core::time::Duration;
+use parking_lot::RwLock;
+use pcf8591::{LinuxI2CError, Pin, PCF8591};
 use std::sync::Mutex;
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
-use parking_lot::RwLock;
-use core::error::Error;
-use core::result::Result;
-use core::time::Duration;
 use tokio_util::sync::CancellationToken;
-use pcf8591::{LinuxI2CError, Pin, PCF8591};
 
 pub type AdcMutex = Arc<Mutex<PCF8591>>;
+use super::conf::*;
 use grow::zone;
 use grow::zone::light::LampState;
-use super::conf::*;
-
 
 // #[derive( Debug, )]
 pub struct Adc {
     mutex: AdcMutex,
 }
 impl Adc {
-    pub fn new() -> Self {
+    pub fn new(cancel: CancellationToken) -> Self {
         let control = PCF8591::new(ADC_1_BUS, ADC_1_ADDR, ADC_1_VREF).unwrap();
         let mutex = Arc::new(Mutex::new(control));
         let adc = mutex.clone();
@@ -98,7 +97,6 @@ impl zone::light::Lamp for Led {
     fn state(&self) -> Result<LampState, Box<dyn Error>> {
         Ok((*self.state.read()))
     }
-   
 }
 impl Debug for Led {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -111,7 +109,7 @@ impl Led {
             id,
             adc,
             control_task: None,
-            state: Arc::new(RwLock::new(LampState::Off)), 
+            state: Arc::new(RwLock::new(LampState::Off)),
         }
     }
     fn lamp_control(
@@ -281,7 +279,7 @@ impl Photoresistor {
                         reading = light_from_byte(raw_reading.into());
                         // println!("Light {:?}   reading {:?}   previous {:?}", &id, &reading, &previous);
                         if (reading - previous).abs() >= LIGHT_1_DELTA {
-                        // if reading != previous {
+                            // if reading != previous {
                             tx.send((id, Some(reading)));
                             previous = reading;
                         }
@@ -303,7 +301,7 @@ pub struct CapacitiveMoistureSensor {
     adc: AdcMutex,
     feedback_task: Option<JoinHandle<()>>,
 }
-impl zone::irrigation::MoistureSensor for CapacitiveMoistureSensor {
+impl zone::water::MoistureSensor for CapacitiveMoistureSensor {
     fn id(&self) -> u8 {
         self.id
     }
@@ -359,7 +357,7 @@ impl CapacitiveMoistureSensor {
                         reading = moist_from_byte(raw_reading.into());
                         // println!("Moist {:?}   reading {:?}   previous {:?}", &id, &reading, &previous);
                         if (reading - previous).abs() >= MOIST_1_AND_2_DELTA {
-                        // if reading != previous {
+                            // if reading != previous {
                             tx.send((id, Some(reading)));
                             previous = reading;
                         }
@@ -388,10 +386,10 @@ fn celcius_from_byte(value: f64) -> f64 {
 }
 fn moist_from_byte(value: u8) -> f32 {
     // 115 = 100% moist, 215 = 0% moist
-    // moist at 4v: 41-174                                  255-41=214  255-174=81  
-    // (0f32 - value as f32 + 215f32)    
+    // moist at 4v: 41-174                                  255-41=214  255-174=81
+    // (0f32 - value as f32 + 215f32)
     // value as f32
-    (255f32 - value as f32) - 75f32         // Värden från ca 5 - 140                
+    (255f32 - value as f32) - 75f32 // Värden från ca 5 - 140
 }
 fn light_from_byte(value: u8) -> f32 {
     // 15(240) = dark, 40 = 5v LED up close, 208(47) = very light,

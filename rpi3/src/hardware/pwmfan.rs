@@ -192,7 +192,7 @@ impl PwmFan {
                         let _ = pwm.lock().unwrap().set_duty_cycle(1.0);
                     }
                 }
-                println!("Current duty cycle: {:?}", pwm.lock().unwrap().duty_cycle());
+                // println!("Current duty cycle: {:?}", pwm.lock().unwrap().duty_cycle());
             }
         }))
     }
@@ -210,7 +210,7 @@ impl PwmFan {
                 Some(_level) => pulse_start = Instant::now(),
             },
             Err(err) => {
-                println!("Error reading rpm: {}", err);
+                eprintln!("Error reading rpm: {}", err);
             }
         };
         let rpm_pulse = pin.poll_interrupt(true, Some(Duration::from_millis(100)));
@@ -220,7 +220,7 @@ impl PwmFan {
                 Some(_level) => pulse_duration = pulse_start.elapsed(),
             },
             Err(err) => {
-                println!("Error reading rpm: {}", err);
+                eprintln!("Error reading rpm: {}", err);
             }
         };
         match fan_pulse_detected {
@@ -232,15 +232,5 @@ impl PwmFan {
             ),
             false => None,
         }
-        // if fan_pulse_detected {
-        //     fan_rpm = Some(
-        //         (Duration::from_secs(60).as_micros() as f32
-        //             / pulse_duration.as_micros() as f32
-        //             / PULSES_PER_ROTATION)
-        //             .round(),
-        //     );
-        // } else {
-        //     fan_rpm = None;
-        // }
     }
 }

@@ -1,29 +1,33 @@
-/// Enable any auxiliary equipment to provide status (ex. UPS, servo controller)
-/// Example rpi3 uses this for alerts and updates from Lego hub  
 
-use core::error::Error;
+/// Enable any auxiliary equipment to provide status (eg. UPS, servo controller...)
+/// Example 'rpi3' uses this for alerts and updates from Lego hub  
+
 use alloc::collections::BTreeMap;
 use async_trait::async_trait;
+use core::error::Error;
 use parking_lot::RwLock;
 use std::ops::Deref;
-use tokio::sync::broadcast;
 use std::sync::Arc;
+use tokio::sync::broadcast;
 // use tokio::sync::Mutex;
-use std::sync::Mutex;
 use core::fmt::Debug;
+use std::sync::Mutex;
+use time::OffsetDateTime;
+
 use super::Zone;
 use super::*;
-use crate::ops::display::{Indicator, DisplayStatus};
+use crate::ops::display::{DisplayStatus, Indicator};
 use crate::ops::OpsChannelsTx;
 use crate::ops::SysLog;
-
+use crate::TIME_OFFSET;
 
 pub fn new(id: u8, settings: Settings) -> super::Zone {
-    let status = Status { 
+    let status = Status {
         disp: DisplayStatus {
             indicator: Default::default(),
             msg: None,
-        }
+            changed: OffsetDateTime::UNIX_EPOCH,
+        },
     };
     let status_mutex = Arc::new(RwLock::new(status));
     Zone::Aux {
@@ -31,9 +35,7 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
         settings,
         runner: Runner::new(id, status_mutex.clone()),
         status: status_mutex,
-        interface: Interface {
-            aux_device: None,
-        },
+        interface: Interface { aux_device: None },
     }
 }
 
@@ -45,19 +47,19 @@ pub struct Status {
     pub disp: DisplayStatus,
 }
 
-#[derive(Debug, )]
+#[derive(Debug)]
 pub struct Interface {
     pub aux_device: Option<Box<dyn AuxDevice>>,
 }
 
 #[async_trait]
-pub trait AuxDevice : Send + Sync {
+pub trait AuxDevice: Send + Sync {
     fn id(&self) -> u8;
     async fn init(
         &mut self,
-        tx: tokio::sync::broadcast::Sender<(u8, DisplayStatus)>
+        tx: tokio::sync::broadcast::Sender<(u8, DisplayStatus)>,
     ) -> Result<(), Box<dyn Error>>;
-    fn read(&self) -> Result<String, Box<dyn Error  + '_>>;
+    fn read(&self) -> Result<String, Box<dyn Error + '_>>;
 }
 impl Debug for dyn AuxDevice {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -65,8 +67,7 @@ impl Debug for dyn AuxDevice {
     }
 }
 
-
-#[derive(Debug, )]
+#[derive(Debug)]
 pub struct Runner {
     id: u8,
     tx_aux: broadcast::Sender<(u8, DisplayStatus)>,
@@ -83,27 +84,37 @@ impl Runner {
         }
     }
 
-    pub fn aux_feedback_sender(
-        &self,
-    ) -> broadcast::Sender<(u8, DisplayStatus)> {
+    pub fn aux_feedback_sender(&self) -> broadcast::Sender<(u8, DisplayStatus)> {
         self.tx_aux.clone()
     }
 
-    pub fn run(&mut self, settings: Settings, zone_channels: ZoneChannelsTx, ops_channels: OpsChannelsTx) {
+    pub fn run(
+        &mut self,
+        settings: Settings,
+        zone_channels: ZoneChannelsTx,
+        ops_channels: OpsChannelsTx,
+    ) {
         let id = self.id;
         let to_manager = zone_channels.zoneupdate;
-        let to_status_subscribers = zone_channels.zonestatus; 
+        let to_status_subscribers = zone_channels.zonestatus;
         let to_logger = zone_channels.zonelog;
         let to_syslog = ops_channels.syslog;
         let mut rx = self.tx_aux.subscribe();
         let status = self.status.clone();
         self.task = tokio::spawn(async move {
-            to_syslog.send(SysLog::new(format!("Spawned irrigation runner id {}", &id))).await;
-            let set_and_send = |ds: DisplayStatus | {
-                *&mut status.write().disp = ds.clone(); 
-                &to_status_subscribers.send(ZoneDisplay::Aux { id, info: ds });        
+            to_syslog
+                .send(SysLog::new(format!("Spawned water runner id {}", &id)))
+                .await;
+            let set_and_send = |ds: DisplayStatus| {
+                *&mut status.write().disp = ds.clone();
+                &to_status_subscribers.send(ZoneDisplay::Aux { id, info: ds });
             };
-            set_and_send( DisplayStatus {indicator: Indicator::Green, msg: Some(format!("Aux running"))} );
+            set_and_send(DisplayStatus::new(Indicator::Green, Some( format!("Aux running") )) );
+            // set_and_send(DisplayStatus {
+                // indicator: Indicator::Green,
+                // msg: Some(format!("Aux running")),
+                // changed: OffsetDateTime::now_utc().to_offset(TIME_OFFSET),
+            // });
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {
@@ -112,7 +123,7 @@ impl Runner {
                                 set_and_send(display_status.clone());
                                 to_logger.send(ZoneLog::Aux{id: data.0, changed_status: Some(display_status) }).await;
                             },
-                            _ => () 
+                            _ => ()
                         }
                     }
                     else => { break }

@@ -1,15 +1,13 @@
-
-use core::error::Error;
 use alloc::collections::BTreeMap;
 use async_trait::async_trait;
-use tokio::sync::broadcast;
+use core::error::Error;
 use std::sync::Arc;
+use tokio::sync::broadcast;
 // use tokio::sync::Mutex;
-use std::sync::Mutex;
-use core::fmt::Debug;
 use super::Zone;
-use crate::ops::display::{Indicator, DisplayStatus};
-
+use crate::ops::display::{DisplayStatus, Indicator};
+use core::fmt::Debug;
+use std::sync::Mutex;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ButtonInput {
@@ -19,7 +17,7 @@ pub enum ButtonInput {
 
 #[derive(Debug)]
 pub struct Buttons {
-    interface: Option<Box<dyn ButtonPanel>>
+    interface: Option<Box<dyn ButtonPanel>>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -29,14 +27,13 @@ pub struct Status {
     pub disp: DisplayStatus,
 }
 
-pub trait ButtonPanel : Send {
+pub trait ButtonPanel: Send {
     // fn id(&self) -> u8;
     fn init(
         &mut self,
         tx_rc: tokio::sync::broadcast::Sender<ButtonInput>,
-    ) -> Result<(), Box<dyn Error>>;   
+    ) -> Result<(), Box<dyn Error>>;
     // fn read(&self) -> Result<(f32), Box<dyn Error  + '_>>;
-    
 }
 impl Debug for dyn ButtonPanel {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -44,8 +41,7 @@ impl Debug for dyn ButtonPanel {
     }
 }
 
-
-#[derive(Debug, )]
+#[derive(Debug)]
 pub struct Runner {
     pub tx_from_rc: broadcast::Sender<ButtonInput>,
     pub tx_to_manager: broadcast::Sender<ButtonInput>,
@@ -60,15 +56,13 @@ impl Runner {
         }
     }
 
-    pub fn channel(
-        &self,
-    ) -> broadcast::Sender<ButtonInput> {
+    pub fn channel(&self) -> broadcast::Sender<ButtonInput> {
         self.tx_from_rc.clone()
     }
 
     pub fn run(&mut self) {
         let mut rx = self.tx_from_rc.subscribe();
-        let tx = self.tx_to_manager.clone();      // Få från manager i init istället
+        let tx = self.tx_to_manager.clone(); // Få från manager i init istället
         self.task = tokio::spawn(async move {
             println!("Spawned remote runner");
             loop {
@@ -85,4 +79,3 @@ impl Runner {
         });
     }
 }
-

@@ -27,7 +27,8 @@ pub const LIGHT_SENSOR: [Pin; 1] = [Pin::AIN0];
 pub const TEMP_SENSOR: [Pin; 1] = [Pin::AIN1];
 pub const MOIST_SENSOR: [Pin; 2] = [Pin::AIN2, Pin::AIN3];
 
-pub const DISPLAY_BUS: &str = "/dev/i2c-1";
+// pub const DISPLAY_BUS: &str = "/dev/i2c-1";
+pub const DISPLAY_BUS: u8 = 1;
 pub const DISPLAY_ADDR: u16 = 0xc3;
 
 // LPU
@@ -46,6 +47,7 @@ pub const DELAY_LIGHT_1: u64 = 5;
 pub const DELAY_FAN_1: u64 = 2;
 
 // Report delta
+pub const TEMP_1_DELTA: f32 = 0.5f32;
 pub const FAN_1_DELTA: f32 = 20f32;
 pub const LIGHT_1_DELTA: f32 = 5f32;
 pub const MOIST_1_AND_2_DELTA: f32 = 5f32;

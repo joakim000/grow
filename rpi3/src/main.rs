@@ -64,31 +64,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // OLED
     // oled::test_oled();
 
-    
     tokio::select! {
         _ = signal::ctrl_c() => {},
         _ = shutdown_recv.recv() => {},
     }
     // Cleanup
     cancel_token.cancel();
-    println!("Main cancel token cancelled!");
+    println!("Start shutdown procedure");
     cmd_task.unwrap().abort();
     sleep(Duration::from_millis(1500)).await;
-
-    // lpu_hub.lock().await.disconnect().await;
-
-    // led_task.abort();
-    // let led_byte = 0b00000000;
-    // {
-    //     let mut lock =
-    //         sr_mutex_2.lock().unwrap();
-    //     lock.load(led_byte);
-    //     lock.output_clear();
-    //     lock.disable_output();
-    // }
-    // sr.load(led_byte);
-    // sr.output_clear();
-    // sr.disable_output();
 
     println!("Cleanup successful");
     Ok(())

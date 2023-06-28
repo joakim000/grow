@@ -17,9 +17,9 @@ use tokio_util::sync::CancellationToken;
 
 use lego_powered_up::consts::{named_port, HubType};
 use lego_powered_up::iodevice::remote::{RcButtonState, RcDevice};
+use lego_powered_up::notifications::HubAction;
 use lego_powered_up::ConnectedHub;
 use lego_powered_up::IoDevice;
-use lego_powered_up::notifications::HubAction;
 
 pub struct LpuRemote {
     hub: Option<ConnectedHub>,
@@ -30,9 +30,9 @@ pub struct LpuRemote {
 impl RemoteControl for LpuRemote {
     async fn init(
         &mut self,
-        // tx_rc: tokio::sync::broadcast::Sender<RcInput>,
         tx_rc: tokio::sync::mpsc::Sender<RcInput>,
-    ) -> Result<(), Box<dyn Error + '_>> {              // TODO Return shutdown-task?
+        cancel: CancellationToken,
+    ) -> Result<(), Box<dyn Error + '_>> {
         let mut lock = self.pu.lock().await;
         println!("Waiting for hub...");
         // let hub = lock.wait_for_hub().await?;
@@ -49,35 +49,44 @@ impl RemoteControl for LpuRemote {
         //         .expect("Error setting up hub"),
         // );
 
-        println!("RC hub setup, setting up device...");
+        // println!("RC hub setup, setting up device...");
 
         // Set up RC input
         let rc: IoDevice;
         {
-            println!("Req rchub lock");
-            let lock = self.hub.as_mut().expect("ConnectedHub not found").mutex.lock().await;
-            println!("Got rchub lock");
+            let lock = self
+                .hub
+                .as_mut()
+                .expect("ConnectedHub not found")
+                .mutex
+                .lock()
+                .await;
             rc = lock.io_from_port(named_port::A)?;
             // println!("RC device: {:?}", rc);
         }
         println!("Setting up device and channel");
         let (mut rx_rc, _rc_task) = rc.remote_connect_with_green()?;
         println!("Starting feedback task");
-        // self.feedback_task = Some(
-        let feedback_task =
-            self.rc_feedback(tx_rc, rx_rc)
-                // .await
-                .expect("Error initializing feedback task");
-        
-        let hub_clone = self.hub.as_ref().expect("No connected hub").mutex.clone();
-        let shutdown_task = tokio::spawn(async move {
-            feedback_task.await;
-            println!("RC feedback task exited, shutting down RC hub");
-            hub_clone.lock().await.hub_action(HubAction::Shutdown).expect("Error on hub shutdown action");
-            println!("RC hub shutdown action sent");
-        });
 
-        println!("Returning from remote.init()");
+        let hub_clone = self.hub.as_ref().expect("No connected hub").mutex.clone();
+        let feedback_task = self
+            .rc_feedback(tx_rc, rx_rc, cancel, hub_clone)
+            // .await
+            .expect("Error initializing feedback task");
+
+        // let shutdown_task = tokio::spawn(async move {
+        // feedback_task.await;
+        // println!("RC feedback task exited, shutting down RC hub");
+        // hub_clone
+        //     .lock()
+        //     .await
+        //     // .hub_action(HubAction::Shutdown)
+        //     // .expect("Error on hub shutdown action");
+        //     .disconnect().await
+        //     .expect("Error on hub disconnect");;
+        // println!("RC hub shutdown action sent");
+        // });
+
         Ok(())
     }
 }
@@ -94,16 +103,25 @@ impl LpuRemote {
         &self,
         tx: mpsc::Sender<RcInput>,
         mut rx: broadcast::Receiver<RcButtonState>,
+        cancel: CancellationToken,
+        hub: HubMutex,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
-        // let id = self.id;
         let mut red_down = (false, false);
         Ok(tokio::spawn(async move {
             println!("Spawned RC feedback");
             loop {
                 tokio::select! {
-                    _ = tx.closed() => { 
-                        println!("Managers' RC receiver dropped, exit RC feedback task");
-                        break; 
+                    _ = tx.closed() => {
+                        // Managers' RC receiver dropped, shutdown RC hub and exit RC feedback task
+                        hub
+                        .lock()
+                        .await
+                        // .hub_action(HubAction::Shutdown)
+                        // .expect("Error on hub shutdown action");
+                        .disconnect().await
+                        .expect("Error on hub disconnect");;
+                        println!("RC hub shutdown action sent");
+                        break;
                     }
 
                     Ok(data) = rx.recv() => {
@@ -111,45 +129,43 @@ impl LpuRemote {
                         match data {
                             RcButtonState::Aup => {
                                 red_down.0 = false;
-                                tx.send(RcInput::LeftUp).await;
-                                let res = tx.send(RcInput::RightUp).await;
-                                tx.send(RcInput::BackUp).await;
-                                // println!("Send RcInput::Aup: {:?}", res);
+                                let _ = tx.send(RcInput::LeftUp).await;
+                                let _ = tx.send(RcInput::RightUp).await;
+                                let _ = tx.send(RcInput::BackUp).await;
                             }
                             RcButtonState::Aplus => {
-                                tx.send(RcInput::Right).await;
+                                let _ = tx.send(RcInput::Right).await;
                             }
                             RcButtonState::Ared => {
                                 red_down.0 = true;
-                                let res = tx.send(RcInput::Back).await;
-                                // println!("Send RcInput::Back: {:?}", res);
+                                let _ =  tx.send(RcInput::Back).await;
                             }
                             RcButtonState::Aminus => {
-                                tx.send(RcInput::Left).await;
+                                let _ = tx.send(RcInput::Left).await;
                             }
                             RcButtonState::Bup => {
                                 red_down.1 = false;
-                                tx.send(RcInput::DownUp).await;
-                                tx.send(RcInput::UpUp).await;
-                                tx.send(RcInput::ConfirmUp).await;
+                                let _ = tx.send(RcInput::DownUp).await;
+                                let _ = tx.send(RcInput::UpUp).await;
+                                let _ = tx.send(RcInput::ConfirmUp).await;
                             }
                             RcButtonState::Bplus => {
-                                tx.send(RcInput::Up).await;
+                                let _ = tx.send(RcInput::Up).await;
                             }
                             RcButtonState::Bred => {
                                 red_down.1 = true;
-                                tx.send(RcInput::Confirm).await;
+                                let _ = tx.send(RcInput::Confirm).await;
                             }
                             RcButtonState::Bminus => {
-                                tx.send(RcInput::Down).await;
+                                let _ = tx.send(RcInput::Down).await;
                             }
                             RcButtonState::Green => {
-                                tx.send(RcInput::Mode).await;
+                                let _ = tx.send(RcInput::Mode).await;
                             }
                             RcButtonState::GreenUp => {}
                         }
                         if red_down == (true, true) {
-                            tx.send(RcInput::Exit).await;
+                            let _ = tx.send(RcInput::Exit).await;
                         }
                     }
                     else => { break; }
@@ -157,21 +173,17 @@ impl LpuRemote {
             }
         }))
     }
-
 }
-
-
-
 
 // loop {
 //     tokio::select! {
-//         _ = tx.closed() => { 
+//         _ = tx.closed() => {
 //             println!("Managers' RC receiver dropped, exit RC feedback task");
-//             break; 
+//             break;
 //         }
 
 //         Ok(data) = rx.recv() => {
-         
+
 //         }
 //         else => { break; }
 //     };

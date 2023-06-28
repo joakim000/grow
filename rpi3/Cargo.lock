@@ -252,12 +252,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cond_utils"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9f40e034e89ee41e710c37288a3198e654433acb8c0960eb3dc64976ec1a2d2"
-
-[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -656,11 +650,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "cond_utils",
  "parking_lot",
  "text_io",
  "time",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]

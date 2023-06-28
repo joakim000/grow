@@ -8,31 +8,22 @@ use rppal::gpio::{Gpio, OutputPin, Trigger};
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
 // use grow::ops::display::DisplayStatus::*;
+use async_trait::async_trait;
 use embedded_hal::digital::v2::OutputPin as HalOutputPin;
 use grow::ops::Board;
 use parking_lot::RwLock;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
-use async_trait::async_trait;
 
 #[repr(u8)]
 #[derive(Debug)]
-// enum Leds {
-//     Blue =          0b00000001,
-//     TankGreen =     0b00000010,
-//     TankYellow =    0b00000100,
-//     TankRed =       0b00001000,
-//     IrrigationRed = 0b00010000,
-//     AirRed =        0b00100000,
-//     LightRed =      0b01000000,
-//     AuxRed =        0b10000000,
-// }
+#[rustfmt::skip]
 enum Leds {
     Blue =          0b10000000,
     TankGreen =     0b01000000,
     TankYellow =    0b00100000,
     TankRed =       0b00010000,
-    IrrigationRed = 0b00001000,
+    WaterRed = 0b00001000,
     AirRed =        0b00000100,
     LightRed =      0b00000010,
     AuxRed =        0b00000001,
@@ -53,32 +44,18 @@ impl Board for Shiftreg {
     ) -> Result<(), Box<dyn Error>> {
         // self.blink_all(Duration::from_millis(1000), Duration::from_millis(1000));
 
-        println!("********** Shiftreg init ***********");
-
-        // let cancel = self.cancel.clone();
-        // let reg = self.reg.clone();
-        // let shutdown_task = tokio::spawn(async move {
-        //     tokio::select! {
-        //         _ = cancel.cancelled() => {
-        //             println!("Cancel token: shut down shiftreg");
-        //             reg.write().output_clear();
-        //             reg.write().disable_output();
-        //         }
-        //     }
-        // });
         Ok(())
     }
 
     async fn set(&mut self, zones: Vec<ZoneDisplay>) -> Result<(), Box<dyn Error>> {
         let mut led_byte = 0;
-
-        let mut irrigation_lit = false;
+        let mut water_lit = false;
         let mut blue_lit = false;
         for z in zones {
             match z {
                 ZoneDisplay::Air {
                     id: 1,
-                    info: DisplayStatus { indicator, msg: _ },
+                    info: DisplayStatus { indicator, .. },
                 } => match indicator {
                     Indicator::Red => led_byte += Leds::AirRed as u8,
                     Indicator::Blue => {
@@ -86,12 +63,12 @@ impl Board for Shiftreg {
                             led_byte += Leds::Blue as u8;
                             blue_lit = true;
                         }
-                    },
+                    }
                     _ => {}
                 },
                 ZoneDisplay::Aux {
                     id: 1,
-                    info: DisplayStatus { indicator, msg: _ },
+                    info: DisplayStatus { indicator, .. },
                 } => match indicator {
                     Indicator::Red => led_byte += Leds::AuxRed as u8,
                     Indicator::Blue => {
@@ -99,12 +76,12 @@ impl Board for Shiftreg {
                             led_byte += Leds::Blue as u8;
                             blue_lit = true;
                         }
-                    },
+                    }
                     _ => {}
                 },
                 ZoneDisplay::Light {
                     id: 1,
-                    info: DisplayStatus { indicator, msg: _ },
+                    info: DisplayStatus { indicator, .. },
                 } => match indicator {
                     Indicator::Red => led_byte += Leds::LightRed as u8,
                     Indicator::Blue => {
@@ -112,48 +89,48 @@ impl Board for Shiftreg {
                             led_byte += Leds::Blue as u8;
                             blue_lit = true;
                         }
-                    },
+                    }
                     _ => {}
                 },
-                ZoneDisplay::Irrigation {
+                ZoneDisplay::Water {
                     id: 1,
-                    info: DisplayStatus { indicator, msg: _ },
+                    info: DisplayStatus { indicator, .. },
                 } => match indicator {
                     Indicator::Red => {
-                        if !irrigation_lit {
-                            led_byte += Leds::IrrigationRed as u8;
-                            irrigation_lit = true;
+                        if !water_lit {
+                            led_byte += Leds::WaterRed as u8;
+                            water_lit = true;
                         }
-                    },
+                    }
                     Indicator::Blue => {
                         if !blue_lit {
                             led_byte += Leds::Blue as u8;
                             blue_lit = true;
                         }
-                    },
+                    }
                     _ => {}
                 },
-                ZoneDisplay::Irrigation {
+                ZoneDisplay::Water {
                     id: 2,
-                    info: DisplayStatus { indicator, msg: _ },
+                    info: DisplayStatus { indicator, .. },
                 } => match indicator {
                     Indicator::Red => {
-                        if !irrigation_lit {
-                            led_byte += Leds::IrrigationRed as u8;
-                            irrigation_lit = true;
+                        if !water_lit {
+                            led_byte += Leds::WaterRed as u8;
+                            water_lit = true;
                         }
-                    },
+                    }
                     Indicator::Blue => {
                         if !blue_lit {
                             led_byte += Leds::Blue as u8;
                             blue_lit = true;
                         }
-                    },
+                    }
                     _ => {}
                 },
                 ZoneDisplay::Pump {
                     id: 1,
-                    info: DisplayStatus { indicator, msg: _ },
+                    info: DisplayStatus { indicator, .. },
                 } => match indicator {
                     // Indicator::Red => {} led_byte += Leds::PumpRed as u8,
                     Indicator::Blue => {
@@ -161,12 +138,12 @@ impl Board for Shiftreg {
                             led_byte += Leds::Blue as u8;
                             blue_lit = true;
                         }
-                    },
+                    }
                     _ => {}
                 },
                 ZoneDisplay::Tank {
                     id: 1,
-                    info: DisplayStatus { indicator, msg: _ },
+                    info: DisplayStatus { indicator, .. },
                 } => match indicator {
                     Indicator::Red => led_byte += Leds::TankRed as u8,
                     Indicator::Yellow => led_byte += Leds::TankYellow as u8,
@@ -176,17 +153,19 @@ impl Board for Shiftreg {
                             led_byte += Leds::Blue as u8;
                             blue_lit = true;
                         }
-                    },
+                    }
                 },
                 _ => continue,
             }
         }
         // println!("\tLoading board byte: {:b}", &led_byte);
         self.reg.write().load(led_byte);
-        sleep(Duration::from_millis(200));
+        sleep(Duration::from_millis(50)).await;
         self.reg.write().load(led_byte);
-        sleep(Duration::from_millis(200));
+        sleep(Duration::from_millis(50)).await;
         self.reg.write().load(led_byte);
+        // sleep(Duration::from_millis(100)).await;
+        // self.reg.write().load(led_byte);
         Ok(())
     }
 
@@ -262,9 +241,9 @@ impl Shiftreg {
         let shutdown_task = tokio::spawn(async move {
             tokio::select! {
                 _ = cancel_clone.cancelled() => {
-                    println!("Cancel token: shut down shiftreg");
                     reg_clone.write().output_clear();
                     reg_clone.write().disable_output();
+                    println!("Shiftreg disabled");
                 }
             }
         });
@@ -283,7 +262,5 @@ impl Shiftreg {
             blink: false,
             cancel,
         }
-
     }
 }
-

@@ -1,40 +1,42 @@
-use core::error::Error;
-use tokio::time::sleep as sleep;
 use alloc::collections::BTreeMap;
 use async_trait::async_trait;
+use core::error::Error;
 use parking_lot::RwLock;
-use tokio::sync::broadcast;
 use std::{sync::Arc, time::Duration};
+use tokio::sync::broadcast;
+use tokio::time::sleep;
 // use tokio::sync::Mutex;
-use std::sync::Mutex;
 use core::fmt::Debug;
+use std::sync::Mutex;
+use time::OffsetDateTime;
+
 use super::Zone;
-use crate::ops::display::{Indicator, DisplayStatus};
 use super::*;
+use crate::ops::display::{DisplayStatus, Indicator};
 use crate::ops::OpsChannelsTx;
 use crate::ops::SysLog;
+use crate::TIME_OFFSET;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum PumpCmd {
     RunForSec(u16),
-    Stop
+    Stop,
 }
 
 pub fn new(id: u8, settings: Settings) -> super::Zone {
-    let status = Status { 
+    let status = Status {
         disp: DisplayStatus {
             indicator: Default::default(),
             msg: None,
-        }    
+            changed: OffsetDateTime::UNIX_EPOCH,
+        },
     };
     let status_mutex = Arc::new(RwLock::new(status));
-    Zone::Pump  {
+    Zone::Pump {
         id,
         settings,
         status: status_mutex,
-        interface: Interface {
-            pump: None,
-        },
+        interface: Interface { pump: None },
         runner: Runner::new(),
     }
 }
@@ -45,29 +47,28 @@ pub struct Settings {
     pub rest_secs: u16,
 }
 
-#[derive(Clone,  Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Status {
     pub disp: DisplayStatus,
 }
 
-#[derive(Debug, )]
+#[derive(Debug)]
 pub struct Interface {
     pub pump: Option<Box<dyn Pump>>,
 }
 
 #[async_trait]
-pub trait Pump : Send + Sync {
+pub trait Pump: Send + Sync {
     fn id(&self) -> u8;
     async fn init(
         &mut self,
         rx_pump: tokio::sync::broadcast::Receiver<(u8, PumpCmd)>,
-        tx_pump: tokio::sync::broadcast::Sender<(u8, (i8, i32) )>
+        tx_pump: tokio::sync::broadcast::Sender<(u8, (i8, i32))>,
     ) -> Result<(), Box<dyn Error>>;
     async fn run_for_secs(&self, secs: u16) -> Result<(), Box<dyn Error>>;
     fn run(&self) -> Result<(), Box<dyn Error>>;
     fn stop(&self) -> Result<(), Box<dyn Error>>;
     fn float(&self) -> Result<(), Box<dyn Error>>;
-   
 }
 impl Debug for dyn Pump {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -75,10 +76,9 @@ impl Debug for dyn Pump {
     }
 }
 
-
-#[derive(Debug, )]
+#[derive(Debug)]
 pub struct Runner {
-    tx_feedback: broadcast::Sender<(u8, (i8, i32) )>,
+    tx_feedback: broadcast::Sender<(u8, (i8, i32))>,
     tx_pumpcmd: broadcast::Sender<(u8, PumpCmd)>,
     task: tokio::task::JoinHandle<()>,
 }
@@ -90,20 +90,14 @@ impl Runner {
             task: tokio::spawn(async move {}),
         }
     }
-    
-    pub fn cmd_sender(
-        &self,
-    ) -> broadcast::Sender<(u8, PumpCmd)> {
+
+    pub fn cmd_sender(&self) -> broadcast::Sender<(u8, PumpCmd)> {
         self.tx_pumpcmd.clone()
     }
-    pub fn cmd_receiver(
-        &self,
-    ) -> broadcast::Receiver<(u8, PumpCmd)> {
+    pub fn cmd_receiver(&self) -> broadcast::Receiver<(u8, PumpCmd)> {
         self.tx_pumpcmd.subscribe()
     }
-    pub fn feedback_sender(
-        &self,
-    ) -> broadcast::Sender<(u8, (i8, i32) )> {
+    pub fn feedback_sender(&self) -> broadcast::Sender<(u8, (i8, i32))> {
         self.tx_feedback.clone()
     }
 
@@ -123,4 +117,3 @@ impl Runner {
         });
     }
 }
-

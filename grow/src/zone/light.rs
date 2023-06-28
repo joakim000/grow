@@ -1,30 +1,33 @@
-use core::error::Error;
 use alloc::collections::BTreeMap;
 use async_trait::async_trait;
+use core::error::Error;
 use parking_lot::RwLock;
-use tokio::sync::broadcast;
 use std::sync::Arc;
+use tokio::sync::broadcast;
 // use tokio::sync::Mutex;
-use std::sync::Mutex;
 use core::fmt::Debug;
+use std::sync::Mutex;
+use time::OffsetDateTime;
+
 use super::Zone;
-use crate::ops::display::{Indicator, DisplayStatus};
 use super::*;
+use crate::ops::display::{DisplayStatus, Indicator};
 use crate::ops::OpsChannelsTx;
 use crate::ops::SysLog;
-
+use crate::TIME_OFFSET;
 
 pub fn new(id: u8, settings: Settings) -> super::Zone {
-    let status = Status { 
+    let status = Status {
         lamp_state: Some(LampState::Off),
         light_level: None,
         disp: DisplayStatus {
-                indicator: Default::default(),
-                msg: None,
-            },
+            indicator: Default::default(),
+            msg: None,
+            changed: OffsetDateTime::UNIX_EPOCH,
+        },
         kind: None,
-       };
-       let status_mutex = Arc::new(RwLock::new(status));
+    };
+    let status_mutex = Arc::new(RwLock::new(status));
     Zone::Light {
         id,
         settings,
@@ -51,12 +54,11 @@ pub struct Status {
     kind: Option<LightStatusKind>,
 }
 
-#[derive( Debug, )]
+#[derive(Debug)]
 pub struct Interface {
     pub lamp: Option<Box<dyn Lamp>>,
     pub lightmeter: Option<Box<dyn Lightmeter>>,
 }
-
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LampState {
@@ -64,16 +66,14 @@ pub enum LampState {
     Off,
 }
 
-
-pub trait Lamp : Send {
+pub trait Lamp: Send {
     fn id(&self) -> u8;
     fn init(
         &mut self,
-        rx_lamp: tokio::sync::broadcast::Receiver<(u8, bool)>
+        rx_lamp: tokio::sync::broadcast::Receiver<(u8, bool)>,
     ) -> Result<(), Box<dyn Error>>;
     fn set_state(&self, state: LampState) -> Result<(), Box<dyn Error + '_>>;
     fn state(&self) -> Result<LampState, Box<dyn Error>>;
-
 }
 impl Debug for dyn Lamp {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -81,15 +81,13 @@ impl Debug for dyn Lamp {
     }
 }
 
-
-pub trait Lightmeter : Send {
+pub trait Lightmeter: Send {
     fn id(&self) -> u8;
     fn init(
         &mut self,
-        tx_light: tokio::sync::broadcast::Sender<(u8, Option<f32>)>
-    ) -> Result<(), Box<dyn Error>>;   
-    fn read(&self) -> Result<(f32), Box<dyn Error  + '_>>;
-    
+        tx_light: tokio::sync::broadcast::Sender<(u8, Option<f32>)>,
+    ) -> Result<(), Box<dyn Error>>;
+    fn read(&self) -> Result<(f32), Box<dyn Error + '_>>;
 }
 impl Debug for dyn Lightmeter {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -97,8 +95,7 @@ impl Debug for dyn Lightmeter {
     }
 }
 
-
-#[derive(Debug, )]
+#[derive(Debug)]
 pub struct Runner {
     id: u8,
     status: Arc<RwLock<Status>>,
@@ -117,37 +114,39 @@ impl Runner {
         }
     }
 
-    pub fn lightmeter_feedback_sender(
-        &self,
-    ) -> broadcast::Sender<(u8, Option<f32>)> {
+    pub fn lightmeter_feedback_sender(&self) -> broadcast::Sender<(u8, Option<f32>)> {
         self.tx_lightmeter.clone()
     }
-    pub fn lamp_cmd_receiver(
-        &self,
-    ) -> broadcast::Receiver<(u8, bool)> {
+    pub fn lamp_cmd_receiver(&self) -> broadcast::Receiver<(u8, bool)> {
         self.tx_lamp.subscribe()
     }
-    pub fn lamp_cmd_sender(
-        &self,
-    ) -> broadcast::Sender<(u8, bool)> {
+    pub fn lamp_cmd_sender(&self) -> broadcast::Sender<(u8, bool)> {
         self.tx_lamp.clone()
     }
 
-    pub fn run(&mut self, settings: Settings, zone_channels: ZoneChannelsTx, ops_channels: OpsChannelsTx) {
+    pub fn run(
+        &mut self,
+        settings: Settings,
+        zone_channels: ZoneChannelsTx,
+        ops_channels: OpsChannelsTx,
+    ) {
         let id = self.id;
         let to_manager = zone_channels.zoneupdate;
-        let to_status_subscribers = zone_channels.zonestatus; 
+        let to_status_subscribers = zone_channels.zonestatus;
         let to_logger = zone_channels.zonelog;
         let to_syslog = ops_channels.syslog;
         let mut rx = self.tx_lightmeter.subscribe();
         let status = self.status.clone();
+
         self.task = tokio::spawn(async move {
-            to_syslog.send(SysLog::new(format!("Spawned light runner id {}", &id))).await;
-            let set_and_send = |ds: DisplayStatus | {
-                *&mut status.write().disp = ds.clone(); 
-                &to_status_subscribers.send(ZoneDisplay::Light { id, info: ds });        
+            to_syslog
+                .send(SysLog::new(format!("Spawned light runner id {}", &id)))
+                .await;
+            let set_and_send = |ds: DisplayStatus| {
+                *&mut status.write().disp = ds.clone();
+                &to_status_subscribers.send(ZoneDisplay::Light { id, info: ds });
             };
-            set_and_send( DisplayStatus {indicator: Indicator::Green, msg: Some(format!("Light running"))} );
+            set_and_send(DisplayStatus::new(Indicator::Green, Some( format!("Light running") )) );
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {
@@ -156,32 +155,27 @@ impl Runner {
                         let state = status.read().lamp_state.expect("Lamp status error");
                         match data {
                             (id, None) => {
-                                o_ds = Some(DisplayStatus {indicator: Indicator::Red, msg: Some(format!("No data from lightmeter"))} );
+                                o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("No data from lightmeter") )));
                             },
-                            (id, Some(lightlevel)) => { 
-                                // if (status.read().lamp_state.expect("Lamp status error") == LampState::Off)  {
-                                if (&state == &LampState::Off) { // & (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OffOk)) {  
-                                    o_ds = Some(DisplayStatus {indicator: Indicator::Green, 
-                                        msg: Some(format!("Light {} (lamp OFF)", lightlevel))} );
+                            (id, Some(lightlevel)) => {
+                                if (&state == &LampState::Off) { // & (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OffOk)) {
+                                    o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Lamp OFF Ambient: {}", lightlevel) )) );
                                     status.write().kind == Some(LightStatusKind::OffOk);
                                 }
                                 else if (lightlevel < settings.lightlevel_low_red_alert) { // & (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OnAlert)) {
-                                    o_ds = Some(DisplayStatus {indicator: Indicator::Red, 
-                                        msg: Some(format!("Alert: {} (lamp ON)", lightlevel))} );
+                                    o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Lamp ON Alert: {}", lightlevel) )) );
                                     status.write().kind == Some(LightStatusKind::OnAlert);
                                 }
                                 else if (lightlevel < settings.lightlevel_low_yellow_warning) { //& (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OnWarning)) {
-                                    o_ds = Some(DisplayStatus {indicator: Indicator::Yellow, 
-                                        msg: Some(format!("Warning: {} (lamp ON)", lightlevel))} );
+                                    o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("Lamp ON Warning: {}", lightlevel) )) );
                                     status.write().kind == Some(LightStatusKind::OnWarning);
                                 }
                                 else { // if (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OnOk)) {
-                                    o_ds = Some(DisplayStatus {indicator: Indicator::Green, 
-                                        msg: Some(format!("Ok: {} (lamp ON)", lightlevel))} );
+                                    o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Lamp ON Ok: {}", lightlevel) )) );
                                     status.write().kind == Some(LightStatusKind::OnOk);
                                 }
                             },
-                            _ => () 
+                            _ => ()
                         }
                         to_logger.send(ZoneLog::Light {id: data.0, lamp_on: Some(state), light_level: data.1, changed_status: o_ds.clone() }).await;
                         match o_ds {
