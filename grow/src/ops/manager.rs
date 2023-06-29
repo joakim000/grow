@@ -234,15 +234,7 @@ impl Manager {
                 })
                 .await;
             let mut arm_o: Option<Arc<&(dyn Arm + '_)>> = None;
-            // let mut arm_o: Option<Arc<Box<(dyn Arm + '_)>>> = None;
-            // let mut arm_o: Option<Arc<&Box<dyn Arm>>> = None;
             let arm: Arc<&(dyn Arm + '_)>;
-            
-            // let arm: Arc<&(dyn Arm + '_)>;
-
-            // let arm_clone: Arc<&(dyn Arm + '_)>;
-            // let mut arm_o: Option<&(dyn Arm + '_)> = None;
-            // let arm: &dyn Arm;
             {
                 let mut lock = mutex.lock().await;
                 for z in lock.zones() {
@@ -254,28 +246,12 @@ impl Manager {
                             interface,
                             runner: _,
                         } if id == &zid => {
-                            // let arm = Arc::new(interface.arm.as_deref().expect("Interface not found"));
-                            // arm_o = Some(interface.arm.as_deref().expect("Interface not found"));
                             arm_o = Some(Arc::new(interface.arm.as_deref().expect("Interface not found")));
-                            // arm_o = Some(Arc::new(Box::new(*interface.arm.as_deref().expect("Interface not found"))));
-
-                            // arm_o = Some(Arc::new(Box::new(*interface.arm.as_deref().expect("Interface not found"))));
-                            // arm_o = Some(Arc::new(interface.arm.as_ref().expect("Interface not found")));
-                            // let foo = Some(Arc::new(interface.arm.as_ref().expect("Interface not found")));
                         }
                         _ => continue,
                     }
                 }
-
-                // {
-                //     println!("House lock status b4 loop: {:?}", mutex.try_lock());
-                // }
-
-                // arm = arm_o.expect("Zone not found");
                 let arm = arm_o.expect("Zone not found");
-                // arm = arm_original.clone();
-            
-
                 loop {
                     tokio::select! {
                         Some(data) = rc_rx.recv() => {
@@ -309,8 +285,6 @@ impl Manager {
                                 RcInput::Exit => {
                                     break RcModeExit::Cancel;
                                 }
-
-
                                 RcInput::ConfirmUp => {
                                 }
                                 RcInput::DownUp | RcInput::UpUp => {
@@ -326,7 +300,16 @@ impl Manager {
                 }
             }  
         });
-        let exit_kind = position_finder.await.expect("Position finder error");
+        // let exit_kind = position_finder.await.expect("Position finder error");
+        let exit_kind = match position_finder.await {
+            Ok(exitmode) => {
+                Some(exitmode)
+            },
+            Err(e) => {
+                eprintln!("Position finder error: {}", e);
+                None
+            }
+        };
         println!("RC mode exit kind: {:?}", &exit_kind);
         self.ops_tx
             .syslog
@@ -346,7 +329,7 @@ impl Manager {
 
         /// Exit mode from RC-loop determines what to do next
         match exit_kind {
-            RcModeExit::Confirm => {
+            Some(RcModeExit::Confirm) => {
                 self.ops_tx
                     .syslog
                     .send(SysLog {
@@ -358,7 +341,7 @@ impl Manager {
                 // println!("Water pos NOT set");
                 Some(pos)
             }
-            RcModeExit::Cancel => {
+            Some(RcModeExit::Cancel) => {
                 self.ops_tx
                     .syslog
                     .send(SysLog {
@@ -367,7 +350,7 @@ impl Manager {
                     .await;
                 None
             }
-            RcModeExit::SwitchFromPositionMode => {
+            Some(RcModeExit::SwitchFromPositionMode) => {
                 self.ops_tx
                     .syslog
                     .send(SysLog {
@@ -376,7 +359,7 @@ impl Manager {
                     .await;
                 None
             }
-            RcModeExit::SwitchFromOpsMode => {
+            Some(RcModeExit::SwitchFromOpsMode) => {
                 self.ops_tx
                     .syslog
                     .send(SysLog {
@@ -385,7 +368,7 @@ impl Manager {
                     .await;
                 None
             }
-            RcModeExit::ElseExit => {
+            Some(RcModeExit::ElseExit) => {
                 self.ops_tx
                     .syslog
                     .send(SysLog {
@@ -394,8 +377,7 @@ impl Manager {
                     .await;
                 None
             }
-
-            _ => None,
+            None => None,
         }
     }
 }
