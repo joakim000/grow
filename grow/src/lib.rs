@@ -1,14 +1,13 @@
 #![feature(error_in_core)]
+#![feature(async_closure)]
 
 extern crate alloc;
 use core::error::Error;
 pub type BoxResult<T> = core::result::Result<T, Box<dyn Error>>;
 use std::sync::Arc;
 use ops::SysLog;
-use ops::remote::RcInput;
 use tokio::sync::Mutex;
 use zone::ZoneDisplay;
-use zone::arm::Arm;
 use zone::{arm::ArmCmd, pump::PumpCmd, Zone};
 // use std::sync::Mutex;
 use crate::ops::OpsChannelsTx;
@@ -22,7 +21,6 @@ pub mod zone;
 use zone::light::LampState;
 use zone::tank::TankLevel;
 use zone::*;
-use ops::remote::RcModeExit;
 
 pub type HouseMutex = Arc<Mutex<House>>;
 pub type ManagerMutex = Arc<Mutex<ops::manager::Manager>>;
@@ -47,6 +45,7 @@ impl House {
     pub fn zones(&mut self) -> &mut Vec<Zone> {
         &mut self.zones
     }
+    // Macro candidate
     pub async fn init(&mut self,) -> () {
         let zone_channels = self.zone_tx.clone();
         let ops_channels = self.ops_tx.clone();
@@ -183,6 +182,7 @@ impl House {
                 } // _ => ()
             }
         }
+        let _ = self.ops_tx.syslog.send(SysLog::new(format!("House zones initiated"))).await;
     }
 
     // Macro candidate
@@ -302,88 +302,7 @@ impl House {
         // dbg!(&r);
         r
     }
-    // pub fn set_water_position_from_rc(&mut self, zid: u8,  mut rc_rx: mpsc::Receiver<RcInput> ) -> (i32, i32, i32) {
-    //     let mut arm_o: Option<Arc<&(dyn Arm + '_)>> = None;
-    //     let arm: Arc<&(dyn Arm + '_)>;
-    //     for z in self.zones() {
-    //         match z {
-    //             Zone::Arm {
-    //                 id,
-    //                 settings: _,
-    //                 status: _,
-    //                 interface,
-    //                 runner: _,
-    //             } if id == &zid => {
-    //                 // let arm = Arc::new(interface.arm.as_deref().expect("Interface not found"));
-    //                 // arm_o = Some(interface.arm.as_deref().expect("Interface not found"));
-    //                 arm_o = Some(Arc::new(interface.arm.as_deref().expect("Interface not found")));
-    //             }
-    //             _ => continue,
-    //         }
-    //     }
-    //     arm = arm_o.expect("Zone not found");
-    //     let to_log = self.ops_tx.syslog.clone();
-    //     let position_finder = tokio::spawn(async move {
-    //         let _ = to_log
-    //             .send(SysLog::new(
-    //                 format!("Spawned position finder"),
-    //             ))
-    //             .await;
-    //         loop {
-    //             tokio::select! {
-    //                 Some(data) = rc_rx.recv() => {
-    //                     match data {
-    //                         RcInput::LeftUp | RcInput::RightUp => {
-    //                             arm.stop_x();
-    //                         }
-    //                         RcInput::DownUp | RcInput::UpUp => {
-    //                             arm.stop_y();
-    //                         }
-    //                         RcInput::Left => {
-    //                             arm.start_x(-20);
-    //                         }
-    //                         RcInput::Right => {
-    //                             arm.start_x(20);
-    //                         }
-    //                         RcInput::Up => {
-    //                             arm.start_y(80);
-    //                         }
-    //                         RcInput::Down => {
-    //                             arm.start_y(-80);
-    //                         }
-    //                         RcInput::Confirm => {
-    //                             break RcModeExit::Confirm;
-    //                         }
-    //                         RcInput::Back => {
-    //                             break RcModeExit::Cancel;
-    //                         }
-    //                         RcInput::Mode => {
-    //                         }
-    //                         RcInput::Exit => {
-    //                             break RcModeExit::Cancel;
-    //                         }
-
-
-    //                         RcInput::ConfirmUp => {
-    //                         }
-    //                         RcInput::DownUp | RcInput::UpUp => {
-    //                         }
-    //                         RcInput::BackUp => {
-    //                         }
-    //                         RcInput::ModeUp => {
-    //                         }
-    //                     }
-    //                 }
-    //                 else => { break RcModeExit::ElseExit; }
-    //             };
-    //         }
-          
-    //     });
-
-
-        
-    //    (0, 0, 0)
-    // }
+  
     pub fn set_water_position(&mut self, zid: u8, pos: (i32, i32, i32)) -> () {
         for zone in self.zones() {
             match zone {
@@ -406,6 +325,17 @@ impl House {
         }
     }
 
+    pub fn confirm_arm_position(&mut self, zid: u8, acceptable_delta: u32) -> Result<( bool, ( i32, i32, i32 ) ), Box<dyn Error + '_>> {
+        if let Some(ws) = self.get_water_settings(zid) {
+            if let Ok(ap) = self.arm_position(ws.position.arm_id) {
+                let mut r = true;
+                let diff = ( (ws.position.x - ap.0), (ws.position.y - ap.1), (ws.position.z - ap.2) );                
+                if (diff.0.abs() as u32 > acceptable_delta) | (diff.0.abs() as u32 > acceptable_delta) | (diff.0.abs() as u32 > acceptable_delta) { r = false; }
+                return Ok(( r, diff ))
+            }
+        }
+        return Err(Box::new(ZoneError::new("Zone not found")));
+    }
 
     /// Sensor commands
     pub fn read_moisture_value(&mut self, zid: u8) -> Result<f32, Box<dyn Error + '_>> {
@@ -678,44 +608,44 @@ impl House {
         }
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
-    pub async fn arm_calibrate_x(
-        &mut self,
-        zid: u8,
-    ) -> Result<(i32, i32, i32), Box<dyn Error + '_>> {
-        for z in self.zones() {
-            match z {
-                Zone::Arm { id, interface, .. } if id == &zid => {
-                    return interface
-                        .arm
-                        .as_ref()
-                        .expect("Interface not found")
-                        .calibrate_x()
-                        .await;
-                }
-                _ => continue,
-            }
-        }
-        return Err(Box::new(ZoneError::new("Zone not found")));
-    }
-    pub async fn arm_calibrate_y(
-        &mut self,
-        zid: u8,
-    ) -> Result<(i32, i32, i32), Box<dyn Error + '_>> {
-        for z in self.zones() {
-            match z {
-                Zone::Arm { id, interface, .. } if id == &zid => {
-                    return interface
-                        .arm
-                        .as_ref()
-                        .expect("Interface not found")
-                        .calibrate_y()
-                        .await;
-                }
-                _ => continue,
-            }
-        }
-        return Err(Box::new(ZoneError::new("Zone not found")));
-    }
+    // pub async fn arm_calibrate_x(
+    //     &mut self,
+    //     zid: u8,
+    // ) -> Result<(i32, i32, i32), Box<dyn Error + '_>> {
+    //     for z in self.zones() {
+    //         match z {
+    //             Zone::Arm { id, interface, .. } if id == &zid => {
+    //                 return interface
+    //                     .arm
+    //                     .as_ref()
+    //                     .expect("Interface not found")
+    //                     .calibrate_x()
+    //                     .await;
+    //             }
+    //             _ => continue,
+    //         }
+    //     }
+    //     return Err(Box::new(ZoneError::new("Zone not found")));
+    // }
+    // pub async fn arm_calibrate_y(
+    //     &mut self,
+    //     zid: u8,
+    // ) -> Result<(i32, i32, i32), Box<dyn Error + '_>> {
+    //     for z in self.zones() {
+    //         match z {
+    //             Zone::Arm { id, interface, .. } if id == &zid => {
+    //                 return interface
+    //                     .arm
+    //                     .as_ref()
+    //                     .expect("Interface not found")
+    //                     .calibrate_y()
+    //                     .await;
+    //             }
+    //             _ => continue,
+    //         }
+    //     }
+    //     return Err(Box::new(ZoneError::new("Zone not found")));
+    // }
 
     /// Alternative command model
     pub fn collect_cmd_senders(&mut self) -> Vec<ZoneCmd> {

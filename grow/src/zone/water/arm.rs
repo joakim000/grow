@@ -88,7 +88,8 @@ pub trait Arm: Send + Sync {
     fn goto(&self, x: i32, y: i32, z: i32) -> Result<(), Box<dyn Error>>;
     fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>>;
     fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>>;
-    async fn confirm(&self, x: i32, y: i32) -> Result<bool, Box<dyn Error>>;
+    // async fn confirm(&self, x: i32, y: i32, z: i32, delta: u32) -> Result<bool, Box<dyn Error>>;
+    // fn confirm(&self, x: i32, y: i32, z:i32, acceptable_delta: u32) -> Result<( bool, ( i32, i32, i32 ) ), Box<dyn Error>>;
     fn stop(&self) -> Result<(), Box<dyn Error>>;
     fn start_x(&self, speed: i8) -> Result<(), Box<dyn Error>>;
     fn stop_x(&self) -> Result<(), Box<dyn Error>>;
@@ -96,11 +97,8 @@ pub trait Arm: Send + Sync {
     fn stop_y(&self) -> Result<(), Box<dyn Error>>;
     async fn update_pos(&self) -> Result<(), Box<dyn Error>>;
     fn position(&self) -> Result<((i32, i32, i32)), Box<dyn Error>>;
-
-    async fn calibrate_x(&self) -> Result<(i32, i32, i32), Box<dyn Error>>;
-    async fn calibrate_y(&self) -> Result<(i32, i32, i32), Box<dyn Error>>;
     async fn calibrate(&self) -> Result<(i32, i32, i32), Box<dyn Error>>;
-    async fn calibrate_both_ends(&self) -> Result<(), Box<dyn Error>>;
+    async fn calibrate_with_range(&self) -> Result<(), Box<dyn Error>>;
 }
 
 impl Debug for dyn Arm {

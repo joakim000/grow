@@ -1,5 +1,6 @@
 #![feature(error_in_core)]
 #![allow(unused)]
+
 mod cmd;
 mod hardware;
 mod init;
@@ -29,9 +30,6 @@ use drive_74hc595::ShiftRegister;
 use lego_powered_up::PoweredUp;
 use pcf8591::{Pin, PCF8591};
 
-// impl Drop for PoweredUp {
-//     println!("Dropping PoweredUp!");
-// }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -61,18 +59,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     btn_1.set_async_interrupt(Trigger::Both, |l| println!("Btn 111: {:?}", l));
     btn_2.set_async_interrupt(Trigger::Both, |l| println!("Btn 2 2 2: {:?}", l));
 
-    // OLED
-    // oled::test_oled();
-
     tokio::select! {
         _ = signal::ctrl_c() => {},
         _ = shutdown_recv.recv() => {},
     }
+
     // Cleanup
     cancel_token.cancel();
     println!("Start shutdown procedure");
-    cmd_task.unwrap().abort();
-    sleep(Duration::from_millis(1500)).await;
+    // cmd_task.unwrap().abort();
+    sleep(Duration::from_millis(1000)).await;
 
     println!("Cleanup successful");
     Ok(())

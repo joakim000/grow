@@ -35,7 +35,39 @@ pub enum ZoneCmd {
 }
 
 pub fn list_cmds() {
-    println!("board\nupdate\nblink\nlog on\nlog off\nst on\nst off\nmoist\nlight1\ntemp1\nfan1\ntank1\nlamp1on\nlamp1off\nfan1dc\npump1run\npump1\nps\narm1x\narm1y\narmupdate\narmpos\ncalib\ncalibx\ncaliby\nwaterpos\n");
+    let general_list = vec![
+        ("board", "Show status board"),
+        ("status", "Toggle output on status change"),
+        ("log", "Toggle output on zone log event"),
+        ("remote", "Connect remote control"),
+        ("waterpos", "Show settings for Water zone"),
+        ("calib", "Calibrate Arm zero-position"),
+        ("confirmpos", "Confirm arm positioned for Water zone"),
+    ];
+    let debug_list = vec![    
+        ("armpos", "Show current Arm position"),
+        ("arm1x", "Move Arm 1 x-axis"),
+        ("arm1y", "Move Arm 1 y-axis"),
+        ("pump1", "Run Pump 1 for 3 seconds"),
+        ("pump1", "Run Pump 1 until stopped"),
+        ("ps", "Stop Pump 1"),
+        ("fan1dc", "Set fan duty cycle for Air zone 1"),
+    ];
+    let sensor_list = vec![    
+        ("moist", "Take moisture reading from Water zone"),
+        ("light1", "Take brightness reading from Light zone 1"),
+        ("temp1", "Take temp reading from Air zone 1"),
+        ("tank1", "Take level reading from Tank zone 1"),
+        ("fan1", "Take fan speed reading from Air zone 1"),
+    ];
+    for cmd in general_list { println!("{:?}", cmd); }
+    for cmd in sensor_list { println!("{:?}", cmd); }
+    for cmd in debug_list { println!("{:?}", cmd); }
+    // println!("{:#?}", general_list);
+    // println!("{:#?}", sensor_list);
+    // println!("{:#?}", debug_list);
+    println!("\tAlso:\nupdate\nblink\nlamp1on\nlamp1off\narmupdate\ncalibx\ncaliby\n");
+    // println!("board\nupdate\nblink\nlog\nstatus\nmoist\nlight1\ntemp1\nfan1\ntank1\nlamp1on\nlamp1off\nfan1dc\npump1run\npump1\nps\narm1x\narm1y\narmupdate\narmpos\ncalib\ncalibx\ncaliby\nwaterpos\n");
 }
 
 pub fn manual_cmds(
@@ -43,14 +75,11 @@ pub fn manual_cmds(
     mut manager: ManagerMutex,
     shutdown: mpsc::UnboundedSender<bool>,
 ) -> Result<JoinHandle<()>, Box<dyn Error>> {
-    // -> () {
-    // let senders = collect_cmd_senders(house.clone()); //.await;
-
     Ok(tokio::spawn(async move {
         loop {
             print!("(l)ist cmds, or (q)uit\n> ");
             let line: String = read!("{}\n");
-            tokio::task::yield_now().await;
+            // tokio::task::yield_now().await;
             if (line.len() == 0) | line.starts_with("\r") {
                 continue;
             }
@@ -59,9 +88,9 @@ pub fn manual_cmds(
                 _line if _line.contains("board") => {
                     let mut board = house.lock().await.collect_display_status();
                     board.sort();
-                    // board.sort_by(|a, b| a.partial_cmp(b).unwrap());
                     for z in board {
                         println!("{}", z);
+                        // println!("{} {:?}", z, z.info.changed);
                     }
                     tokio::task::yield_now().await;
                 }
@@ -74,20 +103,24 @@ pub fn manual_cmds(
                     let _ = manager.lock().await.blink().await;
                     tokio::task::yield_now().await;
                 }
-                _line if _line.contains("log on") => {
-                    let _ = manager.lock().await.log_enable(true);
+                // _line if _line.contains("log on") => {
+                //     let _ = manager.lock().await.log_enable(true);
+                //     tokio::task::yield_now().await;
+                // }
+                // _line if _line.contains("log off") => {
+                //     let _ = manager.lock().await.log_enable(false);
+                //     tokio::task::yield_now().await;
+                // }
+                
+                _line if _line.contains("log") => {
+                    let set_to = manager.lock().await.zonelog_toggle();
+                    println!("Output zone log: {:?}", set_to);
                     tokio::task::yield_now().await;
                 }
-                _line if _line.contains("log off") => {
-                    let _ = manager.lock().await.log_enable(false);
-                    tokio::task::yield_now().await;
-                }
-                _line if _line.contains("st on") => {
-                    let _ = manager.lock().await.status_enable(true);
-                    tokio::task::yield_now().await;
-                }
-                _line if _line.contains("st off") => {
-                    let _ = manager.lock().await.status_enable(false);
+                _line if _line.contains("status") => {
+                    let set_to = manager.lock().await.statuslog_toggle();
+                    // if set_to.is_some_and(|s| s == true) println!("S")
+                    println!("Output status log: {:?}", set_to);
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("remote") => {
@@ -105,23 +138,37 @@ pub fn manual_cmds(
                     // } else {
                     //     eprintln!("Set position failure");
                     // }
+                    println!("Set position for Water zone {}: {:?}", &zid, &pos);
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("waterpos") => {
-                    // print!("Show settings from Water zone > ");
-                    // let _line: String = read!("{}\n");
-                    // let zid = _line.trim().parse::<u8>().unwrap();
+                    print!("Show settings from Water zone > ");
+                    let _line: String = read!("{}\n");
+                    let zid = _line.trim().parse::<u8>().unwrap();
+                    // {
+                        let mut lock = house.lock().await;
+                        let response = lock.get_water_settings(zid);
+                        println!("\tWater zone {} settings: {:#?}", &zid, &response);
+                    // }
                     // let mut lock = house.lock().await;
-                    // let response = lock.get_water_settings(zid);
-                    // println!("\tWater zone {} settings: {:#?}", &zid, &response);
-
-                    let mut lock = house.lock().await;
-                    let response1 = lock.get_water_settings(1);
-                    let response2 = lock.get_water_settings(2);
-                    println!("\tWater zone 1 settings: {:#?}", &response1);
-                    println!("\tWater zone 2 settings: {:#?}", &response2);
+                    // let response1 = lock.get_water_settings(1);
+                    // let response2 = lock.get_water_settings(2);
+                    // println!("\tWater zone 1 settings: {:#?}", &response1);
+                    // println!("\tWater zone 2 settings: {:#?}", &response2);
                     tokio::task::yield_now().await;
                 }
+                _line if _line.contains("confirmpos") => {
+                    print!("Confirm arm positioned for Water zone > ");
+                    let _line: String = read!("{}\n");
+                    let zid = _line.trim().parse::<u8>().unwrap();
+                    {
+                        let mut lock = house.lock().await;
+                        let response = lock.confirm_arm_position(zid, 5);
+                        println!("\tWater zone {} arm positioned: {:#?}", &zid, &response);
+                    }
+                    tokio::task::yield_now().await;
+                }
+
 
                 // Sensor requests
                 _line if _line.contains("moist") => {
@@ -181,7 +228,7 @@ pub fn manual_cmds(
                         {
                             let _ = m.lock().await.pump_run(1u8);
                         }
-                        tokio::time::sleep(Duration::from_secs(4)).await;
+                        tokio::time::sleep(Duration::from_secs(3)).await;
                         {
                             let _ = m.lock().await.pump_stop(1u8);
                         }
@@ -225,22 +272,22 @@ pub fn manual_cmds(
                     }
                     tokio::task::yield_now().await;
                 }
-                _line if _line.contains("calibx") => {
-                    {
-                        let mut lock = house.lock().await;
-                        let result = lock.arm_calibrate_x(1).await;
-                        println!("Calibrated X from: {:?}", result);
-                    }
-                    tokio::task::yield_now().await;
-                }
-                _line if _line.contains("caliby") => {
-                    {
-                        let mut lock = house.lock().await;
-                        let result = lock.arm_calibrate_y(1).await;
-                        println!("Calibrated Y from: {:?}", result);
-                    }
-                    tokio::task::yield_now().await;
-                }
+                // _line if _line.contains("calibx") => {
+                //     {
+                //         let mut lock = house.lock().await;
+                //         let result = lock.arm_calibrate_x(1).await;
+                //         println!("Calibrated X from: {:?}", result);
+                //     }
+                //     tokio::task::yield_now().await;
+                // }
+                // _line if _line.contains("caliby") => {
+                //     {
+                //         let mut lock = house.lock().await;
+                //         let result = lock.arm_calibrate_y(1).await;
+                //         println!("Calibrated Y from: {:?}", result);
+                //     }
+                //     tokio::task::yield_now().await;
+                // }
                 _line if _line.contains("calib") => {
                     {
                         let mut lock = house.lock().await;

@@ -312,9 +312,7 @@ impl zone::water::arm::Arm for BrickArm {
         self.device_y.start_power(Power::Brake);
         Ok(())
     }
-    async fn confirm(&self, x: i32, y: i32) -> Result<bool, Box<dyn Error>> {
-        Ok((false)) // TODO
-    }
+
     async fn update_pos(&self) -> Result<(), Box<dyn Error>> {
         self.device_x
             .device_mode(modes::TechnicLargeLinearMotorTechnicHub::SPEED, 1, true);
@@ -328,7 +326,7 @@ impl zone::water::arm::Arm for BrickArm {
         self.device_y
             .device_mode(modes::TechnicLargeLinearMotorTechnicHub::POS, 1, true);
 
-        Ok(()) // TODO
+        Ok(()) 
     }
     fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>> {
         self.device_x
@@ -378,7 +376,6 @@ impl zone::water::arm::Arm for BrickArm {
         let calibration_task_x = tokio::spawn(async move {
             let mut started = false;
             device_x.start_speed(-20, 20);
-            // sleep(Duration::from_millis(500)).await;
             loop {
                 tokio::select! {
                     Ok(data) = rx_axis_x.recv() => {
@@ -398,7 +395,6 @@ impl zone::water::arm::Arm for BrickArm {
         let calibration_task_y = tokio::spawn(async move {
             let mut started = false;
             device_y.start_speed(-20, 20);
-            // sleep(Duration::from_millis(500)).await;
             loop {
                 tokio::select! {
                     Ok(data) = rx_axis_y.recv() => {
@@ -419,126 +415,16 @@ impl zone::water::arm::Arm for BrickArm {
         println!("Calib tasks joined");
         let before = (*self.pos_x.read(), *self.pos_y.read(), 0);
         self.device_x.preset_encoder(0);
-        // self.device_y.preset_encoder(0);
-
-        Ok(before)
-    }
-
-    async fn calibrate_x(&self) -> Result<(i32, i32, i32), Box<dyn Error>> {
-        let cancel = CancellationToken::new();
-        let guard = cancel.clone().drop_guard();
-        let device_x = self.device_x.clone();
-        let device_y = self.device_y.clone();
-        let (tx_axis_x, mut rx_axis_x) = broadcast::channel::<(i8, i32)>(16);
-        let (tx_axis_y, mut rx_axis_y) = broadcast::channel::<(i8, i32)>(16);
-
-        let feedback_task = Some(
-            self.arm_feedback(tx_axis_x, tx_axis_y, cancel.clone())
-                .await
-                .expect("Error initializing feedback task"),
-        );
-
-        let calibration_task_x = tokio::spawn(async move {
-            let mut started = false;
-            device_x.start_speed(-20, 20);
-            // sleep(Duration::from_millis(500)).await;
-            loop {
-                tokio::select! {
-                    Ok(data) = rx_axis_x.recv() => {
-                        if started & (data.0 >= 0) {
-                            device_x.start_power(Power::Float);
-                            println!("Calib X stopped");
-                            break;
-                        }
-                        if !started & (data.0 < 0) {
-                            started = true;
-                        }
-                    }
-                    else => { break }
-                };
-            }
-        });
-        let calibration_task_y = tokio::spawn(async move {
-            // device_y.start_speed(-20, 20);
-            // sleep(Duration::from_millis(500)).await;
-            // loop {
-            //     tokio::select! {
-            //         Ok(data) = rx_axis_y.recv() => {
-            //             if (data.0 >= 0) {
-            //                 device_y.start_power(Power::Brake);
-            //                 break;
-            //             }
-            //         }
-            //         else => { break }
-            //     };
-            // }
-        });
-        tokio::join!(calibration_task_x, calibration_task_y);
-        println!("Calib tasks joined");
-        let before = (*self.pos_x.read(), *self.pos_y.read(), 0);
-        self.device_x.preset_encoder(0);
-        // self.device_y.preset_encoder(0);
-
-        Ok(before)
-    }
-    async fn calibrate_y(&self) -> Result<(i32, i32, i32), Box<dyn Error>> {
-        let cancel = CancellationToken::new();
-        let guard = cancel.clone().drop_guard();
-        let device_x = self.device_x.clone();
-        let device_y = self.device_y.clone();
-        let (tx_axis_x, mut rx_axis_x) = broadcast::channel::<(i8, i32)>(16);
-        let (tx_axis_y, mut rx_axis_y) = broadcast::channel::<(i8, i32)>(16);
-
-        let feedback_task = Some(
-            self.arm_feedback(tx_axis_x, tx_axis_y, cancel.clone())
-                .await
-                .expect("Error initializing feedback task"),
-        );
-
-        let calibration_task_x = tokio::spawn(async move {
-            // device_x.start_speed(-20, 20);
-            // sleep(Duration::from_millis(500)).await;
-            // loop {
-            //     tokio::select! {
-            //         Ok(data) = rx_axis_x.recv() => {
-            //             if (data.0 >= 0) {
-            //                 device_x.start_power(Power::Brake);
-            //                 break;
-            //             }
-            //         }
-            //         else => { break }
-            //     };
-            // }
-        });
-        let calibration_task_y = tokio::spawn(async move {
-            let mut started = false;
-            device_y.start_speed(-20, 20);
-            // sleep(Duration::from_millis(500)).await;
-            loop {
-                tokio::select! {
-                    Ok(data) = rx_axis_y.recv() => {
-                        if started & (data.0 >= 0) {
-                            device_y.start_power(Power::Float);
-                            println!("Calib Y stopped");
-                            break;
-                        }
-                        if !started & (data.0 < 0) {
-                            started = true;
-                        }
-                    }
-                    else => { break }
-                };
-            }
-        });
-        tokio::join!(calibration_task_x, calibration_task_y);
-        println!("Calib tasks joined");
-        let before = (*self.pos_x.read(), *self.pos_y.read(), 0);
-        // self.device_x.preset_encoder(0);
         self.device_y.preset_encoder(0);
 
         Ok(before)
     }
-    async fn calibrate_both_ends(&self) -> Result<(), Box<dyn Error>> {
+
+  
+
+    /// Calibrate zero-point and range
+    /// Needed if we want to use relative position settings, using absolute values for now
+    async fn calibrate_with_range(&self) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
 }
@@ -816,3 +702,83 @@ impl LpuHub {
         }))
     }
 }
+
+
+// async fn calibrate_x(&self) -> Result<(i32, i32, i32), Box<dyn Error>> {
+//     let cancel = CancellationToken::new();
+//     let guard = cancel.clone().drop_guard();
+//     let device_x = self.device_x.clone();
+//     let (tx_axis_x, mut rx_axis_x) = broadcast::channel::<(i8, i32)>(16);
+//     let (tx_axis_y, mut rx_axis_y) = broadcast::channel::<(i8, i32)>(16);
+
+//     let feedback_task = Some(
+//         self.arm_feedback(tx_axis_x, tx_axis_y, cancel.clone())
+//             .await
+//             .expect("Error initializing feedback task"),
+//     );
+
+//     let calibration_task_x = tokio::spawn(async move {
+//         let mut started = false;
+//         device_x.start_speed(-20, 20);
+//         // sleep(Duration::from_millis(500)).await;
+//         loop {
+//             tokio::select! {
+//                 Ok(data) = rx_axis_x.recv() => {
+//                     if started & (data.0 >= 0) {
+//                         device_x.start_power(Power::Float);
+//                         println!("Calib X stopped");
+//                         break;
+//                     }
+//                     if !started & (data.0 < 0) {
+//                         started = true;
+//                     }
+//                 }
+//                 else => { break }
+//             };
+//         }
+//     });
+//     tokio::join!(calibration_task_x);
+//     println!("Calib tasks joined");
+//     let before = (*self.pos_x.read(), *self.pos_y.read(), 0);
+//     self.device_x.preset_encoder(0);
+
+//     Ok(before)
+// }
+// async fn calibrate_y(&self) -> Result<(i32, i32, i32), Box<dyn Error>> {
+//     let cancel = CancellationToken::new();
+//     let guard = cancel.clone().drop_guard();
+//     let device_y = self.device_y.clone();
+//     let (tx_axis_x, mut rx_axis_x) = broadcast::channel::<(i8, i32)>(16);
+//     let (tx_axis_y, mut rx_axis_y) = broadcast::channel::<(i8, i32)>(16);
+
+//     let feedback_task = Some(
+//         self.arm_feedback(tx_axis_x, tx_axis_y, cancel.clone())
+//             .await
+//             .expect("Error initializing feedback task"),
+//     );
+//     let calibration_task_y = tokio::spawn(async move {
+//         let mut started = false;
+//         device_y.start_speed(-20, 20);
+//         loop {
+//             tokio::select! {
+//                 Ok(data) = rx_axis_y.recv() => {
+//                     if started & (data.0 >= 0) {
+//                         device_y.start_power(Power::Float);
+//                         println!("Calib Y stopped");
+//                         break;
+//                     }
+//                     if !started & (data.0 < 0) {
+//                         started = true;
+//                     }
+//                 }
+//                 else => { break }
+//             };
+//         }
+//     });
+//     tokio::join!(calibration_task_y);
+//     println!("Calib tasks joined");
+//     let before = (*self.pos_x.read(), *self.pos_y.read(), 0);
+//     self.device_y.preset_encoder(0);
+
+//     Ok(before)
+// }

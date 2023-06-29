@@ -28,6 +28,7 @@ use super::SysLog;
 use super::TextDisplay;
 use crate::zone::water::arm::Arm;
 use time::format_description::well_known::{Rfc2822, Rfc3339};
+use tokio::task::spawn_blocking;
 
 #[derive(Debug)]
 enum RcModeExit {
@@ -44,7 +45,7 @@ pub struct Manager {
     display: Box<dyn TextDisplay>,
     remote: Box<dyn RemoteControl>,
     buttons: Box<dyn ButtonPanel>,
-    log_enable: Option<watch::Sender<bool>>,
+    zonelog_enable: Option<watch::Sender<bool>>,
     status_enable: Option<watch::Sender<bool>>,
     // ops_tx: Option<OpsChannelsTx>,
     ops_tx: OpsChannelsTx,
@@ -66,7 +67,7 @@ impl Manager {
             display,
             remote,
             buttons,
-            log_enable: None,
+            zonelog_enable: None,
             status_enable: None,
             ops_tx,
             zone_tx,
@@ -76,18 +77,18 @@ impl Manager {
     pub fn init(
         &mut self,
         mut from_zones: ZoneChannelsRx,
-        // ops_tx: OpsChannelsTx,
         mut ops_rx: OpsChannelsRx,
         selfmutex: crate::ManagerMutex,
     ) -> () {
         let (log_enable_tx, mut log_enable_rx) = tokio::sync::watch::channel(false);
-        self.log_enable = Some(log_enable_tx);
+        self.zonelog_enable = Some(log_enable_tx);
         let (status_enable_tx, mut status_enable_rx) = tokio::sync::watch::channel(false);
         self.status_enable = Some(status_enable_tx);
 
+
+        /// Start log messages handler
         let manager_mutex = selfmutex.clone();
         let to_log = self.ops_tx.syslog.clone();
-
         let log_handler = tokio::spawn(async move {
             let mut log_enabled = *log_enable_rx.borrow();
             let mut status_enabled = *status_enable_rx.borrow();
@@ -100,6 +101,8 @@ impl Manager {
                 tokio::select! {
                     Ok(()) = log_enable_rx.changed() => {
                         log_enabled = *log_enable_rx.borrow();
+                    }
+                    Ok(()) = status_enable_rx.changed() => {
                         status_enabled = *status_enable_rx.borrow();
                     }
                     Some(data) = ops_rx.syslog.recv() => {
@@ -128,11 +131,13 @@ impl Manager {
             }
         });
 
+        // Start indicator display
+
+        // Start text display
         self.display.init(self.zone_tx.zonestatus.subscribe(), 
                 self.ops_tx.syslog.clone() );
 
-        // self.display.set(self.zone_tx.zonestatus.subscribe());
-
+        /// Start action messages handler
         let to_log = self.ops_tx.syslog.clone();
         let house_mutex = self.house.clone();
         let zoneupdate_handler = tokio::spawn(async move {
@@ -151,7 +156,7 @@ impl Manager {
                         let settings = lock
                             .get_water_settings(id)
                             .expect("Settings not found");
-                        let movement = settings.position; //.expect("Position not found");
+                        let movement = settings.position; 
                         let _ = lock.arm_goto(movement.arm_id, movement.x, movement.y, movement.z); // TODO check result
                         sleep(Duration::from_secs(2)).await; // TODO wait for arm position to be correct
 
@@ -163,27 +168,49 @@ impl Manager {
             }
         });
     }
+
     pub async fn update_board(&mut self) {
         let mut lock = self.house.lock().await;
         let all_ds = lock.collect_display_status();
         self.board.set(all_ds).await;
     }
 
-    pub fn log_enable(&self, val: bool) {
-        match &self.log_enable {
+    pub fn zonelog_toggle(&self) -> Option<bool> {
+        let mut r: Option<bool> = None;
+        match &self.zonelog_enable {
             Some(sender) => {
-                sender.send(val);
+                if *sender.borrow() { 
+                    sender.send(false); 
+                    r = Some(false);
+                } 
+                else { 
+                    sender.send(true); 
+                    r = Some(true);
+                }
             }
             None => {}
         }
+
+        r
     }
-    pub fn status_enable(&self, val: bool) {
+  
+    pub fn statuslog_toggle(&self) -> Option<bool> {
+        let mut r: Option<bool> = None;
         match &self.status_enable {
             Some(sender) => {
-                sender.send(val);
+                if *sender.borrow() { 
+                    sender.send(false); 
+                    r = Some(false);
+                } 
+                else { 
+                    sender.send(true); 
+                    r = Some(true);
+                }
             }
             None => {}
         }
+
+        r
     }
 
     pub async fn blink(&mut self) -> (Result<(), Box<dyn Error>>) {
@@ -198,13 +225,9 @@ impl Manager {
         let cancel = CancellationToken::new();
         let _ = self.remote.init(rc_tx, cancel.clone()).await;
 
-        // let x = 0;
-        // let y = 0;
-        // let z = 0;
-
         let to_log = self.ops_tx.syslog.clone();
         let mutex = self.house.clone();
-        let position_finder = tokio::spawn(async move {
+        let position_finder = tokio::task::spawn(async move {
             to_log
                 .send(SysLog {
                     msg: format!("Spawned position finder"),
@@ -303,7 +326,6 @@ impl Manager {
                 }
             }  
         });
-        
         let exit_kind = position_finder.await.expect("Position finder error");
         println!("RC mode exit kind: {:?}", &exit_kind);
         self.ops_tx

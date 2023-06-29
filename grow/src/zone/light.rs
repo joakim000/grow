@@ -159,19 +159,19 @@ impl Runner {
                             },
                             (id, Some(lightlevel)) => {
                                 if (&state == &LampState::Off) { // & (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OffOk)) {
-                                    o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Lamp OFF Ambient: {}", lightlevel) )) );
+                                    o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Lamp OFF, Ambient: {}", lightlevel) )) );
                                     status.write().kind == Some(LightStatusKind::OffOk);
                                 }
                                 else if (lightlevel < settings.lightlevel_low_red_alert) { // & (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OnAlert)) {
-                                    o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Lamp ON Alert: {}", lightlevel) )) );
+                                    o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Lamp ON, Alert: {}", lightlevel) )) );
                                     status.write().kind == Some(LightStatusKind::OnAlert);
                                 }
                                 else if (lightlevel < settings.lightlevel_low_yellow_warning) { //& (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OnWarning)) {
-                                    o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("Lamp ON Warning: {}", lightlevel) )) );
+                                    o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("Lamp ON, Warning: {}", lightlevel) )) );
                                     status.write().kind == Some(LightStatusKind::OnWarning);
                                 }
                                 else { // if (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OnOk)) {
-                                    o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Lamp ON Ok: {}", lightlevel) )) );
+                                    o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Lamp ON, Ok: {}", lightlevel) )) );
                                     status.write().kind == Some(LightStatusKind::OnOk);
                                 }
                             },

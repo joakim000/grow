@@ -34,32 +34,24 @@ pub trait Board: Send + Sync {
 }
 impl Debug for dyn Board {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Indicator board: {{{}}}", 0)
+        write!(f, "Indicator board")
     }
 }
 #[async_trait]
 pub trait TextDisplay: Send {
-    // fn init(
-        // &mut self,
-        // rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
-    // ) -> Result<(), Box<dyn Error>>;
     fn init(
         &self,
         from_zones: ZoneStatusRx,
         to_syslog: SysLogTx,
-        // mut from_syslog: ,
-        // mutex: DisplayMutex,
-        // display: dyn TextDisplay,
-    ) -> Result<(), Box<dyn Error>>;
+    ) -> Result<(JoinHandle<()>), Box<dyn Error>>;
     fn set(
         &mut self,
-        // rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
-        rx: tokio::sync::broadcast::Receiver<ZoneDisplay>,
+        status_all: Vec<ZoneDisplay>,
     ) -> Result<(), Box<dyn Error>>;
 }
 impl Debug for dyn TextDisplay {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Text display: {{{}}}", 0)
+        write!(f, "Text display")
     }
 }
 
