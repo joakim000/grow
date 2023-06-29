@@ -73,20 +73,7 @@ impl RemoteControl for LpuRemote {
             .rc_feedback(tx_rc, rx_rc, cancel, hub_clone)
             // .await
             .expect("Error initializing feedback task");
-
-        // let shutdown_task = tokio::spawn(async move {
-        // feedback_task.await;
-        // println!("RC feedback task exited, shutting down RC hub");
-        // hub_clone
-        //     .lock()
-        //     .await
-        //     // .hub_action(HubAction::Shutdown)
-        //     // .expect("Error on hub shutdown action");
-        //     .disconnect().await
-        //     .expect("Error on hub disconnect");;
-        // println!("RC hub shutdown action sent");
-        // });
-
+      
         Ok(())
     }
 }
@@ -116,11 +103,12 @@ impl LpuRemote {
                         hub
                         .lock()
                         .await
+                        // Note: bluez gets confused if we shutdown the peripheral (lpu hub) rather than disconnect from central side 
                         // .hub_action(HubAction::Shutdown)
                         // .expect("Error on hub shutdown action");
                         .disconnect().await
                         .expect("Error on hub disconnect");;
-                        println!("RC hub shutdown action sent");
+                        println!("RC hub disconnected");
                         break;
                     }
 
