@@ -24,8 +24,7 @@ impl Adc {
     pub fn new(cancel: CancellationToken) -> Self {
         let control = PCF8591::new(ADC_1_BUS, ADC_1_ADDR, ADC_1_VREF).unwrap();
         let adc = Arc::new(Mutex::new(control));
-        Self::show_raw_adc(adc.clone);
-        
+        // show_raw_adc(adc.clone());  // Dev use
 
         Self { mutex: adc }
     }
@@ -377,9 +376,9 @@ fn show_raw_adc(adc: AdcMutex) {
         let reading: f32;
         {
         println!("ADC lock req");
-        let mut lock = adc.lock().await;
+        // let mut lock = adc.lock().await;
         let mut lock = adc.lock().unwrap();
-        println!("ADC lock aquired");
+        println!("ADC lock aquired for ADC");
 
         let v0 = lock.analog_read_byte(Pin::AIN0); // photoresistor
         let v1 = lock.analog_read_byte(Pin::AIN1); // thermistor
