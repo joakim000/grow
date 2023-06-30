@@ -22,7 +22,7 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
     ));
     let lpu_hub = hardware::lpu::init(pu.clone(), cancel.clone())
         .await
-        .unwrap(); //thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: BluetoothError(DeviceNotFound)', src/init.rs:19:64
+        .expect("Error from lpu::init()"); //thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: BluetoothError(DeviceNotFound)', src/init.rs:19:64
     let adc_1 = hardware::pcf8591::Adc::new(cancel.clone());
 
     // Create main channels
@@ -134,7 +134,6 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
         zone_tx.clone(),
     );
     let manager_mutex = Arc::new(TokioMutex::new(manager));
-
     {
         let mut lock = manager_mutex.lock().await;
         lock.init(zone_rx, ops_rx, manager_mutex.clone());
@@ -145,6 +144,5 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
         lock.init().await;
         // dbg!(&lock);
     }
-
     (house_mutex, manager_mutex)
 }

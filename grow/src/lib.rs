@@ -5,14 +5,11 @@ extern crate alloc;
 use core::error::Error;
 pub type BoxResult<T> = core::result::Result<T, Box<dyn Error>>;
 use std::sync::Arc;
-use ops::SysLog;
 use tokio::sync::Mutex;
-use zone::ZoneDisplay;
-use zone::{arm::ArmCmd, pump::PumpCmd, Zone};
 // use std::sync::Mutex;
-use crate::ops::OpsChannelsTx;
 pub use tokio::sync::broadcast;
 pub use tokio::sync::mpsc;
+// use parking_lot::RwLock;
 
 mod error;
 pub use error::ZoneError;
@@ -21,7 +18,11 @@ pub mod zone;
 use zone::light::LampState;
 use zone::tank::TankLevel;
 use zone::*;
-
+use zone::ZoneDisplay;
+use zone::{arm::ArmCmd, pump::PumpCmd, Zone};
+use ops::SysLog;
+use ops::display::DisplayStatus;
+use ops::OpsChannelsTx;
 pub type HouseMutex = Arc<Mutex<House>>;
 pub type ManagerMutex = Arc<Mutex<ops::manager::Manager>>;
 
@@ -42,14 +43,20 @@ impl House {
             ops_tx,
         }
     }
+    // pub fn zones(&self) -> &Vec<Zone> {
+    //     &self.zones
+    // }
     pub fn zones(&mut self) -> &mut Vec<Zone> {
+        &mut self.zones
+    }
+    pub fn zones_mut(&mut self) -> &mut Vec<Zone> {
         &mut self.zones
     }
     // Macro candidate
     pub async fn init(&mut self,) -> () {
         let zone_channels = self.zone_tx.clone();
         let ops_channels = self.ops_tx.clone();
-        for zone in self.zones() {
+        for zone in self.zones_mut() {
             match zone {
                 Zone::Air {
                     settings,
@@ -125,6 +132,7 @@ impl House {
                         settings.clone(),
                         zone_channels.clone(),
                         ops_channels.clone(),
+                      
                     );
                 }
                 Zone::Tank {
@@ -171,9 +179,10 @@ impl House {
                         .as_mut()
                         .unwrap()
                         .init(
-                            runner.feedback_sender().0,
-                            runner.feedback_sender().1,
-                            runner.feedback_sender().2,
+                            runner.pos_feedback_sender().0,
+                            runner.pos_feedback_sender().1,
+                            runner.pos_feedback_sender().2,
+                            runner.control_feedback_sender(),
                             runner.cmd_receiver(),
                         )
                         .await;
@@ -186,98 +195,107 @@ impl House {
     }
 
     // Macro candidate
+    // pub fn collect_display_status_old(&mut self) -> Vec<ZoneDisplay> {
+    //     let mut r: Vec<ZoneDisplay> = Vec::new();
+    //     for zone in self.zones() {
+    //         // May be a use for settings later
+    //         match zone {
+    //             Zone::Air {
+    //                 id,
+    //                 settings: _,
+    //                 status,
+    //                 ..
+    //             } => {
+    //                 let lock = status.read();
+    //                 r.push(ZoneDisplay::Air {
+    //                     id: *id,
+    //                     info: lock.disp.clone(),
+    //                 })
+    //             }
+    //             Zone::Aux {
+    //                 id,
+    //                 settings: _,
+    //                 status,
+    //                 ..
+    //             } => {
+    //                 let lock = status.read();
+    //                 r.push(ZoneDisplay::Aux {
+    //                     id: *id,
+    //                     info: lock.disp.clone(),
+    //                 })
+    //             }
+    //             Zone::Light {
+    //                 id,
+    //                 settings: _,
+    //                 status,
+    //                 ..
+    //             } => {
+    //                 let lock = status.read();
+    //                 r.push(ZoneDisplay::Light {
+    //                     id: *id,
+    //                     info: lock.disp.clone(),
+    //                 })
+    //             }
+    //             Zone::Water {
+    //                 id,
+    //                 settings: _,
+    //                 status,
+    //                 ..
+    //             } => {
+    //                 let lock = status.read();
+    //                 r.push(ZoneDisplay::Water {
+    //                     id: *id,
+    //                     info: lock.disp.clone(),
+    //                 })
+    //             }
+    //             Zone::Arm {
+    //                 id,
+    //                 settings: _,
+    //                 status,
+    //                 ..
+    //             } => {
+    //                 let lock = status.read();
+    //                 r.push(ZoneDisplay::Arm {
+    //                     id: *id,
+    //                     info: lock.disp.clone(),
+    //                 })
+    //             }
+    //             Zone::Pump {
+    //                 id,
+    //                 settings: _,
+    //                 status,
+    //                 ..
+    //             } => {
+    //                 let lock = status.read();
+    //                 r.push(ZoneDisplay::Pump {
+    //                     id: *id,
+    //                     info: lock.disp.clone(),
+    //                 })
+    //             }
+    //             Zone::Tank {
+    //                 id,
+    //                 settings: _,
+    //                 status,
+    //                 ..
+    //             } => {
+    //                 let lock = status.read();
+    //                 r.push(ZoneDisplay::Tank {
+    //                     id: *id,
+    //                     info: lock.disp.clone(),
+    //                 })
+    //             }
+    //         }
+    //     }
+
+    //     // dbg!(&r);
+    //     r
+    // }
+
     pub fn collect_display_status(&mut self) -> Vec<ZoneDisplay> {
         let mut r: Vec<ZoneDisplay> = Vec::new();
         for zone in self.zones() {
-            // May be a use for settings later
-            match zone {
-                Zone::Air {
-                    id,
-                    settings: _,
-                    status,
-                    ..
-                } => {
-                    let lock = status.read();
-                    r.push(ZoneDisplay::Air {
-                        id: *id,
-                        info: lock.disp.clone(),
-                    })
-                }
-                Zone::Aux {
-                    id,
-                    settings: _,
-                    status,
-                    ..
-                } => {
-                    let lock = status.read();
-                    r.push(ZoneDisplay::Aux {
-                        id: *id,
-                        info: lock.disp.clone(),
-                    })
-                }
-                Zone::Light {
-                    id,
-                    settings: _,
-                    status,
-                    ..
-                } => {
-                    let lock = status.read();
-                    r.push(ZoneDisplay::Light {
-                        id: *id,
-                        info: lock.disp.clone(),
-                    })
-                }
-                Zone::Water {
-                    id,
-                    settings: _,
-                    status,
-                    ..
-                } => {
-                    let lock = status.read();
-                    r.push(ZoneDisplay::Water {
-                        id: *id,
-                        info: lock.disp.clone(),
-                    })
-                }
-                Zone::Arm {
-                    id,
-                    settings: _,
-                    status,
-                    ..
-                } => {
-                    let lock = status.read();
-                    r.push(ZoneDisplay::Arm {
-                        id: *id,
-                        info: lock.disp.clone(),
-                    })
-                }
-                Zone::Pump {
-                    id,
-                    settings: _,
-                    status,
-                    ..
-                } => {
-                    let lock = status.read();
-                    r.push(ZoneDisplay::Pump {
-                        id: *id,
-                        info: lock.disp.clone(),
-                    })
-                }
-                Zone::Tank {
-                    id,
-                    settings: _,
-                    status,
-                    ..
-                } => {
-                    let lock = status.read();
-                    r.push(ZoneDisplay::Tank {
-                        id: *id,
-                        info: lock.disp.clone(),
-                    })
-                }
-            }
+            r.push(zone.zone_display());
         }
-
         // dbg!(&r);
         r
     }
@@ -302,9 +320,28 @@ impl House {
         // dbg!(&r);
         r
     }
+
+    pub fn get_displaystatus(&mut self, kind: ZoneKind, zid: u8) -> Option<DisplayStatus> {
+        let mut r: Option<DisplayStatus> = None;
+        for zone in self.zones() {
+            match zone {
+                Zone::Tank {
+                    id,
+                    status,
+                    ..
+                } if (kind == ZoneKind::Tank) & (id == &zid) => {
+                    r = Some(status.read().disp.clone());
+                }
+                _ => continue,
+            }
+        }
+
+        r
+    }
+  
   
     pub fn set_water_position(&mut self, zid: u8, pos: (i32, i32, i32)) -> () {
-        for zone in self.zones() {
+        for zone in self.zones_mut() {
             match zone {
                 Zone::Water {
                     id,
@@ -312,7 +349,6 @@ impl House {
                     status: _,
                     ..
                 } if id == &zid => {
-                    // let lock = status.read();
                     settings.position = zone::arm::Position {
                         arm_id: zid,
                         x: pos.0,
@@ -411,7 +447,7 @@ impl House {
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
     pub fn read_fan_speed(&mut self, zid: u8) -> Result<Option<f32>, Box<dyn Error + '_>> {
-        for z in self.zones() {
+        for z in self.zones_mut() {
             match z {
                 Zone::Air { id, interface, .. } if id == &zid => {
                     return Ok(interface
@@ -608,44 +644,7 @@ impl House {
         }
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
-    // pub async fn arm_calibrate_x(
-    //     &mut self,
-    //     zid: u8,
-    // ) -> Result<(i32, i32, i32), Box<dyn Error + '_>> {
-    //     for z in self.zones() {
-    //         match z {
-    //             Zone::Arm { id, interface, .. } if id == &zid => {
-    //                 return interface
-    //                     .arm
-    //                     .as_ref()
-    //                     .expect("Interface not found")
-    //                     .calibrate_x()
-    //                     .await;
-    //             }
-    //             _ => continue,
-    //         }
-    //     }
-    //     return Err(Box::new(ZoneError::new("Zone not found")));
-    // }
-    // pub async fn arm_calibrate_y(
-    //     &mut self,
-    //     zid: u8,
-    // ) -> Result<(i32, i32, i32), Box<dyn Error + '_>> {
-    //     for z in self.zones() {
-    //         match z {
-    //             Zone::Arm { id, interface, .. } if id == &zid => {
-    //                 return interface
-    //                     .arm
-    //                     .as_ref()
-    //                     .expect("Interface not found")
-    //                     .calibrate_y()
-    //                     .await;
-    //             }
-    //             _ => continue,
-    //         }
-    //     }
-    //     return Err(Box::new(ZoneError::new("Zone not found")));
-    // }
+  
 
     /// Alternative command model
     pub fn collect_cmd_senders(&mut self) -> Vec<ZoneCmd> {
@@ -672,11 +671,7 @@ impl House {
     }
 }
 
-// impl Default for House {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
+
 
 /// Alternative command model
 #[derive(Clone, Debug)]
@@ -698,3 +693,59 @@ pub enum ZoneCmd {
     },
     // Tank {id: u8, info: DisplayStatus},
 }
+
+
+
+// pub fn get_tank_status(&self, zid: u8) -> Option<Arc<RwLock<zone::tank::Status>>> {
+//     let mut r: Option<Arc<RwLock<zone::tank::Status>>> = None;
+//     for zone in self.zones() {
+//         match zone {
+//             Zone::Tank {
+//                 id,
+//                 status,
+//                 ..
+//             } if id == &zid => {
+//                 r = Some(status.clone());
+//             }
+//             _ => continue,
+//         }
+//     }
+
+//     r
+// }
+
+
+// pub fn get_pump_status(&mut self, zid: u8) -> Option<Arc<RwLock<zone::pump::Status>>> {
+//     let mut r: Option<Arc<RwLock<zone::pump::Status>>> = None;
+//     for zone in self.zones() {
+//         match zone {
+//             Zone::Pump {
+//                 id,
+//                 status,
+//                 ..
+//             } if id == &zid => {
+//                 r = Some(status.clone());
+//             }
+//             _ => continue,
+//         }
+//     }
+
+//     r
+// }
+// pub fn get_arm_status(&mut self, zid: u8) -> Option<Arc<RwLock<zone::arm::Status>>> {
+//     let mut r: Option<Arc<RwLock<zone::arm::Status>>> = None;
+//     for zone in self.zones() {
+//         match zone {
+//             Zone::Arm {
+//                 id,
+//                 status,
+//                 ..
+//             } if id == &zid => {
+//                 r = Some(status.clone());
+//             }
+//             _ => continue,
+//         }
+//     }
+
+//     r
+// }

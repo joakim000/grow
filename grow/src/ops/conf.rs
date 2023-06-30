@@ -42,6 +42,7 @@ impl Conf {
                 moisture_low_yellow_warning: 40.0,
                 moisture_high_yellow_warning: 65.0,
                 pump_id: 1,
+                tank_id: 1,
                 pump_time: Duration::from_secs(2),
                 position: zone::water::arm::Position {
                     arm_id: 1,
@@ -60,6 +61,7 @@ impl Conf {
                 moisture_low_yellow_warning: 40.0,
                 moisture_high_yellow_warning: 65.0,
                 pump_id: 1,
+                tank_id: 1,
                 pump_time: Duration::from_secs(2),
                 position: zone::water::arm::Position {
                     arm_id: 1,

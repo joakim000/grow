@@ -33,6 +33,7 @@ use lego_powered_up::notifications::*;
 use lego_powered_up::HubMutex;
 use lego_powered_up::{ConnectedHub, IoDevice, IoTypeId, PoweredUp};
 use lego_powered_up::{Hub, HubFilter};
+use lego_powered_up::iodevice::motor::BufferState;
 
 use crate::hardware::lpu::broadcast::Receiver;
 use grow::ops::display::Indicator;
@@ -41,6 +42,7 @@ use grow::zone::arm::ArmCmd;
 use grow::zone::pump::PumpCmd;
 use grow::zone::tank::TankLevel;
 use grow::TIME_OFFSET;
+use grow::zone::arm::ArmState;
 
 pub async fn init(
     pu: Arc<TokioMutex<PoweredUp>>,
@@ -52,11 +54,23 @@ pub async fn init(
         .wait_for_hub_filter(HubFilter::Kind(HubType::TechnicMediumHub))
         .await?;
     println!("Connecting to hub...");
-    let hub = ConnectedHub::setup_hub(lock.create_hub(&hub).await.expect("Error creating hub")) // thread 'main' panicked at 'Error creating hub: BluetoothError(Other(DbusError(D-Bus error: Operation already in progress (org.bluez.Error.Failed))))', src/hardware/lpu.rs:54:67
-        .await
-        .expect("Error setting up hub");
+    let created_hub = lock.create_hub(&hub).await;
+    match created_hub {
+        Ok(_) => {}
+        Err(e) => { { return Err(Box::new(e)) } } 
+    }
+    let hub = ConnectedHub::setup_hub(created_hub.unwrap()).await;
+    match hub {
+        Ok(_) => {}
+        Err(e) => { { return Err(Box::new(e)) } } 
+    }
+    // let hub = ConnectedHub::setup_hub(lock.create_hub(&hub).await).expect("Error creating hub") // thread 'main' panicked at 'Error creating hub: BluetoothError(Other(DbusError(D-Bus error: Operation already in progress (org.bluez.Error.Failed))))', src/hardware/lpu.rs:54:67
+    //     .await
+    //     .expect("Error setting up hub");
+    println!("Connectedhub  created");  
 
-    Ok(hub.mutex.clone())
+
+    Ok(hub.unwrap().mutex.clone())
 }
 
 pub struct Vsensor {
@@ -165,19 +179,19 @@ impl zone::water::pump::Pump for BrickPump {
         self.id
     }
     async fn run_for_secs(&self, secs: u16) -> Result<(), Box<dyn Error>> {
-        println!("LPU got cmd: run_for_secs({}", &secs);
+        // println!("LPU got cmd: run_for_secs({}", &secs);
         self.device.start_speed(50, 100)?;
         sleep(Duration::from_secs(secs as u64)).await;
         self.device.start_power(Power::Float)?;
         Ok(())
     }
     fn run(&self) -> Result<(), Box<dyn Error>> {
-        println!("LPU got cmd: RUN");
+        // println!("LPU got cmd: RUN");
         self.device.start_speed(50, 100)?;
         Ok(())
     }
     fn stop(&self) -> Result<(), Box<dyn Error>> {
-        println!("LPU got cmd: STOP");
+        // println!("LPU got cmd: STOP");
         self.device.start_power(Power::Brake);
         Ok(())
     }
@@ -230,7 +244,7 @@ impl BrickPump {
         Ok(tokio::spawn(async move {
             println!("Spawned pump control");
             while let Ok(data) = rx_cmd.recv().await {
-                println!("Pump recv cmd: {:?}", &data);
+                // println!("Pump recv cmd: {:?}", &data);
                 match data {
                     (_id, PumpCmd::RunForSec(secs)) => {
                         let _ = device.start_speed(50, 100);
@@ -273,6 +287,7 @@ pub struct BrickArm {
     feedback_task: Option<JoinHandle<()>>,
     cmd_task: Option<JoinHandle<()>>,
     cancel: CancellationToken,
+    // hub_channels: lego_powered_up::hubs::Channels,
 }
 #[async_trait]
 impl zone::water::arm::Arm for BrickArm {
@@ -284,10 +299,11 @@ impl zone::water::arm::Arm for BrickArm {
         tx_axis_x: tokio::sync::broadcast::Sender<((i8, i32))>,
         tx_axis_y: tokio::sync::broadcast::Sender<((i8, i32))>,
         _tx_axis_z: tokio::sync::broadcast::Sender<((i8, i32))>,
+        tx_control: grow::zone::arm::ControlFeedbackTx,
         rx_cmd: tokio::sync::broadcast::Receiver<ArmCmd>,
     ) -> Result<(), Box<dyn Error>> {
         self.feedback_task = Some(
-            self.arm_feedback(tx_axis_x, tx_axis_y, self.cancel.clone())
+            self.arm_feedback(tx_axis_x, tx_axis_y, tx_control, self.cancel.clone())
                 .await
                 .expect("Error initializing feedback task"),
         );
@@ -366,9 +382,11 @@ impl zone::water::arm::Arm for BrickArm {
         let device_y = self.device_y.clone();
         let (tx_axis_x, mut rx_axis_x) = broadcast::channel::<(i8, i32)>(16);
         let (tx_axis_y, mut rx_axis_y) = broadcast::channel::<(i8, i32)>(16);
+        let (tx_control, mut rx_control) = broadcast::channel::<ArmState>(16);
+
 
         let feedback_task = Some(
-            self.arm_feedback(tx_axis_x, tx_axis_y, cancel.clone())
+            self.arm_feedback(tx_axis_x, tx_axis_y, tx_control, cancel.clone())
                 .await
                 .expect("Error initializing feedback task"),
         );
@@ -412,7 +430,7 @@ impl zone::water::arm::Arm for BrickArm {
             }
         });
         tokio::join!(calibration_task_x, calibration_task_y);
-        println!("Calib tasks joined");
+        // println!("Calib tasks joined");
         let before = (*self.pos_x.read(), *self.pos_y.read(), 0);
         self.device_x.preset_encoder(0);
         self.device_y.preset_encoder(0);
@@ -432,14 +450,16 @@ impl BrickArm {
     pub async fn new(id: u8, hub: HubMutex) -> Self {
         let device_x: IoDevice;
         let device_y: IoDevice;
+        // let hub_channels: lego_powered_up::hubs::Channels;
         {
-            let lock = hub.lock().await;
+            let mut lock = hub.lock().await;
             device_x = lock
                 .io_from_port(ARM_ROT_ADDR)
                 .expect("Error accessing LPU device");
             device_y = lock
                 .io_from_port(ARM_EXTENSION_ADDR)
                 .expect("Error accessing LPU device");
+            // hub_channels = lock.channels().clone();
         }
         Self {
             id,
@@ -450,6 +470,7 @@ impl BrickArm {
             feedback_task: None,
             cmd_task: None,
             cancel: CancellationToken::new(),
+            // hub_channels,
         }
     }
     async fn arm_cmd(
@@ -505,6 +526,7 @@ impl BrickArm {
         &self,
         tx_axis_x: tokio::sync::broadcast::Sender<((i8, i32))>,
         tx_axis_y: tokio::sync::broadcast::Sender<((i8, i32))>,
+        tx_control: grow::zone::arm::ControlFeedbackTx,
         cancel: CancellationToken,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
@@ -520,6 +542,20 @@ impl BrickArm {
             .motor_combined_sensor_enable(1, 2)
             .await
             .unwrap();
+        // let mut rx_cmdfb = 
+        //     self.hub_channels.commandfeedback_sender.as_ref().unwrap().subscribe();
+        let (mut rx_control_x, _control_x_task) = self
+            .device_x
+            .cmd_feedback_handler()
+            .expect("Failed to get command feedback receiver");
+        let (mut rx_control_y, _control_y_task) = self
+            .device_y
+            .cmd_feedback_handler()
+            .expect("Failed to get command feedback receiver");
+        let mut state_x: BufferState = Default::default();
+        let mut state_y: BufferState = Default::default();
+        // let state_arm = grow::zone::arm::ArmState::Idle;
+
         Ok(tokio::spawn(async move {
             println!("Spawned arm feedback");
             loop {
@@ -531,6 +567,26 @@ impl BrickArm {
                     Ok(data) = rx_axis_y.recv() => {
                             tx_axis_y.send( data );
                             *pos_y.write() = data.1;
+                    }
+                    Ok(data) = rx_control_x.recv() => {
+                        state_x = data.state;
+                        if (state_x == BufferState::Idle) & (state_y == BufferState::Idle) {
+                            tx_control.send(ArmState::Idle);
+                        }
+                        else {
+                            tx_control.send(ArmState::Busy);
+                        }    
+                        println!("Cmdfb X: {:?} States:{:?}{:?}", &data, &state_x, &state_y);
+                    }
+                    Ok(data) = rx_control_y.recv() => {
+                        state_y = data.state;
+                        if (state_x == BufferState::Idle) & (state_y == BufferState::Idle) {
+                            tx_control.send(ArmState::Idle);
+                        }
+                        else {
+                            tx_control.send(ArmState::Busy);
+                        }
+                        println!("Cmdfb Y: {:?} State X:{:?} Y:{:?}", &data, &state_x, &state_y);
                     }
                     _ = cancel.cancelled() => {
                         println!("Arm feedback task canceled");
@@ -668,10 +724,10 @@ impl LpuHub {
 
                                     }
                                     HubPropertyValue::BatteryVoltage(v) => {
-                                        if v < 20 {
+                                        if v < 15 {
                                             tx.send(( id, DisplayStatus::new(Indicator::Red, Some( format!("Battery: {}%", v) )) ));
                                         }
-                                        if v < 40 {
+                                        else if v < 30 {
                                             tx.send(( id, DisplayStatus::new(Indicator::Yellow, Some( format!("Battery: {}%", v) )) ));
                                         }
                                         else {

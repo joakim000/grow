@@ -60,9 +60,9 @@ pub fn list_cmds() {
         ("tank1", "Take level reading from Tank zone 1"),
         ("fan1", "Take fan speed reading from Air zone 1"),
     ];
-    for cmd in general_list { println!("{:?}", cmd); }
-    for cmd in sensor_list { println!("{:?}", cmd); }
-    for cmd in debug_list { println!("{:?}", cmd); }
+    for cmd in general_list { println!("{:>10}\t{}", cmd.0, cmd.1); }
+    for cmd in sensor_list { println!("{:>10}\t{}", cmd.0, cmd.1); }
+    for cmd in debug_list { println!("{:>10}\t{}", cmd.0, cmd.1); }
     println!("\tAlso:\nupdate\nblink\nlamp1on\nlamp1off\narmupdate\ncalibx\ncaliby\n");
 }
 
@@ -229,6 +229,18 @@ pub fn manual_cmds(
                     let pos = _line.trim().parse::<i32>().unwrap();
                     let mut lock = house.lock().await;
                     let _ = lock.arm_goto_y(1u8, pos);
+                    tokio::task::yield_now().await;
+                }
+                _line if _line.contains("arm1") => {
+                    print!("Arm 1 goto X > ");
+                    let _line: String = read!("{}\n");
+                    let pos_x = _line.trim().parse::<i32>().unwrap();
+                    print!("Arm 1 goto Y > ");
+                    let _line: String = read!("{}\n");
+                    let pos_y = _line.trim().parse::<i32>().unwrap();
+
+                    let mut lock = house.lock().await;
+                    let _ = lock.arm_goto(1u8, pos_x, pos_y, 0);
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("armupdate") => {

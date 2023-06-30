@@ -3,6 +3,7 @@ use crate::House;
 use crate::HouseMutex;
 use crate::Zone;
 use crate::TIME_OFFSET;
+use crate::zone::water::arm::ArmState;
 
 use core::error::Error;
 use core::fmt::Debug;
@@ -17,6 +18,7 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
+use super::display::Indicator;
 // use time::macros::offset;
 use super::input::ButtonPanel;
 use super::remote;
@@ -139,7 +141,7 @@ impl Manager {
 
         /// Start action messages handler
         let to_log = self.ops_tx.syslog.clone();
-        let house_mutex = self.house.clone();
+        let house = self.house.clone();
         let zoneupdate_handler = tokio::spawn(async move {
             to_log
                 .send(SysLog {
@@ -150,20 +152,72 @@ impl Manager {
                 let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
                 // println!("{:?}`Manager recv: {:?}", now, data);
 
-                let mut lock = house_mutex.lock().await;
+                // let mut lock = house.lock().await;
                 match data {
-                    ZoneUpdate::Water { id, moisture } => {
-                        let settings = lock
-                            .get_water_settings(id)
-                            .expect("Settings not found");
-                        let movement = settings.position; 
-                        let _ = lock.arm_goto(movement.arm_id, movement.x, movement.y, movement.z); // TODO check result
-                        sleep(Duration::from_secs(2)).await; // TODO wait for arm position to be correct
+                    ZoneUpdate::Water { id, settings, status } => {
+                        // Bryt ut nedan till funktion, task?
+                        
+                        // Check tank status
+                        let tank_status = house.lock().await
+                            .get_displaystatus(ZoneKind::Tank, settings.tank_id)
+                            .expect(&format!("Tank Zone {} not found", &settings.tank_id));
+                        if tank_status.indicator == Indicator::Red {
+                            to_log.send(SysLog::new(format!("Tank {} empty; watering zone {} failed", settings.tank_id, id)));
+                            continue;
+                        }
+                        // Check pump status
+                        // Check arm status
 
-                        let _ = lock.pump_run(settings.pump_id); // TODO check result
-                        sleep(settings.pump_time).await;
-                        let _ = lock.pump_stop(settings.pump_id); // TODO check result
+                        // get arm ststus and control rx
+                        let movement = settings.position; 
+                        let mut arm_status: Option<Arc<RwLock<crate::zone::arm::Status>>> = None;
+                        let mut arm_control_rx: Option<broadcast::Receiver<ArmState>> = None;
+                        for z in house.lock().await.zones() {
+                            match z {
+                                Zone::Arm { id, runner, status, .. } if id == &movement.arm_id => {
+                                    arm_status = Some(status.clone());
+                                    arm_control_rx = Some(runner.control_feedback_sender().subscribe());
+                                }
+                                _ => {}
+                            }    
+                        }
+                        if arm_status.is_none() | arm_control_rx.is_none() {
+                            to_log.send(SysLog::new(format!("Water zone {} failed, Arm Zone {} not found", &id, &movement.arm_id)));
+                            continue;
+                        }
+                        let arm_status = arm_status.unwrap(); //expect(&format!("Arm Zone {} not found", &movement.arm_id));
+                        let mut arm_control_rx = arm_control_rx.unwrap(); //expect(&format!("Arm Zone {} not found", &movement.arm_id));
+
+                        // let _ = house.lock().await.arm_goto(movement.arm_id, movement.x, movement.y, movement.z); // TODO check result
+                        let mut tries = 0u8;
+                        while tries < 3 {
+                            let _ = house.lock().await.arm_goto(movement.arm_id, movement.x, movement.y, movement.z); // TODO check result
+                            sleep(Duration::from_secs(2)).await; // TODO wait for arm position to be correct
+                            while let Ok(arm_data) = arm_control_rx.recv().await {
+                                match arm_data {
+                                    ArmState::Busy => {}
+                                    ArmState::Idle => { break; }
+                                }
+                            }
+                            let confirmed = house.lock().await.confirm_arm_position(id, 5).unwrap();
+                            to_log.send(SysLog::new(format!("Confirm position: {:?}", confirmed)));
+                            if confirmed.0 {
+                                break;
+                            }
+                            tries += 1;
+                        }
+                        if tries < 3 {
+                            let _ = house.lock().await.pump_run(settings.pump_id); // TODO check result
+                            sleep(settings.pump_time).await;
+                            let _ = house.lock().await.pump_stop(settings.pump_id); // TODO check result
+                            to_log.send(SysLog::new(format!("Water zone {} ok", id)));
+                        }
+                        else {
+                            to_log.send(SysLog::new(format!("Water zone {} failed, couldn't confirm position", id)));
+                        }
                     }
+                    ZoneUpdate::Tank { .. } => {}
+                    ZoneUpdate::Arm { .. } => {}
                 }
             }
         });
@@ -175,56 +229,20 @@ impl Manager {
         self.board.set(all_ds).await;
     }
 
-    pub fn zonelog_toggle(&self) -> Option<bool> {
-        let mut r: Option<bool> = None;
-        match &self.zonelog_enable {
-            Some(sender) => {
-                if *sender.borrow() { 
-                    sender.send(false); 
-                    r = Some(false);
-                } 
-                else { 
-                    sender.send(true); 
-                    r = Some(true);
-                }
-            }
-            None => {}
-        }
+    
 
-        r
-    }
-  
-    pub fn statuslog_toggle(&self) -> Option<bool> {
-        let mut r: Option<bool> = None;
-        match &self.status_enable {
-            Some(sender) => {
-                if *sender.borrow() { 
-                    sender.send(false); 
-                    r = Some(false);
-                } 
-                else { 
-                    sender.send(true); 
-                    r = Some(true);
-                }
-            }
-            None => {}
-        }
-
-        r
-    }
-
-    pub async fn blink(&mut self) -> (Result<(), Box<dyn Error>>) {
-        self.board
-            .blink_all(Duration::from_millis(500), Duration::from_secs(1));
-
-        Ok(())
-    }
+   
 
     pub async fn position_from_rc(&mut self, zid: u8) -> Option<(i32, i32, i32)> {
         let (rc_tx, mut rc_rx) = mpsc::channel::<RcInput>(64);
         let cancel = CancellationToken::new();
+        let guard = cancel.clone().drop_guard();
         let _ = self.remote.init(rc_tx, cancel.clone()).await;
 
+
+        let arm_id = self.house.lock().await.get_water_settings(zid).
+            expect(&format!("Water Zone {} not found", &zid))
+            .position.arm_id;
         let to_log = self.ops_tx.syslog.clone();
         let mutex = self.house.clone();
         let position_finder = tokio::task::spawn(async move {
@@ -241,17 +259,19 @@ impl Manager {
                     match z {
                         Zone::Arm {
                             id,
-                            settings: _,
-                            status: _,
                             interface,
-                            runner: _,
-                        } if id == &zid => {
-                            arm_o = Some(Arc::new(interface.arm.as_deref().expect("Interface not found")));
+                            ..
+                        } if id == &arm_id => {
+                        // } if id == &zid => {  // Calling Arm with non-existing id (like 2) leads to interesting panics, look to make that more resilient later   
+                            arm_o = Some(Arc::new(interface.arm.as_deref().expect(&format!("Arm Zone {} not found", &arm_id))));
                         }
                         _ => continue,
                     }
                 }
-                let arm = arm_o.expect("Zone not found");
+                if arm_o.is_none() { return RcModeExit::ElseExit }
+                else { 
+                    arm = arm_o.unwrap(); 
+                } //expect("Zone not found");
                 loop {
                     tokio::select! {
                         Some(data) = rc_rx.recv() => {
@@ -300,7 +320,6 @@ impl Manager {
                 }
             }  
         });
-        // let exit_kind = position_finder.await.expect("Position finder error");
         let exit_kind = match position_finder.await {
             Ok(exitmode) => {
                 Some(exitmode)
@@ -379,6 +398,49 @@ impl Manager {
             }
             None => None,
         }
+    }
+
+    pub fn zonelog_toggle(&self) -> Option<bool> {
+        let mut r: Option<bool> = None;
+        match &self.zonelog_enable {
+            Some(sender) => {
+                if *sender.borrow() { 
+                    sender.send(false); 
+                    r = Some(false);
+                } 
+                else { 
+                    sender.send(true); 
+                    r = Some(true);
+                }
+            }
+            None => {}
+        }
+
+        r
+    }
+    pub fn statuslog_toggle(&self) -> Option<bool> {
+        let mut r: Option<bool> = None;
+        match &self.status_enable {
+            Some(sender) => {
+                if *sender.borrow() { 
+                    sender.send(false); 
+                    r = Some(false);
+                } 
+                else { 
+                    sender.send(true); 
+                    r = Some(true);
+                }
+            }
+            None => {}
+        }
+
+        r
+    }
+    pub async fn blink(&mut self) -> (Result<(), Box<dyn Error>>) {
+        self.board
+            .blink_all(Duration::from_millis(500), Duration::from_secs(1));
+
+        Ok(())
     }
 }
 

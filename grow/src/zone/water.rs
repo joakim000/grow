@@ -12,6 +12,7 @@ use tokio::sync::mpsc;
 // use tokio::sync::Mutex;
 use std::sync::Mutex;
 // use cond_utils::Between;
+use tokio::time::Instant;
 
 use crate::ops::display::{DisplayStatus, Indicator};
 use crate::ops::OpsChannelsTx;
@@ -49,6 +50,7 @@ pub struct Settings {
     pub moisture_high_red_alert: f32,
     pub moisture_low_yellow_warning: f32,
     pub moisture_low_red_alert: f32,
+    pub tank_id: u8,
     pub pump_id: u8,
     pub pump_time: Duration,
     pub position: super::arm::Position,
@@ -82,6 +84,23 @@ impl Debug for dyn MoistureSensor {
     }
 }
 
+#[derive(Clone, Debug,)]
+struct DepStatus {
+    tank: Arc<RwLock<super::tank::Status>>,
+    pump: Arc<RwLock<super::pump::Status>>,
+    arm: Arc<RwLock<super::arm::Status>>
+}
+impl DepStatus {
+    pub fn new( tank: Arc<RwLock<super::tank::Status>>,
+        pump: Arc<RwLock<super::pump::Status>>,
+        arm: Arc<RwLock<super::arm::Status>>) -> Self {
+        Self {
+            tank,
+            pump,
+            arm
+        }
+    }
+}
 #[derive(Debug)]
 pub struct Runner {
     id: u8,
@@ -91,7 +110,7 @@ pub struct Runner {
     status: Arc<RwLock<Status>>,
 }
 impl Runner {
-    pub fn new(id: u8, status: Arc<RwLock<Status>>) -> Self {
+    pub fn new(id: u8, status: Arc<RwLock<Status>>,  ) -> Self {
         Self {
             id,
             status,
@@ -109,6 +128,7 @@ impl Runner {
         settings: Settings,
         zone_channels: ZoneChannelsTx,
         ops_channels: OpsChannelsTx,
+        // dep_status: DepStatus,
     ) {
         let id = self.id;
         let to_manager = zone_channels.zoneupdate;
@@ -127,6 +147,9 @@ impl Runner {
                 &to_status_subscribers.send(ZoneDisplay::Water { id, info: ds });
             };
             set_and_send(DisplayStatus::new(Indicator::Green, Some( format!("Water running") )) );
+            let mut previous_watering = Instant::now();
+            previous_watering.checked_add(Duration::from_secs(30));
+            let watering_timeout = Duration::from_secs(60);  // Get from conf
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {
@@ -138,8 +161,11 @@ impl Runner {
                             (id, Some(moisture)) => {
                                 // Watering needed
                                 if moisture < settings.moisture_limit_water {
-                                    to_manager.send(ZoneUpdate::Water{id, moisture}).await;
-                                }
+                                    if previous_watering.elapsed() > watering_timeout {
+                                        to_manager.send(ZoneUpdate::Water{id, settings, status: status.clone()}).await;
+                                        previous_watering = Instant::now();
+                                    }
+                                }   
 
                                 // Status update
                                 if (moisture < settings.moisture_low_red_alert) { //& (status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::AlertLow)) {
