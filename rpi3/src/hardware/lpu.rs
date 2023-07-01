@@ -399,7 +399,7 @@ impl zone::water::arm::Arm for BrickArm {
                     Ok(data) = rx_axis_x.recv() => {
                         if started & (data.0 >= 0) {
                             device_x.start_power(Power::Float);
-                            println!("Calib X stopped");
+                            // println!("Calib X stopped");
                             break;
                         }
                         if !started & (data.0 < 0) {
@@ -412,13 +412,13 @@ impl zone::water::arm::Arm for BrickArm {
         });
         let calibration_task_y = tokio::spawn(async move {
             let mut started = false;
-            device_y.start_speed(-20, 20);
+            device_y.start_speed(-30, 20);
             loop {
                 tokio::select! {
                     Ok(data) = rx_axis_y.recv() => {
                         if started & (data.0 >= 0) {
                             device_y.start_power(Power::Float);
-                            println!("Calib Y stopped");
+                            // println!("Calib Y stopped");
                             break;
                         }
                         if !started & (data.0 < 0) {
@@ -434,7 +434,7 @@ impl zone::water::arm::Arm for BrickArm {
         let before = (*self.pos_x.read(), *self.pos_y.read(), 0);
         self.device_x.preset_encoder(0);
         self.device_y.preset_encoder(0);
-        println!("Calibrated X Y from: {:?}", &before);
+        // println!("Calibrated X Y from: {:?}", &before);
         Ok(before)
     }
 

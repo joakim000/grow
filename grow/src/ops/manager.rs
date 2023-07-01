@@ -176,9 +176,7 @@ impl Manager {
                         let tank_status = house.lock().await
                             .get_displaystatus(ZoneKind::Tank, settings.tank_id)
                             .expect(&format!("Tank Zone {} not found", &settings.tank_id));
-                        // println!("Water update: tank status: {:?}", &tank_status);
                         if tank_status.indicator == Indicator::Red {
-                            // println!("Water update: tank status indicator was red");
                             to_log.send(SysLog::new(format!("Tank {} empty; watering zone {} failed", settings.tank_id, id))).await;
                             continue;
                         }
@@ -190,7 +188,6 @@ impl Manager {
                         let mut arm_status: Option<Arc<RwLock<crate::zone::arm::Status>>> = None;
                         let mut arm_control_rx: Option<broadcast::Receiver<ArmState>> = None;
                         for z in house.lock().await.zones() {
-                            // println!("Water update: Looking for arm among zones");
                             match z {
                                 Zone::Arm { id, runner, status, .. } if id == &movement.arm_id => {
                                     arm_status = Some(status.clone());
@@ -203,14 +200,14 @@ impl Manager {
                             to_log.send(SysLog::new(format!("Water zone {} failed, Arm Zone {} not found", &id, &movement.arm_id)));
                             continue;
                         }
-                        let arm_status = arm_status.unwrap(); //expect(&format!("Arm Zone {} not found", &movement.arm_id));
-                        let mut arm_control_rx = arm_control_rx.unwrap(); //expect(&format!("Arm Zone {} not found", &movement.arm_id));
+                        let arm_status = arm_status.unwrap(); 
+                        let mut arm_control_rx = arm_control_rx.unwrap(); 
                         // Check arm status
 
                         let mut tries = 0u8;
                         while tries < 3 {
                             let _ = house.lock().await.arm_goto(movement.arm_id, movement.x, movement.y, movement.z); // TODO check result
-                            sleep(Duration::from_secs(2)).await; // TODO wait for arm position to be correct
+                            // sleep(Duration::from_secs(2)).await; // TODO wait for arm position to be correct
                             while let Ok(arm_data) = arm_control_rx.recv().await {
                                 match arm_data {
                                     ArmState::Busy => {}

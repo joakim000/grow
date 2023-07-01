@@ -8,6 +8,7 @@ use tokio::sync::broadcast;
 use core::fmt::Debug;
 use std::sync::Mutex;
 use time::OffsetDateTime;
+use std::cmp;
 
 pub type FanMutex = Arc<Mutex<Box<dyn Fan>>>;
 use super::Zone;
@@ -174,9 +175,12 @@ impl Runner {
             };
             set_and_send(DisplayStatus::new(Indicator::Green, Some( format!("Air running") )) );
 
-            // Workaround for temp and fan statuses overlappning in this zone. Not sure if zone should be refactored or DisplayStatus system, probably the latter.
+            // Workaround for temp and fan statuses overlappning in this zone. Not sure if zone should be refactored or DisplayStatus system?
+            // This solutions displays comma-separated temp and fan msgs and the most severe indicator of the two.  
             let mut buf_temp = String::from("No data");
             let mut buf_fan = String::from("No data");
+            let mut buf_temp_ind = Indicator::default();
+            let mut buf_fan_ind = Indicator::default();
             loop {
                 tokio::select! {
                     Ok(data) = rx_rpm.recv() => {
@@ -185,21 +189,21 @@ impl Runner {
                         match data {
                             (id, None) => {
                                 if (status.read().fan_rpm.is_some()) {
-                                    buf_fan = format!("No fan rpm data");
-                                    o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("{},  {}", buf_temp, buf_fan) )) );
-                                    // o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("No fan rpm data") )) );
+                                    buf_fan = format!("No rpm data");
+                                    buf_fan_ind = Indicator::Red;
+                                    o_ds = Some(DisplayStatus::new(cmp::max(buf_fan_ind, buf_temp_ind), Some( format!("{},  {}", buf_temp, buf_fan) )) );
                                     status.write().fan_rpm = data.1;
                                 }
                             }
                             (id, Some(rpm)) if rpm < settings.fan_rpm_low_red_alert => {
                                 buf_fan = format!("Fan LOW: {:.0} rpm", rpm);
-                                o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("{},  {}", buf_temp, buf_fan) )) );
-                                // o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Fan LOW: {:.0} rpm", rpm) )) );
+                                buf_fan_ind = Indicator::Yellow;
+                                o_ds = Some(DisplayStatus::new(cmp::max(buf_fan_ind, buf_temp_ind), Some( format!("{},  {}", buf_temp, buf_fan) )) );
                             }
                             (id, Some(rpm)) => { // if (status.read().disp.indicator != Indicator::Green) => {
                                 buf_fan = format!("Fan: {:.0} rpm", rpm);
-                                o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("{},  {}", buf_temp, buf_fan) )) );
-                                // o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Fan ok: {:.0} rpm", rpm) )) );
+                                buf_fan_ind = Indicator::Green;
+                                o_ds = Some(DisplayStatus::new(cmp::max(buf_fan_ind, buf_temp_ind), Some( format!("{},  {}", buf_temp, buf_fan) )) );
                             }
                             _ => {}
                         }
@@ -217,9 +221,9 @@ impl Runner {
                         status.write().temp = data.1;
                         match data {
                             (id, None) => {
-                                buf_temp = format!("No data from thermometer");
-                                o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("{},  {}", buf_temp, buf_fan) )) );
-                                // o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("No data from thermometer") )) );
+                                buf_temp = format!("No temp data");
+                                buf_temp_ind = Indicator::Red;
+                                o_ds = Some(DisplayStatus::new(cmp::max(buf_fan_ind, buf_temp_ind), Some( format!("{},  {}", buf_temp, buf_fan) )) );
                             }
                             (id, Some(temp)) => {
                                 // Fan control
@@ -230,18 +234,18 @@ impl Runner {
                                 // Status from temperature
                                 if temp > settings.temp_high_red_alert {
                                     buf_temp = format!("Temp HIGH: {:.1}°C", &temp);
-                                    o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("{},  {}", buf_temp, buf_fan) )) );
-                                    // o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Temp HIGH: {:.1}°C", &temp) )) );
+                                    buf_temp_ind = Indicator::Red;
+                                    o_ds = Some(DisplayStatus::new(cmp::max(buf_fan_ind, buf_temp_ind), Some( format!("{},  {}", buf_temp, buf_fan) )) );
                                 }
                                 else if temp > settings.temp_high_yellow_warning {
                                     buf_temp = format!("Temp HIGH: {:.1}°C", &temp);
-                                    o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("{},  {}", buf_temp, buf_fan) )) );
-                                    // o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("Temp HIGH: {:.1}°C", &temp) )) );
+                                    buf_temp_ind = Indicator::Red;
+                                    o_ds = Some(DisplayStatus::new(cmp::max(buf_fan_ind, buf_temp_ind), Some( format!("{},  {}", buf_temp, buf_fan) )) );
                                 }
                                 else {
                                     buf_temp = format!("Temp: {:.1}°C", &temp);
-                                    o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("{},  {}", buf_temp, buf_fan) )) );
-                                    // o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Temp: {:.1}°C", &temp) )) );
+                                    buf_temp_ind = Indicator::Red;
+                                    o_ds = Some(DisplayStatus::new(cmp::max(buf_fan_ind, buf_temp_ind), Some( format!("{},  {}", buf_temp, buf_fan) )) );
                                 }
                             }
                         }

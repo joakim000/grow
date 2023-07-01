@@ -4,7 +4,7 @@ use time::format_description::well_known::{Rfc3339, Rfc2822};
 use crate::zone::*;
 use crate::TIME_OFFSET;
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Ord, Default)]
 pub enum Indicator {
     #[default] Blue,
     Green,
