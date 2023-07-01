@@ -1,0 +1,55 @@
+[package]
+name = "rpi3"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+#lpu = ["dep:lego-powered-up", "dep:dbus" ]
+logging = ["dep:defmt", "dep:defmt-rtt", "dep:panic-probe"]
+
+[dependencies]
+grow = { path="../../grow" }
+
+#nostd
+anyhow = { version = "1.0", default-features = false }
+time = { version = "0.3.*", default-features = false, features = ["macros", "parsing", "alloc", "serde"]  }
+# chrono = "0.4.24"  #replace with time
+async-trait = "0.1"
+
+#std
+text_io = "0.1.12"
+
+# rp 
+# simple-signal = "1.1.1"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "signal",]}
+tokio-util = "0.7.8"
+# tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "signal", "tracing"]}
+rppal = { version = "0.14.1", features = ["embedded-hal", "hal"] }
+embedded-hal = "0.2.7"
+
+
+
+# commmon hardware
+pcf8591 = "0.1.1"  
+drive_74hc595 = { path="../../74HC595" }
+embedded-graphics = "0.8.0"
+ssd1306 = "0.8.0"
+# dummy-pin = "0.1.1"
+
+# lego-powered-up
+lego-powered-up = { path="../../../hus_project/api/lego-powered-up/lego-powered-up" }
+dbus = {version = "0.9.7", features = ["vendored"]}            
+
+# logging
+defmt = {version = "0.3", optional = true }
+defmt-rtt = {version = "0.4", optional = true } 
+panic-probe = { version = "0.3", features = ["print-defmt"], optional = true }
+parking_lot = "0.12.1"
+
+
+# tracing = "0.1"
+# tracing-subscriber = "0.3"
+# console-subscriber = "0.1.5"
+
+
+

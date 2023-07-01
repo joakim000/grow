@@ -16,7 +16,7 @@ use super::*;
 use crate::ops::display::{DisplayStatus, Indicator};
 use crate::ops::OpsChannelsTx;
 use crate::ops::SysLog;
-use crate::TIME_OFFSET;
+// use crate::TIME_OFFSET;
 
 pub fn new(id: u8, settings: Settings) -> super::Zone {
     let status = Status {
@@ -179,21 +179,21 @@ impl Runner {
             // This solutions displays comma-separated temp and fan msgs and the most severe indicator of the two.  
             let mut buf_temp = String::from("No data");
             let mut buf_fan = String::from("No data");
-            let mut buf_temp_ind = Indicator::default();
-            let mut buf_fan_ind = Indicator::default();
+            let mut buf_temp_ind = Indicator::Red;
+            let mut buf_fan_ind = Indicator::Red;
             loop {
                 tokio::select! {
                     Ok(data) = rx_rpm.recv() => {
-                        // println!("\tFan rpm: {:?}", data);
+                        println!("\tFan rpm: {:?}", data);
                         let mut o_ds: Option<DisplayStatus> = None;
+                        status.write().fan_rpm = data.1;
                         match data {
                             (id, None) => {
-                                if (status.read().fan_rpm.is_some()) {
+                                // if { (status.read().fan_rpm.is_some()) {
                                     buf_fan = format!("No rpm data");
                                     buf_fan_ind = Indicator::Red;
                                     o_ds = Some(DisplayStatus::new(cmp::max(buf_fan_ind, buf_temp_ind), Some( format!("{},  {}", buf_temp, buf_fan) )) );
-                                    status.write().fan_rpm = data.1;
-                                }
+                                // }
                             }
                             (id, Some(rpm)) if rpm < settings.fan_rpm_low_red_alert => {
                                 buf_fan = format!("Fan LOW: {:.0} rpm", rpm);
@@ -213,7 +213,6 @@ impl Runner {
                             Some(ds) => { set_and_send(ds); }
                             None => {}
                         }
-
                     }
                     Ok(data) = rx_temp.recv() => {
                         // println!("\tTemp: {:?}", data);
@@ -239,12 +238,12 @@ impl Runner {
                                 }
                                 else if temp > settings.temp_high_yellow_warning {
                                     buf_temp = format!("Temp HIGH: {:.1}°C", &temp);
-                                    buf_temp_ind = Indicator::Red;
+                                    buf_temp_ind = Indicator::Yellow;
                                     o_ds = Some(DisplayStatus::new(cmp::max(buf_fan_ind, buf_temp_ind), Some( format!("{},  {}", buf_temp, buf_fan) )) );
                                 }
                                 else {
                                     buf_temp = format!("Temp: {:.1}°C", &temp);
-                                    buf_temp_ind = Indicator::Red;
+                                    buf_temp_ind = Indicator::Green;
                                     o_ds = Some(DisplayStatus::new(cmp::max(buf_fan_ind, buf_temp_ind), Some( format!("{},  {}", buf_temp, buf_fan) )) );
                                 }
                             }

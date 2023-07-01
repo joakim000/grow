@@ -167,7 +167,7 @@ impl Manager {
                         }
                         let moisture = moisture.unwrap();
                         if moisture > settings.moisture_limit_water {
-                            to_log.send(SysLog::new(format!("Water {}; moist {} above limit {}.", id, moisture, settings.moisture_limit_water))).await;
+                            // to_log.send(SysLog::new(format!("Water {}; moist {} above limit {}.", id, moisture, settings.moisture_limit_water))).await;
                             continue;
                         }
                         to_log.send(SysLog::new(format!("Water {}; moist {} below limit {}. Init watering.", id, moisture, settings.moisture_limit_water))).await;
@@ -177,7 +177,7 @@ impl Manager {
                             .get_displaystatus(ZoneKind::Tank, settings.tank_id)
                             .expect(&format!("Tank Zone {} not found", &settings.tank_id));
                         if tank_status.indicator == Indicator::Red {
-                            to_log.send(SysLog::new(format!("Tank {} empty; watering zone {} failed", settings.tank_id, id))).await;
+                            to_log.send(SysLog::new(format!("Water zone {} failed: Tank {} empty", settings.tank_id, id))).await;
                             continue;
                         }
 
@@ -197,7 +197,7 @@ impl Manager {
                             }    
                         }
                         if arm_status.is_none() | arm_control_rx.is_none() {
-                            to_log.send(SysLog::new(format!("Water zone {} failed, Arm Zone {} not found", &id, &movement.arm_id)));
+                            to_log.send(SysLog::new(format!("Water zone {} failed: Arm Zone {} not found", &id, &movement.arm_id)));
                             continue;
                         }
                         let arm_status = arm_status.unwrap(); 

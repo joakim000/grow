@@ -1,0 +1,1 @@
+{"rustc":18204198148449050881,"features":"[]","target":12776041882833261327,"profile":18196020371468304089,"path":6931501574851875343,"deps":[],"local":[{"CheckDepInfo":{"dep_info":"debug\\.fingerprint\\iovec-cabadd16e22fedaa\\dep-lib-iovec"}}],"rustflags":["--cfg","tokio_unstable"],"metadata":13381672237506315297,"config":2202906307356721367,"compile_kind":0}

@@ -1,0 +1,11 @@
+[workspace]
+members = [
+	"grow",
+	"74HC595",
+
+	"examples/*",
+]
+default-members = ["grow", "74HC595"]
+
+
+# [patch.crates-io]

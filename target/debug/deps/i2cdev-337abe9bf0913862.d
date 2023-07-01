@@ -1,0 +1,12 @@
+/mnt/r/code/grow/target/debug/deps/i2cdev-337abe9bf0913862.rmeta: /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/lib.rs /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/ffi.rs /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/core.rs /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/sensors/mod.rs /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/sensors/adxl345_accelerometer.rs /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/sensors/mpl115a2_barometer.rs /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/sensors/nunchuck.rs /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/linux.rs
+
+/mnt/r/code/grow/target/debug/deps/i2cdev-337abe9bf0913862.d: /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/lib.rs /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/ffi.rs /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/core.rs /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/sensors/mod.rs /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/sensors/adxl345_accelerometer.rs /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/sensors/mpl115a2_barometer.rs /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/sensors/nunchuck.rs /home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/linux.rs
+
+/home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/lib.rs:
+/home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/ffi.rs:
+/home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/core.rs:
+/home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/sensors/mod.rs:
+/home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/sensors/adxl345_accelerometer.rs:
+/home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/sensors/mpl115a2_barometer.rs:
+/home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/sensors/nunchuck.rs:
+/home/joakim/.cargo/registry/src/index.crates.io-6f17d22bba15001f/i2cdev-0.3.2/src/linux.rs:

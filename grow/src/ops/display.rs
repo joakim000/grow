@@ -64,13 +64,13 @@ impl fmt::Display for DisplayStatus {
 impl fmt::Display for ZoneDisplay {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ZoneDisplay::Air { id, info } =>        { write!(f, "   Air {} {} \t{}", id, info, info.changed ) },
-            ZoneDisplay::Light { id, info } =>      { write!(f, " Light {} {} \t{}", id, info, info.changed ) },
-            ZoneDisplay::Water { id, info } =>      { write!(f, " Water {} {} \t{}", id, info, info.changed ) },
-            ZoneDisplay::Aux { id, info } =>        { write!(f, "   Aux {} {} \t{}", id, info, info.changed ) },
-            ZoneDisplay::Arm { id, info } =>        { write!(f, "   Arm {} {} \t{}", id, info, info.changed ) },
-            ZoneDisplay::Pump { id, info } =>       { write!(f, "  Pump {} {} \t{}", id, info, info.changed ) },
-            ZoneDisplay::Tank { id, info } =>       { write!(f, "  Tank {} {} \t{}", id, info, info.changed ) },
+            ZoneDisplay::Air { id, info } =>        { write!(f, "{}    Air {} {}", format_time(info.changed), id, info,  ) },
+            ZoneDisplay::Light { id, info } =>      { write!(f, "{}  Light {} {}", format_time(info.changed), id, info,  ) },
+            ZoneDisplay::Water { id, info } =>      { write!(f, "{}  Water {} {}", format_time(info.changed), id, info,  ) },
+            ZoneDisplay::Aux { id, info } =>        { write!(f, "{}    Aux {} {}", format_time(info.changed), id, info,  ) },
+            ZoneDisplay::Arm { id, info } =>        { write!(f, "{}    Arm {} {}", format_time(info.changed), id, info,  ) },
+            ZoneDisplay::Pump { id, info } =>       { write!(f, "{}   Pump {} {}", format_time(info.changed), id, info,  ) },
+            ZoneDisplay::Tank { id, info } =>       { write!(f, "{}   Tank {} {}", format_time(info.changed), id, info,  ) },
         }
     }
 }
@@ -200,4 +200,10 @@ impl fmt::Display for ZoneLog {
             }
         }
     }
+}
+
+fn format_time(dt: OffsetDateTime) -> String {
+    // format!("{}", dt.format(&Rfc2822).expect("Time formatting error"))
+    let hms = dt.to_hms(); 
+    format!("{} {}:{:02}:{:02}", dt.date(), hms.0, hms.1, hms.2)        
 }

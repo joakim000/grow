@@ -1,0 +1,1 @@
+{"rustc":18204198148449050881,"features":"[]","target":2387001741810630927,"profile":18196020371468304089,"path":4628100009529479787,"deps":[],"local":[{"CheckDepInfo":{"dep_info":"debug\\.fingerprint\\hashbrown-96ecbb9ef3c7df9e\\dep-lib-hashbrown"}}],"rustflags":["--cfg","tokio_unstable"],"metadata":6228333144549390726,"config":2202906307356721367,"compile_kind":0}
