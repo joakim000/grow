@@ -96,9 +96,9 @@ impl Manager {
         let log_handler = tokio::spawn(async move {
             let mut log_enabled = *log_enable_rx.borrow();
             let mut status_enabled = *status_enable_rx.borrow();
-            to_log
-                .send(SysLog::new(format!("Spawned log handler")))
-                .await;
+            // to_log
+            //     .send(SysLog::new(format!("Spawned log handler")))
+            //     .await;
             loop {
                 tokio::select! {
                     Ok(()) = log_enable_rx.changed() => {
@@ -125,7 +125,7 @@ impl Manager {
                             println!("{} {}", now.format(&Rfc2822).expect("Time formatting error"), &data);
                         }
                         {
-                            manager_mutex.lock().await.update_board().await;
+                            // manager_mutex.lock().await.update_board().await;
                         }
                     }
                     else => { break }
@@ -135,7 +135,7 @@ impl Manager {
 
         // Calibrate arm
         {
-            let mut lock = self.house.lock().await;
+            let mut lock = self.house.lock();
             let result = lock.arm_calibrate(1).await;
             self.ops_tx
                 .syslog
@@ -169,7 +169,7 @@ impl Manager {
                 let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
                 // println!("{:?}`Manager recv: {:?}", now, data);
 
-                // let mut lock = house.lock().await;
+                // let mut lock = house.lock();
                 match data {
                     ZoneUpdate::Water {
                         id,
@@ -197,7 +197,6 @@ impl Manager {
                         // Check tank status
                         let tank_status = house
                             .lock()
-                            .await
                             .get_displaystatus(ZoneKind::Tank, settings.tank_id)
                             .expect(&format!(
                                 "Tank Zone {} not found",
@@ -223,7 +222,7 @@ impl Manager {
                         let mut arm_control_rx: Option<
                             broadcast::Receiver<ArmState>,
                         > = None;
-                        for z in house.lock().await.zones() {
+                        for z in house.lock().zones() {
                             match z {
                                 Zone::Arm {
                                     id, runner, status, ..
@@ -251,7 +250,7 @@ impl Manager {
 
                         let mut tries = 0u8;
                         while tries < 3 {
-                            let _ = house.lock().await.arm_goto(
+                            let _ = house.lock().arm_goto(
                                 movement.arm_id,
                                 movement.x,
                                 movement.y,
@@ -269,7 +268,6 @@ impl Manager {
                             }
                             let confirmed = house
                                 .lock()
-                                .await
                                 .confirm_arm_position(id, 5)
                                 .unwrap();
                             to_log
@@ -285,10 +283,10 @@ impl Manager {
                         }
                         if tries < 3 {
                             let _ =
-                                house.lock().await.pump_run(settings.pump_id); // TODO check result
+                                house.lock().pump_run(settings.pump_id); // TODO check result
                             sleep(settings.pump_time).await;
                             let _ =
-                                house.lock().await.pump_stop(settings.pump_id); // TODO check result
+                                house.lock().pump_stop(settings.pump_id); // TODO check result
                             to_log
                                 .send(SysLog::new(format!(
                                     "Water zone {} ok",
@@ -307,7 +305,7 @@ impl Manager {
     }
 
     pub async fn update_board(&mut self) {
-        let mut lock = self.house.lock().await;
+        let mut lock = self.house.lock();
         let all_ds = lock.collect_display_status();
         self.board.set(all_ds).await;
     }
@@ -318,7 +316,7 @@ impl Manager {
     ) -> Option<(i32, i32, i32)> {
         let to_log = self.ops_tx.syslog.clone();
 
-        let settings = self.house.lock().await.get_water_settings(zid);
+        let settings = self.house.lock().get_water_settings(zid);
         if settings.is_none() {
             to_log
                 .send(SysLog::new(format!(
@@ -331,7 +329,7 @@ impl Manager {
         let arm_id = settings.unwrap().position.arm_id;
 
         let mut to_arm: Option<broadcast::Sender<ArmCmd>> = None;
-        for z in self.house.lock().await.zones() {
+        for z in self.house.lock().zones() {
             match z {
                 Zone::Arm { id, runner, .. } if id == &arm_id => {
                     // } if id == &zid => {  // Calling Arm with non-existing id (like 2) leads to interesting panics, look to make that more resilient later
@@ -367,7 +365,7 @@ impl Manager {
             // let mut arm_o: Option<Arc<&(dyn Arm + '_)>> = None;
             // let arm: Arc<&(dyn Arm + '_)>;
             {
-                let mut lock = house.lock().await;
+                // let mut lock = house.lock();
                 // for z in lock.zones() {
                 //     match z {
                 //         Zone::Arm {
@@ -457,7 +455,7 @@ impl Manager {
         // Get current position from house after exit:
         let pos: (i32, i32, i32);
         {
-            let mut house = self.house.lock().await;
+            let mut house = self.house.lock();
             pos = house
                 .arm_position(1)
                 .expect("Error getting arm position from house");
@@ -473,7 +471,7 @@ impl Manager {
                     })
                     .await;
                 // println!("Req house lock for set water pos");
-                self.house.lock().await.set_water_position(zid, pos);
+                self.house.lock().set_water_position(zid, pos);
                 // println!("Water pos NOT set");
                 Some(pos)
             }

@@ -91,7 +91,7 @@ pub fn manual_cmds(
             match line {
                 // Operations commands
                 _line if _line.contains("board") => {
-                    let mut board = house.lock().await.collect_display_status();
+                    let mut board = house.lock().collect_display_status();
                     board.sort();
                     for z in board {
                         println!("{}", &z);
@@ -132,7 +132,7 @@ pub fn manual_cmds(
                     let zid = getnum_u8();
                     if zid.0 {continue}
                     {
-                        let mut lock = house.lock().await;
+                        let mut lock = house.lock();
                         let response = lock.get_water_settings(zid.1);
                         println!("\tWater zone {} settings: {:#?}", &zid.1, &response);
                     }
@@ -143,7 +143,7 @@ pub fn manual_cmds(
                     let zid = getnum_u8();
                     if zid.0 {continue}
                     {
-                        let mut lock = house.lock().await;
+                        let mut lock = house.lock();
                         let response = lock.confirm_arm_position(zid.1, 5);
                         println!("\tWater zone {} arm positioned: {:#?}", &zid.1, &response);
                     }
@@ -156,69 +156,69 @@ pub fn manual_cmds(
                     print!("Read moisture from Water zone > ");
                     let zid = getnum_u8();
                     if zid.0 {continue}
-                    let mut lock = house.lock().await;
+                    let mut lock = house.lock();
                     let response = lock.read_moisture_value(zid.1);
                     println!("\tWater zone {} moisture: {:?}", &zid.1, &response);
                 }
                 _line if _line.contains("light1") => {
-                    let mut lock = house.lock().await;
+                    let mut lock = house.lock();
                     let response = lock.read_light_value(1u8);
                     println!("\tLight zone {} brightness: {:?}", 1, &response);
                 }
                 _line if _line.contains("temp1") => {
-                    let mut lock = house.lock().await;
+                    let mut lock = house.lock();
                     let response = lock.read_temperature_value(1u8);
                     println!("\tAir zone {} temperature: {:?}", 1, &response);
                 }
                 _line if _line.contains("fan1") => {
-                    let mut lock = house.lock().await;
+                    let mut lock = house.lock();
                     let response = lock.read_fan_speed(1u8);
                     println!("\tAir zone {} fan speed: {:?}", 1, &response);
                 }
                 _line if _line.contains("tank1") => {
-                    let mut lock = house.lock().await;
+                    let mut lock = house.lock();
                     let response = lock.read_tank_level(1u8);
                     println!("\tTank zone {} level: {:?}", 1, &response);
                 }
 
                 // General action commands
                 _line if _line.contains("lamp1on") => {
-                    let _ = house.lock().await.set_lamp_state(1u8, LampState::On);
+                    let _ = house.lock().set_lamp_state(1u8, LampState::On);
                 }
                 _line if _line.contains("lamp1off") => {
-                    let _ = house.lock().await.set_lamp_state(1u8, LampState::Off);
+                    let _ = house.lock().set_lamp_state(1u8, LampState::Off);
                 }
                 _line if _line.contains("fan1dc") => {
                     print!("Fan 1 duty cycle > ");
                     let _line: String = read!("{}\n");
                     let input = _line.trim().parse::<f64>().unwrap();
-                    let _ = house.lock().await.set_fan_duty_cycle(1, input);
+                    let _ = house.lock().set_fan_duty_cycle(1, input);
                 }
 
                 // Pump actions
                 _line if _line.contains("pump1run") => {
-                    let m = house.clone();
+                    let house = house.clone();
                     tokio::spawn(async move {
-                        let _ = m.lock().await.pump_run(1u8);
+                        let _ = house.lock().pump_run(1u8);
                     });
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("pump1") => {
-                    let m = house.clone();
+                    let house = house.clone();
                     tokio::spawn(async move {
                         {
-                            let _ = m.lock().await.pump_run(1u8);
+                            let _ = house.lock().pump_run(1u8);
                         }
                         tokio::time::sleep(Duration::from_secs(3)).await;
                         {
-                            let _ = m.lock().await.pump_stop(1u8);
+                            let _ = house.lock().pump_stop(1u8);
                         }
                     });
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("ps") => {
                     {
-                        let _ = house.lock().await.pump_stop(1u8);
+                        let _ = house.lock().pump_stop(1u8);
                     }
                     tokio::task::yield_now().await;
                 }
@@ -228,14 +228,14 @@ pub fn manual_cmds(
                     print!("Arm 1 goto X > ");
                     let pos_x = getnum_i32();
                     if !pos_x.0 {continue}
-                    let _ = house.lock().await.arm_goto_x(1u8, pos_x.1);
+                    let _ = house.lock().arm_goto_x(1u8, pos_x.1);
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("arm1y") => {
                     print!("Arm 1 goto Y > ");
                     let pos_y = getnum_i32();
                     if !pos_y.0 {continue}
-                    let _ = house.lock().await.arm_goto_y(1u8, pos_y.1);
+                    let _ = house.lock().arm_goto_y(1u8, pos_y.1);
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("arm1") => {
@@ -245,16 +245,16 @@ pub fn manual_cmds(
                     print!("Arm 1 goto Y > ");
                     let pos_y = getnum_i32();
                     if !pos_y.0 {continue}
-                    let _ = house.lock().await.arm_goto(1u8, pos_x.1, pos_y.1, 0);
+                    let _ = house.lock().arm_goto(1u8, pos_x.1, pos_y.1, 0);
                     tokio::task::yield_now().await;
                 }
-                _line if _line.contains("armupdate") => {
-                    let _ = house.lock().await.arm_update(1u8).await;
-                    tokio::task::yield_now().await;
-                }
+                // _line if _line.contains("armupdate") => {
+                //     let _ = house.lock().arm_update(1u8).await;
+                //     tokio::task::yield_now().await;
+                // }
                 _line if _line.contains("armpos") => {
                     {
-                        let mut lock = house.lock().await;
+                        let mut lock = house.lock();
                         let pos = lock.arm_position(1u8);
                         println!("Arm position: {:?}", pos);
                     }
@@ -262,9 +262,10 @@ pub fn manual_cmds(
                 }
                 _line if _line.contains("calib") => {
                     {
-                        let mut lock = house.lock().await;
-                        let result = lock.arm_calibrate(1).await;
-                        println!("Calibrated X Y from: {:?}", result);
+                        // let mut lock = house.lock();
+                        // let result = lock.arm_calibrate(1).await;
+                        let _ = house.lock().arm_calibrate(1).await;
+                        // println!("Calibrated X Y from: {:?}", result);
                     }
                     tokio::task::yield_now().await;
                 }

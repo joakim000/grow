@@ -14,7 +14,10 @@ use tokio::signal;
 use tokio::sync::mpsc;
 use tokio::sync::Mutex as TokioMutex;
 use tokio_util::sync::CancellationToken;
-pub type HouseMutex = Arc<TokioMutex<grow::House>>;
+
+use parking_lot::RwLock;
+// pub type HouseMutex = Arc<TokioMutex<grow::House>>;
+// pub type HouseMutex = Arc<RwLock<grow::House>>;
 
 
 #[tokio::main]

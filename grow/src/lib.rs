@@ -5,11 +5,12 @@ extern crate alloc;
 use core::error::Error;
 pub type BoxResult<T> = core::result::Result<T, Box<dyn Error>>;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::Mutex as TokioMutex;
 // use std::sync::Mutex;
 pub use tokio::sync::broadcast;
 pub use tokio::sync::mpsc;
-// use parking_lot::RwLock;
+// use parking_lot::RwLock as Mutex;
+use parking_lot::Mutex as Mutex;
 
 mod error;
 pub use error::ZoneError;
@@ -24,7 +25,7 @@ use zone::ZoneDisplay;
 use zone::*;
 use zone::{arm::ArmCmd, pump::PumpCmd, Zone};
 pub type HouseMutex = Arc<Mutex<House>>;
-pub type ManagerMutex = Arc<Mutex<ops::manager::Manager>>;
+pub type ManagerMutex = Arc<TokioMutex<ops::manager::Manager>>;
 
 // pub const TIME_OFFSET: time::UtcOffset = time::macros::offset!(+1); // CET
 pub const TIME_OFFSET: time::UtcOffset = time::macros::offset!(+2); // CEST
