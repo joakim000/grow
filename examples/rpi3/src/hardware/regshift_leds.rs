@@ -173,12 +173,12 @@ impl Board for Shiftreg {
         }
         // println!("\tLoading board byte: {:b}", &led_byte);
         self.reg.write().load(led_byte);
-        sleep(Duration::from_millis(30)).await;
-        self.reg.write().load(led_byte);
-        sleep(Duration::from_millis(30)).await;
-        self.reg.write().load(led_byte);
-        sleep(Duration::from_millis(100)).await;
-        self.reg.write().load(led_byte);
+        // sleep(Duration::from_millis(30)).await;
+        // self.reg.write().load(led_byte);
+        // sleep(Duration::from_millis(30)).await;
+        // self.reg.write().load(led_byte);
+        // sleep(Duration::from_millis(100)).await;
+        // self.reg.write().load(led_byte);
         Ok(())
     }
 

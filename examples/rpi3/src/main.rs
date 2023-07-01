@@ -1,5 +1,5 @@
 #![feature(error_in_core)]
-// #![allow(unused)]
+#![allow(unused)]
 
 mod cmd;
 mod hardware;

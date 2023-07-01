@@ -1,7 +1,9 @@
-#![no_std]
+// #![no_std]
 #![allow(unused)]
 
 use embedded_hal::digital::v2::OutputPin;
+use std::thread;
+use std::time::Duration;
 
 pub struct ShiftRegister<OE, SER, SRCLR, SRCLK, RCLK>
 where
@@ -50,6 +52,7 @@ where
 
     /// loads an 8bit value to the 74HC595
     pub fn load(&mut self, mut data: u8) {
+        self.disable_output();
         for _ in 0..8 {
             if (data & 0x80) != 0 {
                 self.ser.set_high();
@@ -60,16 +63,17 @@ where
             data <<= 1;
         }
         self.pulse_rclk();
+        self.enable_output();
     }
 
     /// enable output
-    #[inline]
+    // #[inline]
     pub fn enable_output(&mut self) {
         self.oe.set_low();
     }
 
     /// disable the output (operations can still be performed)
-    #[inline]
+    // #[inline]
     pub fn disable_output(&mut self) {
         self.oe.set_high();
     }
@@ -109,11 +113,13 @@ where
 
     fn pulse_srclk(&mut self) {
         self.srclk.set_high();
+        thread::sleep(Duration::from_millis(1));
         self.srclk.set_low();
     }
 
     fn pulse_rclk(&mut self) {
         self.rclk.set_high();
+        thread::sleep(Duration::from_millis(1));
         self.rclk.set_low();
     }
 }

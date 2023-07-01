@@ -128,7 +128,7 @@ impl Runner {
                                 o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("No data from tank sensor") )) );
                             },
                             (id, Some(TankLevel::Green)) => {
-                                o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Tank ok") )) );
+                                o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Tank ok") )) );
                             },
                             (id, Some(TankLevel::Yellow)) => {
                                 o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("Tank low") )) );
