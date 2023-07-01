@@ -12,25 +12,7 @@ use tokio::sync::broadcast;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
-#[derive(Clone, Debug)]
-pub enum ZoneCmd {
-    // Air { id: u8, sender: broadcast::Sender<AirCmd>, },
-    // Aux { id: u8, sender: broadcast::Sender<AuxCmd>, },
-    Light {
-        id: u8,
-        sender: broadcast::Sender<(u8, bool)>,
-    },
-    // Water { id: u8, sender: broadcast::Sender<WaterCmd>, },
-    Arm {
-        id: u8,
-        sender: broadcast::Sender<ArmCmd>,
-    },
-    Pump {
-        id: u8,
-        sender: broadcast::Sender<(u8, PumpCmd)>,
-    },
-    // Tank { id: u8, sender: broadcast::Sender<(u8, TankCmd)>, },
-}
+
 
 pub fn list_cmds() {
     let general_list = vec![
@@ -67,7 +49,7 @@ pub fn list_cmds() {
     for cmd in debug_list {
         println!("{:>10}\t{}", cmd.0, cmd.1);
     }
-    println!("\tAlso:\nupdate\nblink\nlamp1on\nlamp1off\narmupdate\ncalibx\ncaliby\n");
+    println!("\tAlso:\nupdate\nblink\nlamp1on\nlamp1off\narmupdate\n");
 }
 
 #[rustfmt::skip]
@@ -76,7 +58,7 @@ pub fn manual_cmds(
     manager: ManagerMutex,
     shutdown: mpsc::UnboundedSender<bool>,
 ) -> Result<JoinHandle<()>, Box<dyn Error>> {
-    let _getnum_u8 = || -> ( bool, u8 ) {
+    let getnum_u8 = || -> ( bool, u8 ) {
         let _line: String = read!("{}\n"); 
         let num = _line.trim().parse::<u8>();  
         match num {
@@ -133,36 +115,37 @@ pub fn manual_cmds(
                 }
                 _line if _line.contains("status") => {
                     let set_to = manager.lock().await.statuslog_toggle();
-                    // if set_to.is_some_and(|s| s == true) println!("S")
                     println!("Output status log: {:?}", set_to);
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("remote") => {
                     // Connect to remote
                     print!("Set position for Water zone > ");
-                    let _line: String = read!("{}\n");
-                    let zid = _line.trim().parse::<u8>().unwrap();
-                    let pos = manager.lock().await.position_from_rc(zid).await;
-                    println!("Set position for Water zone {}: {:?}", &zid, &pos);
+                    let zid = getnum_u8();
+                    if zid.0 {continue}
+                    let pos = manager.lock().await.position_from_rc(zid.1).await;
+                    println!("Set position for Water zone {}: {:?}", &zid.1, &pos);
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("waterpos") => {
                     print!("Show settings from Water zone > ");
-                    let _line: String = read!("{}\n");
-                    let zid = _line.trim().parse::<u8>().unwrap();
+                    let zid = getnum_u8();
+                    if zid.0 {continue}
+                    {
                         let mut lock = house.lock().await;
-                        let response = lock.get_water_settings(zid);
-                        println!("\tWater zone {} settings: {:#?}", &zid, &response);
+                        let response = lock.get_water_settings(zid.1);
+                        println!("\tWater zone {} settings: {:#?}", &zid.1, &response);
+                    }
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("confirmpos") => {
                     print!("Confirm arm positioned for Water zone > ");
-                    let _line: String = read!("{}\n");
-                    let zid = _line.trim().parse::<u8>().unwrap();
+                    let zid = getnum_u8();
+                    if zid.0 {continue}
                     {
                         let mut lock = house.lock().await;
-                        let response = lock.confirm_arm_position(zid, 5);
-                        println!("\tWater zone {} arm positioned: {:#?}", &zid, &response);
+                        let response = lock.confirm_arm_position(zid.1, 5);
+                        println!("\tWater zone {} arm positioned: {:#?}", &zid.1, &response);
                     }
                     tokio::task::yield_now().await;
                 }
@@ -171,11 +154,11 @@ pub fn manual_cmds(
                 // Sensor requests
                 _line if _line.contains("moist") => {
                     print!("Read moisture from Water zone > ");
-                    let _line: String = read!("{}\n");
-                    let zid = _line.trim().parse::<u8>().unwrap();
+                    let zid = getnum_u8();
+                    if zid.0 {continue}
                     let mut lock = house.lock().await;
-                    let response = lock.read_moisture_value(zid);
-                    println!("\tWater zone {} moisture: {:?}", &zid, &response);
+                    let response = lock.read_moisture_value(zid.1);
+                    println!("\tWater zone {} moisture: {:?}", &zid.1, &response);
                 }
                 _line if _line.contains("light1") => {
                     let mut lock = house.lock().await;
@@ -235,8 +218,7 @@ pub fn manual_cmds(
                 }
                 _line if _line.contains("ps") => {
                     {
-                        let mut lock = house.lock().await;
-                        let _ = lock.pump_stop(1u8);
+                        let _ = house.lock().await.pump_stop(1u8);
                     }
                     tokio::task::yield_now().await;
                 }
@@ -244,32 +226,25 @@ pub fn manual_cmds(
                 // Arm actions
                 _line if _line.contains("arm1x") => {
                     print!("Arm 1 goto X > ");
-                    let _line: String = read!("{}\n");
-                    let pos = _line.trim().parse::<i32>().unwrap();
-                    let mut lock = house.lock().await;
-                    let _ = lock.arm_goto_x(1u8, pos);
+                    let pos_x = getnum_i32();
+                    if !pos_x.0 {continue}
+                    let _ = house.lock().await.arm_goto_x(1u8, pos_x.1);
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("arm1y") => {
                     print!("Arm 1 goto Y > ");
-                    let _line: String = read!("{}\n");
-                    let pos = _line.trim().parse::<i32>().unwrap();
-                    let mut lock = house.lock().await;
-                    let _ = lock.arm_goto_y(1u8, pos);
+                    let pos_y = getnum_i32();
+                    if !pos_y.0 {continue}
+                    let _ = house.lock().await.arm_goto_y(1u8, pos_y.1);
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("arm1") => {
                     print!("Arm 1 goto X > ");
                     let pos_x = getnum_i32();
                     if !pos_x.0 {continue}
-                    // let _line: String = read!("{}\n"); let pos_x = _line.trim().parse::<i32>();  if pos_x.is_err() { eprintln!("Invalid input, try again."); continue; }  let pos_x = pos_x.unwrap();
                     print!("Arm 1 goto Y > ");
                     let pos_y = getnum_i32();
                     if !pos_y.0 {continue}
-                    // let _line: String = read!("{}\n"); let pos_x = _line.trim().parse::<i32>();  if pos_x.is_err() { eprintln!("Invalid input, try again."); continue; }  let pos_x = pos_x.unwrap();
-                    // let pos_y = _line.trim().parse::<i32>().unwrap();
-
-                    // let mut lock = house.lock().await;
                     let _ = house.lock().await.arm_goto(1u8, pos_x.1, pos_y.1, 0);
                     tokio::task::yield_now().await;
                 }
@@ -307,3 +282,23 @@ pub fn manual_cmds(
         let _ = shutdown.send(true);
     })) //;
 }
+
+// #[derive(Clone, Debug)]
+// pub enum ZoneCmd {
+//     // Air { id: u8, sender: broadcast::Sender<AirCmd>, },
+//     // Aux { id: u8, sender: broadcast::Sender<AuxCmd>, },
+//     Light {
+//         id: u8,
+//         sender: broadcast::Sender<(u8, bool)>,
+//     },
+//     // Water { id: u8, sender: broadcast::Sender<WaterCmd>, },
+//     Arm {
+//         id: u8,
+//         sender: broadcast::Sender<ArmCmd>,
+//     },
+//     Pump {
+//         id: u8,
+//         sender: broadcast::Sender<(u8, PumpCmd)>,
+//     },
+//     // Tank { id: u8, sender: broadcast::Sender<(u8, TankCmd)>, },
+// }

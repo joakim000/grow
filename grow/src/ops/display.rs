@@ -242,8 +242,8 @@ impl fmt::Display for ZoneLog {
     }
 }
 
-fn format_time(dt: OffsetDateTime) -> String {
+pub fn format_time(dt: OffsetDateTime) -> String {
     // format!("{}", dt.format(&Rfc2822).expect("Time formatting error"))
     let hms = dt.to_hms();
-    format!("{} {}:{:02}:{:02}", dt.date(), hms.0, hms.1, hms.2)
+    format!("{} {:02}:{:02}:{:02}", dt.date(), hms.0, hms.1, hms.2)
 }

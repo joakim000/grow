@@ -155,12 +155,6 @@ impl Runner {
                 Indicator::Green,
                 Some(format!("Water running")),
             ));
-            // let mut previous_watering = Instant::now();
-            // println!("Created previous watering - elapsed: {:?}", &previous_watering.elapsed());
-
-            // previous_watering = previous_watering.checked_add(Duration::from_secs(30)).unwrap();
-            // println!("Added 30s to  previous watering - elapsed: {:?}", &previous_watering.elapsed());
-            // let watering_timeout = Duration::from_secs(60);  // Get from conf
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {
@@ -171,17 +165,6 @@ impl Runner {
                                 o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("No data from moisture sensor") )) );
                             },
                             (id, Some(moisture)) => {
-                                // Watering needed
-                                // if moisture < settings.moisture_limit_water {
-                                //     println!("Watering for id {}? Moisture:{} Limit:{} Elapsed:{:?} Timeout:{:?}", &id, &moisture, &settings.moisture_limit_water, previous_watering.elapsed(), watering_timeout);
-                                //     if previous_watering.elapsed() > watering_timeout {
-                                //         // println!("Sending update from Water {}", &id);
-                                //         to_manager.send(ZoneUpdate::Water{id, settings, status: status.clone()}).await;
-                                //         previous_watering = Instant::now();
-                                //     }
-                                // }
-
-
                                 // Status update
                                 if (moisture < settings.moisture_low_red_alert) { //& (status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::AlertLow)) {
                                     o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Moisture LOW {}", moisture) )) );

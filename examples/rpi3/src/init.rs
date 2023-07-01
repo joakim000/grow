@@ -134,7 +134,7 @@ pub async fn hardware_init(
         Box::new(hardware::regshift_leds::Shiftreg::new(cancel.clone())),
         Box::new(hardware::ssd1306::Oled::new(cancel.clone())),
         Box::new(hardware::lpu_remote::LpuRemote::new(pu, cancel.clone())),
-        Box::new(hardware::pushbuttons::PushButtons::new()),
+        Box::new(hardware::pushbuttons::PushButtons::new(cancel.clone())),
         ops_tx.clone(),
         zone_tx.clone(),
     );

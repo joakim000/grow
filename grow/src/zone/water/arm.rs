@@ -194,7 +194,7 @@ impl Runner {
                         status.write().pos_z = data.1;
                     }
                     Ok(data) = rx_control.recv() => {
-                        println!("\tControl:{:?} ", data);
+                        // println!("\tControl:{:?} ", data);
                     }
                     else => { break }
                 };

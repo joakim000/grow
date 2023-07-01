@@ -52,7 +52,7 @@ where
 
     /// loads an 8bit value to the 74HC595
     pub fn load(&mut self, mut data: u8) {
-        self.disable_output();
+        // self.disable_output();
         for _ in 0..8 {
             if (data & 0x80) != 0 {
                 self.ser.set_high();
@@ -63,7 +63,7 @@ where
             data <<= 1;
         }
         self.pulse_rclk();
-        self.enable_output();
+        // self.enable_output();
     }
 
     /// enable output

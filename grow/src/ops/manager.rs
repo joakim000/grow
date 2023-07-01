@@ -143,6 +143,11 @@ impl Manager {
                 .await;
         }
 
+        // Init buttons
+        let (buttons_tx, mut from_buttons_rx) =
+            broadcast::channel(16);
+        let _ = self.buttons.init(buttons_tx.clone());
+
         // Start indicator display
 
         // Start text display

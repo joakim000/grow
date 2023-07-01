@@ -1,4 +1,4 @@
-#![allow(unused)]
+// #![allow(unused)]
 
 extern crate alloc;
 use super::House;
@@ -8,10 +8,11 @@ use crate::zone::Zone;
 use crate::zone::ZoneChannelsTx;
 use alloc::collections::BTreeMap;
 use alloc::vec::{IntoIter, Vec};
-use anyhow::*;
+// use anyhow::*;
 use core::time::Duration;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use time::Time;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Conf {}
 impl Conf {
@@ -39,11 +40,11 @@ impl Conf {
         h.zones.push(zone::water::new(
             1,
             zone::water::Settings {
+                moisture_low_red_alert: 20.0,
+                moisture_low_yellow_warning: 30.0,
                 moisture_limit_water: 50.0,
-                moisture_low_red_alert: 30.0,
-                moisture_high_red_alert: 70.0,
-                moisture_low_yellow_warning: 40.0,
-                moisture_high_yellow_warning: 65.0,
+                moisture_high_yellow_warning: 90.0,
+                moisture_high_red_alert: 100.0,
                 pump_id: 1,
                 tank_id: 1,
                 pump_time: Duration::from_secs(2),
@@ -81,8 +82,8 @@ impl Conf {
             zone::light::Settings {
                 lightlevel_low_yellow_warning: 100.0,
                 lightlevel_low_red_alert: 80.0,
-                // lamp on time
-                // lamp off time
+                lamp_on: Time::from_hms(19, 30, 00).expect("Time parse error"),
+                lamp_off: Time::from_hms(20, 45, 00).expect("Time parse error"),
             },
         ));
         h.zones

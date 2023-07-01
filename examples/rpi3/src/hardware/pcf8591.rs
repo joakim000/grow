@@ -97,7 +97,7 @@ impl Led {
         let adc = self.adc.clone();
         Ok(tokio::spawn(async move {
             while let Ok(data) = rx.recv().await {
-                println!("Received lamp command: {:?}", data);
+                // println!("Received lamp command: {:?}", data);
                 match data {
                     (_id, true) => {
                         let mut lock = adc.lock().unwrap();

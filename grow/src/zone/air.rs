@@ -192,7 +192,7 @@ impl Runner {
             loop {
                 tokio::select! {
                     Ok(data) = rx_rpm.recv() => {
-                        println!("\tFan rpm: {:?}", data);
+                        // println!("\tFan rpm: {:?}", data);
                         let mut o_ds: Option<DisplayStatus> = None;
                         status.write().fan_rpm = data.1;
                         match data {

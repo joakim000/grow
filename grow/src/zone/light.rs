@@ -8,6 +8,8 @@ use tokio::sync::broadcast;
 use core::fmt::Debug;
 use std::sync::Mutex;
 use time::OffsetDateTime;
+use time::Time;
+use core::time::Duration;
 
 use super::Zone;
 use super::*;
@@ -44,6 +46,8 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
 pub struct Settings {
     pub lightlevel_low_yellow_warning: f32,
     pub lightlevel_low_red_alert: f32,
+    pub lamp_on: Time,
+    pub lamp_off: Time,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -139,7 +143,8 @@ impl Runner {
         let to_syslog = ops_channels.syslog;
         let mut rx = self.tx_lightmeter.subscribe();
         let status = self.status.clone();
-
+        let to_lamp = self.lamp_cmd_sender();
+        let mut each_minute = tokio::time::interval(Duration::from_secs(60));
         self.task = tokio::spawn(async move {
             to_syslog
                 .send(SysLog::new(format!("Spawned light runner id {}", &id)))
@@ -188,6 +193,46 @@ impl Runner {
                             Some(ds) => { set_and_send(ds); }
                             None => {}
                         }
+                    }
+                    _ = each_minute.tick() => {
+                        let now = OffsetDateTime::now_utc().to_offset(crate::TIME_OFFSET);
+                        let state = status.read().lamp_state;
+                        if now.time() > settings.lamp_off { 
+                            match state {
+                                Some(LampState::On) | None => {
+                                    to_lamp.send((id, false));
+                                    status.write().lamp_state = Some(LampState::Off);
+                                    to_syslog.send(SysLog::new(format!("Lamp OFF @ {} (Set: {}", crate::ops::display::format_time(now), settings.lamp_off))).await;
+                                }
+                                _ => {}
+                            }
+                        }
+                        else if now.time() > settings.lamp_on {
+                            match state {
+                                Some(LampState::Off) | None => {
+                                    to_lamp.send((id, true));
+                                    status.write().lamp_state = Some(LampState::On);
+                                    to_syslog.send(SysLog::new(format!("Lamp ON @ {} (Set: {}", crate::ops::display::format_time(now), settings.lamp_on))).await;
+                                }
+                                _ => {}
+                            }
+                        }    
+                        // match state {
+                        //     Some(LampState::On) | None => {
+                        //         if now.time() > settings.lamp_off {
+                        //             to_lamp.send((id, false));
+                        //             status.write().lamp_state = Some(LampState::Off);
+                        //             to_syslog.send(SysLog::new(format!("Lamp OFF @ {} (Set: {}", crate::ops::display::format_time(now), settings.lamp_off))).await;
+                        //         }
+                        //     }
+                        //     Some(LampState::Off) | None => {
+                        //         if now.time() > settings.lamp_on {
+                        //             to_lamp.send((id, true));
+                        //             status.write().lamp_state = Some(LampState::On);
+                        //             to_syslog.send(SysLog::new(format!("Lamp ON @ {} (Set: {}", crate::ops::display::format_time(now), settings.lamp_on))).await;
+                        //         }
+                        //     }
+                        // }
                     }
                     else => { break }
                 };

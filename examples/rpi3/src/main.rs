@@ -4,24 +4,18 @@
 mod cmd;
 mod hardware;
 mod init;
-use crate::hardware::conf::*;
 
-use std::error::Error;
-// use std::thread;
-use std::time::Duration;
-use tokio::time::sleep;
-use tokio_util::sync::CancellationToken;
-
+use core::error::Error;
+use core::time::Duration;
 use std::sync::Arc;
 
-use tokio::sync::Mutex as TokioMutex;
-pub type HouseMutex = Arc<TokioMutex<grow::House>>;
+use tokio::time::sleep;
 use tokio::signal;
 use tokio::sync::mpsc;
+use tokio::sync::Mutex as TokioMutex;
+use tokio_util::sync::CancellationToken;
+pub type HouseMutex = Arc<TokioMutex<grow::House>>;
 
-use rppal::gpio::{Gpio, Trigger};
-
-// use dummy_pin::DummyPin;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -44,14 +38,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let (house, manager) = init::hardware_init(cancel_token.clone()).await;
     let _cmd_task =
         cmd::manual_cmds(house.clone(), manager.clone(), shutdown_send);
-
-    // Buttons
-    let mut btn_1 = Gpio::new()?.get(BUTTON_1_PIN)?.into_input_pulldown();
-    let mut btn_2 = Gpio::new()?.get(BUTTON_2_PIN)?.into_input_pulldown();
-    println!("Button pins initialized");
-    btn_1.set_async_interrupt(Trigger::Both, |l| println!("Btn 111: {:?}", l));
-    btn_2
-        .set_async_interrupt(Trigger::Both, |l| println!("Btn 2 2 2: {:?}", l));
 
     tokio::select! {
         _ = signal::ctrl_c() => {},

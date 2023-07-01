@@ -1,5 +1,6 @@
 use alloc::collections::BTreeMap;
 use async_trait::async_trait;
+use tokio_util::sync::CancellationToken;
 use core::error::Error;
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -26,7 +27,7 @@ pub struct Status {
     // light_level: Option<f32>,
     pub disp: DisplayStatus,
 }
-
+// #[async_trait]
 pub trait ButtonPanel: Send {
     // fn id(&self) -> u8;
     fn init(
