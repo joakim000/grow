@@ -1,1 +1,0 @@
-{"rustc":13411923355180324357,"features":"[]","target":14856518346349825036,"profile":13126374248311259211,"path":5409110721548668138,"deps":[],"local":[{"CheckDepInfo":{"dep_info":"debug/.fingerprint/mb2-97971aa59752a15a/dep-bin-mb2"}}],"rustflags":["--cfg","tokio_unstable"],"metadata":7797948686568424061,"config":2202906307356721367,"compile_kind":0}
