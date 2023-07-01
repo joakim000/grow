@@ -145,7 +145,7 @@ impl Zone{
 pub enum ZoneUpdate {
     Water { id: u8, settings: water::Settings, status: Arc<RwLock<water::Status>>,  },
     Tank { id: u8, moisture: f32 },
-    Arm { id: u8, state: arm::ArmState, x:i32, y:i32, z:i32 },
+    Arm { id: u8, state: arm::ArmState, x:i32, y:i32,z:i32, },
 }
 
 
@@ -156,10 +156,6 @@ pub enum ZoneLog {
         id: u8,
         temp: Option<f64>,
         fan_rpm: Option<f32>,
-        changed_status: Option<DisplayStatus>,
-    },
-    Aux {
-        id: u8,
         changed_status: Option<DisplayStatus>,
     },
     Light {
@@ -173,6 +169,14 @@ pub enum ZoneLog {
         moisture: Option<f32>,
         changed_status: Option<DisplayStatus>,
     },
+    Tank {
+        id: u8,
+        changed_status: Option<DisplayStatus>,
+    },
+    Pump {
+        id: u8,
+        changed_status: Option<DisplayStatus>,
+    },
     Arm {
         id: u8,
         x: i32,
@@ -180,11 +184,7 @@ pub enum ZoneLog {
         z: i32,
         changed_status: Option<DisplayStatus>,
     },
-    Pump {
-        id: u8,
-        changed_status: Option<DisplayStatus>,
-    },
-    Tank {
+    Aux {
         id: u8,
         changed_status: Option<DisplayStatus>,
     },
@@ -193,12 +193,12 @@ pub enum ZoneLog {
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub enum ZoneDisplay {
     Air { id: u8, info: DisplayStatus },
-    Aux { id: u8, info: DisplayStatus },
     Light { id: u8, info: DisplayStatus },
     Water { id: u8, info: DisplayStatus },
-    Arm { id: u8, info: DisplayStatus },
-    Pump { id: u8, info: DisplayStatus },
     Tank { id: u8, info: DisplayStatus },
+    Pump { id: u8, info: DisplayStatus },
+    Arm { id: u8, info: DisplayStatus },
+    Aux { id: u8, info: DisplayStatus },
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]

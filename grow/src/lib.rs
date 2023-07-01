@@ -187,6 +187,7 @@ impl House {
                         )
                         .await;
                     runner.run(settings.clone());
+                    // let _ = interface.arm.as_ref().unwrap().calibrate();
                     // runner.run(settings.clone(), zone_channels.clone(), ops_channels.clone() );
                 } // _ => ()
             }
@@ -194,109 +195,12 @@ impl House {
         let _ = self.ops_tx.syslog.send(SysLog::new(format!("House zones initiated"))).await;
     }
 
-    // Macro candidate
-    // pub fn collect_display_status_old(&mut self) -> Vec<ZoneDisplay> {
-    //     let mut r: Vec<ZoneDisplay> = Vec::new();
-    //     for zone in self.zones() {
-    //         // May be a use for settings later
-    //         match zone {
-    //             Zone::Air {
-    //                 id,
-    //                 settings: _,
-    //                 status,
-    //                 ..
-    //             } => {
-    //                 let lock = status.read();
-    //                 r.push(ZoneDisplay::Air {
-    //                     id: *id,
-    //                     info: lock.disp.clone(),
-    //                 })
-    //             }
-    //             Zone::Aux {
-    //                 id,
-    //                 settings: _,
-    //                 status,
-    //                 ..
-    //             } => {
-    //                 let lock = status.read();
-    //                 r.push(ZoneDisplay::Aux {
-    //                     id: *id,
-    //                     info: lock.disp.clone(),
-    //                 })
-    //             }
-    //             Zone::Light {
-    //                 id,
-    //                 settings: _,
-    //                 status,
-    //                 ..
-    //             } => {
-    //                 let lock = status.read();
-    //                 r.push(ZoneDisplay::Light {
-    //                     id: *id,
-    //                     info: lock.disp.clone(),
-    //                 })
-    //             }
-    //             Zone::Water {
-    //                 id,
-    //                 settings: _,
-    //                 status,
-    //                 ..
-    //             } => {
-    //                 let lock = status.read();
-    //                 r.push(ZoneDisplay::Water {
-    //                     id: *id,
-    //                     info: lock.disp.clone(),
-    //                 })
-    //             }
-    //             Zone::Arm {
-    //                 id,
-    //                 settings: _,
-    //                 status,
-    //                 ..
-    //             } => {
-    //                 let lock = status.read();
-    //                 r.push(ZoneDisplay::Arm {
-    //                     id: *id,
-    //                     info: lock.disp.clone(),
-    //                 })
-    //             }
-    //             Zone::Pump {
-    //                 id,
-    //                 settings: _,
-    //                 status,
-    //                 ..
-    //             } => {
-    //                 let lock = status.read();
-    //                 r.push(ZoneDisplay::Pump {
-    //                     id: *id,
-    //                     info: lock.disp.clone(),
-    //                 })
-    //             }
-    //             Zone::Tank {
-    //                 id,
-    //                 settings: _,
-    //                 status,
-    //                 ..
-    //             } => {
-    //                 let lock = status.read();
-    //                 r.push(ZoneDisplay::Tank {
-    //                     id: *id,
-    //                     info: lock.disp.clone(),
-    //                 })
-    //             }
-    //         }
-    //     }
-
-    //     // dbg!(&r);
-    //     r
-    // }
-
     pub fn collect_display_status(&mut self) -> Vec<ZoneDisplay> {
         let mut r: Vec<ZoneDisplay> = Vec::new();
         for zone in self.zones() {
             r.push(zone.zone_display());
         }
-        // dbg!(&r);
+
         r
     }
 
@@ -317,7 +221,6 @@ impl House {
             }
         }
 
-        // dbg!(&r);
         r
     }
 
@@ -338,7 +241,6 @@ impl House {
 
         r
     }
-  
   
     pub fn set_water_position(&mut self, zid: u8, pos: (i32, i32, i32)) -> () {
         for zone in self.zones_mut() {

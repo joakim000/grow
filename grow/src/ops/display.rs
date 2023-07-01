@@ -64,13 +64,13 @@ impl fmt::Display for DisplayStatus {
 impl fmt::Display for ZoneDisplay {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ZoneDisplay::Air { id, info } =>        { write!(f, "   Air {} {} ", id, info ) },
-            ZoneDisplay::Light { id, info } =>      { write!(f, " Light {} {} ", id, info ) },
-            ZoneDisplay::Water { id, info } =>      { write!(f, " Water {} {} ", id, info ) },
-            ZoneDisplay::Aux { id, info } =>        { write!(f, "   Aux {} {} ", id, info ) },
-            ZoneDisplay::Arm { id, info } =>        { write!(f, "   Arm {} {} ", id, info ) },
-            ZoneDisplay::Pump { id, info } =>       { write!(f, "  Pump {} {} ", id, info ) },
-            ZoneDisplay::Tank { id, info } =>       { write!(f, "  Tank {} {} ", id, info ) },
+            ZoneDisplay::Air { id, info } =>        { write!(f, "   Air {} {} \t{}", id, info, info.changed ) },
+            ZoneDisplay::Light { id, info } =>      { write!(f, " Light {} {} \t{}", id, info, info.changed ) },
+            ZoneDisplay::Water { id, info } =>      { write!(f, " Water {} {} \t{}", id, info, info.changed ) },
+            ZoneDisplay::Aux { id, info } =>        { write!(f, "   Aux {} {} \t{}", id, info, info.changed ) },
+            ZoneDisplay::Arm { id, info } =>        { write!(f, "   Arm {} {} \t{}", id, info, info.changed ) },
+            ZoneDisplay::Pump { id, info } =>       { write!(f, "  Pump {} {} \t{}", id, info, info.changed ) },
+            ZoneDisplay::Tank { id, info } =>       { write!(f, "  Tank {} {} \t{}", id, info, info.changed ) },
         }
     }
 }

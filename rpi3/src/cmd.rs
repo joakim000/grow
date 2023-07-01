@@ -85,7 +85,7 @@ pub fn manual_cmds(
                     let mut board = house.lock().await.collect_display_status();
                     board.sort();
                     for z in board {
-                        println!("{}", z);
+                        println!("{}", &z);
                         // println!("{} {:?}", z, z.info.changed);
                     }
                     tokio::task::yield_now().await;

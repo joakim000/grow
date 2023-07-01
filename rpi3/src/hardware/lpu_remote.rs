@@ -1,13 +1,8 @@
 use core::error::Error;
 
-use grow::ops::remote::RcInput;
-use grow::ops::remote::RemoteControl;
 
 use crate::hardware::conf::*;
 use async_trait::async_trait;
-use lego_powered_up::HubMutex;
-use lego_powered_up::PoweredUp;
-use lego_powered_up::{Hub, HubFilter};
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc;
@@ -15,23 +10,51 @@ use tokio::sync::Mutex as TokioMutex;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
+use lego_powered_up::HubMutex;
+use lego_powered_up::{Hub, HubFilter};
 use lego_powered_up::consts::{named_port, HubType};
 use lego_powered_up::iodevice::remote::{RcButtonState, RcDevice};
 use lego_powered_up::notifications::HubAction;
-use lego_powered_up::ConnectedHub;
-use lego_powered_up::IoDevice;
+use lego_powered_up::consts::HubPropertyOperation;
+use lego_powered_up::consts::HubPropertyRef;
+use lego_powered_up::consts::MotorSensorMode;
+use lego_powered_up::error::{Error as LpuError, OptionContext, Result as LpuResult};
+use lego_powered_up::hubs::HubNotification;
+use lego_powered_up::iodevice::basic::Basic;
+use lego_powered_up::iodevice::modes;
+use lego_powered_up::iodevice::visionsensor::DetectedColor;
+use lego_powered_up::iodevice::visionsensor::VisionSensor;
+use lego_powered_up::iodevice::{hubled::*, motor::*, sensor::*};
+use lego_powered_up::notifications::HubPropertyValue;
+use lego_powered_up::notifications::Power;
+use lego_powered_up::notifications::*;
+use lego_powered_up::{ConnectedHub, IoDevice, IoTypeId, PoweredUp};
+use lego_powered_up::iodevice::motor::BufferState;
+
+use grow::ops::remote::RcInput;
+use grow::ops::remote::RemoteControl;
+use grow::ops::display::Indicator;
+use grow::zone;
+use grow::zone::arm::ArmCmd;
+use grow::zone::pump::PumpCmd;
+use grow::zone::tank::TankLevel;
+use grow::TIME_OFFSET;
+use grow::zone::arm::ArmState;
+use grow::ops::display::DisplayStatus;
+
 
 pub struct LpuRemote {
     hub: Option<ConnectedHub>,
     pu: Arc<TokioMutex<PoweredUp>>,
     feedback_task: Option<JoinHandle<()>>,
+    main_cancel: CancellationToken,
 }
 #[async_trait]
 impl RemoteControl for LpuRemote {
     async fn init(
         &mut self,
         tx_rc: tokio::sync::mpsc::Sender<RcInput>,
-        cancel: CancellationToken,
+        position_finder_cancel: CancellationToken,
     ) -> Result<(), Box<dyn Error + '_>> {
         let mut lock = self.pu.lock().await;
         println!("Waiting for hub...");
@@ -70,7 +93,7 @@ impl RemoteControl for LpuRemote {
 
         let hub_clone = self.hub.as_ref().expect("No connected hub").mutex.clone();
         let feedback_task = self
-            .rc_feedback(tx_rc, rx_rc, cancel, hub_clone)
+            .rc_feedback(tx_rc, rx_rc, position_finder_cancel, hub_clone)
             // .await
             .expect("Error initializing feedback task");
       
@@ -78,26 +101,67 @@ impl RemoteControl for LpuRemote {
     }
 }
 
+// #[async_trait]
+// impl zone::auxiliary::AuxDevice for LpuRemote {
+//     fn id(&self) -> u8 {
+//         self.id
+//     }
+//     async fn init(
+//         &mut self,
+//         tx_status: tokio::sync::broadcast::Sender<(u8, DisplayStatus)>,
+//     ) -> Result<(), Box<dyn Error>> {
+//         self.feedback_task = Some(
+//             self.hub_feedback(tx_status)
+//                 .await
+//                 .expect("Error initializing feedback task"),
+//         );
+//         Ok(())
+//     }
+//     fn read(&self) -> Result<String, Box<dyn Error>> {
+//         Ok(String::from("Placeholder"))
+//     }
+// }
+
 impl LpuRemote {
     pub fn new(pu: Arc<TokioMutex<PoweredUp>>, cancel: CancellationToken) -> Self {
         Self {
             pu,
             hub: None,
             feedback_task: None,
+            main_cancel: cancel
         }
     }
     fn rc_feedback(
         &self,
         tx: mpsc::Sender<RcInput>,
         mut rx: broadcast::Receiver<RcButtonState>,
-        cancel: CancellationToken,
+        position_finder_cancel: CancellationToken,
         hub: HubMutex,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let mut red_down = (false, false);
+        let main_cancel = self.main_cancel.clone();
         Ok(tokio::spawn(async move {
             println!("Spawned RC feedback");
             loop {
                 tokio::select! {
+                    _ = main_cancel.cancelled() => {
+                        match hub.lock().await.disconnect().await {
+                            Ok(_) => { println!("LPU remote disconnected"); }
+                            Err(e) => { println!("LPU remote disconnect error: {:?}", e); }
+                        }
+                        break;
+                    }
+                    _ = main_cancel.cancelled() => {
+                        // match hub.lock().await.shutdown().await {
+                        //     Ok(_) => { println!("LPU remote off"); }
+                        //     Err(e) => { println!("LPU remote shutdown error: {:?}", e); }
+                        // }
+                        match hub.lock().await.disconnect().await {
+                            Ok(_) => { println!("LPU remote disconnected"); }
+                            Err(e) => { println!("LPU remote disconnect error: {:?}", e); }
+                        }
+                        break;
+                    }
                     _ = tx.closed() => {
                         // Managers' RC receiver dropped, shutdown RC hub and exit RC feedback task
                         hub
@@ -161,7 +225,7 @@ impl LpuRemote {
             }
         }))
     }
-}
+
 
 // loop {
 //     tokio::select! {
@@ -176,3 +240,132 @@ impl LpuRemote {
 //         else => { break; }
 //     };
 // }
+
+//  async fn hub_feedback(
+//         &self,
+//         tx: broadcast::Sender<(u8, DisplayStatus)>,
+//     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
+//         let id = self.id;
+//         let hub = self.hub.clone();
+//         let mut rx_hub: broadcast::Receiver<HubNotification>;
+//         {
+//             //     let mut lock = tokio::task::block_in_place(move || {
+//             //         hub.blocking_lock_owned()
+//             //     });
+//             let mut lock = hub.lock().await;
+//             rx_hub = lock
+//                 .channels()
+//                 .hubnotification_sender
+//                 .as_ref()
+//                 .unwrap()
+//                 .subscribe();
+//             // These will send current status when enabling updates
+//             let _ = lock.hub_props(
+//                 HubPropertyRef::Button,
+//                 HubPropertyOperation::EnableUpdatesDownstream,
+//             )?;
+//             let _ = lock.hub_props(
+//                 HubPropertyRef::BatteryType,
+//                 HubPropertyOperation::EnableUpdatesDownstream,
+//             )?;
+//             let _ = lock.hub_props(
+//                 HubPropertyRef::Rssi,
+//                 HubPropertyOperation::EnableUpdatesDownstream,
+//             )?;
+//             let _ = lock.hub_props(
+//                 HubPropertyRef::BatteryVoltage,
+//                 HubPropertyOperation::EnableUpdatesDownstream,
+//             )?;
+
+//             // These will not send current status when enabling updates; request single update first
+//             let _ = lock.hub_alerts(AlertType::LowVoltage, AlertOperation::RequestUpdate)?;
+//             let _ = lock.hub_alerts(AlertType::LowVoltage, AlertOperation::EnableUpdates)?;
+
+//             let _ = lock.hub_alerts(AlertType::HighCurrent, AlertOperation::RequestUpdate)?;
+//             let _ = lock.hub_alerts(AlertType::HighCurrent, AlertOperation::EnableUpdates)?;
+
+//             let _ = lock.hub_alerts(AlertType::LowSignalStrength, AlertOperation::RequestUpdate)?;
+//             let _ = lock.hub_alerts(AlertType::LowSignalStrength, AlertOperation::EnableUpdates)?;
+
+//             let _ =
+//                 lock.hub_alerts(AlertType::OverPowerCondition, AlertOperation::RequestUpdate)?;
+//             let _ =
+//                 lock.hub_alerts(AlertType::OverPowerCondition, AlertOperation::EnableUpdates)?;
+//         }
+
+//         let cancel_clone = self.main_cancel.clone();
+//         Ok(tokio::spawn(async move {
+//             println!("Spawned hub feedback");
+//             loop {
+//                 tokio::select! {
+//                     Ok(data) = rx_hub.recv() => {
+//                         // println!("Hub {:?} sent: {:?}", id, data,);
+//                         match data {
+//                             HubNotification {
+//                                 hub_alert:
+//                                     Some(HubAlert {
+//                                         alert_type,
+//                                         payload,
+//                                         ..
+//                                     }),
+//                                     ..
+//                             } if payload == AlertPayload::Alert => {
+//                                 tx.send(( id, DisplayStatus::new(Indicator::Red, Some(alert_type.to_string())) ));
+//                             },
+
+//                             HubNotification {
+//                                 hub_property:
+//                                     Some(HubProperty {
+//                                         property,
+//                                         operation,
+//                                         ..
+//                                     }),
+//                                     ..
+//                             } if operation == HubPropertyOperation::UpdateUpstream => {
+//                                 match property {
+//                                     HubPropertyValue::Button(state) =>  {
+
+//                                     }
+//                                     HubPropertyValue::BatteryType(t) => {
+
+//                                     }
+//                                     HubPropertyValue::BatteryVoltage(v) => {
+//                                         if v < 15 {
+//                                             tx.send(( id, DisplayStatus::new(Indicator::Red, Some( format!("Battery: {}%", v) )) ));
+//                                         }
+//                                         else if v < 30 {
+//                                             tx.send(( id, DisplayStatus::new(Indicator::Yellow, Some( format!("Battery: {}%", v) )) ));
+//                                         }
+//                                         else {
+//                                             tx.send(( id, DisplayStatus::new(Indicator::Green, Some( format!("Battery: {}%", v) )) ));
+//                                         }
+
+//                                     }
+//                                     HubPropertyValue::Rssi(signal) => {
+
+//                                     }
+//                                     _ => {}
+//                                 }
+
+//                             }
+//                             _ => {}
+//                         }
+//                     }
+//                     _ = cancel_clone.cancelled() => {
+//                         match hub.lock().await.shutdown().await {
+//                             Ok(_) => { println!("LPU hub off"); }
+//                             Err(e) => { println!("LPU hub shutdown error: {:?}", e); }
+//                         }
+//                         match hub.lock().await.disconnect().await {
+//                             Ok(_) => { println!("LPU hub disconnected"); }
+//                             Err(e) => { println!("LPU hub disconnect error: {:?}", e); }
+//                         }
+//                         break;
+//                     }
+//                     else => { break }
+//                 };
+//             }
+//         }))
+//     }
+
+}

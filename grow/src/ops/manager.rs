@@ -3,6 +3,7 @@ use crate::House;
 use crate::HouseMutex;
 use crate::Zone;
 use crate::TIME_OFFSET;
+use crate::zone::water::arm::ArmCmd;
 use crate::zone::water::arm::ArmState;
 
 use core::error::Error;
@@ -76,7 +77,7 @@ impl Manager {
         }
     }
 
-    pub fn init(
+    pub async fn init(
         &mut self,
         mut from_zones: ZoneChannelsRx,
         mut ops_rx: OpsChannelsRx,
@@ -94,11 +95,7 @@ impl Manager {
         let log_handler = tokio::spawn(async move {
             let mut log_enabled = *log_enable_rx.borrow();
             let mut status_enabled = *status_enable_rx.borrow();
-            to_log
-                .send(SysLog {
-                    msg: format!("Spawned log handler"),
-                })
-                .await;
+            to_log.send(SysLog::new(format!("Spawned log handler"))).await; 
             loop {
                 tokio::select! {
                     Ok(()) = log_enable_rx.changed() => {
@@ -133,6 +130,13 @@ impl Manager {
             }
         });
 
+        // Calibrate arm
+        {
+            let mut lock = self.house.lock().await;
+            let result = lock.arm_calibrate(1).await;
+            self.ops_tx.syslog.send(SysLog::new(format!("Calibrated X Y from: {:?}", result))).await; 
+        }
+
         // Start indicator display
 
         // Start text display
@@ -156,23 +160,37 @@ impl Manager {
                 match data {
                     ZoneUpdate::Water { id, settings, status } => {
                         // Bryt ut nedan till funktion, task?
-                        
+                        let moisture = status.read().moisture_level;
+                        if moisture.is_none() {
+                            to_log.send(SysLog::new(format!("Moisture level not found for {}.", id))).await;
+                            continue;
+                        }
+                        let moisture = moisture.unwrap();
+                        if moisture > settings.moisture_limit_water {
+                            to_log.send(SysLog::new(format!("Water {}; moist {} above limit {}.", id, moisture, settings.moisture_limit_water))).await;
+                            continue;
+                        }
+                        to_log.send(SysLog::new(format!("Water {}; moist {} below limit {}. Init watering.", id, moisture, settings.moisture_limit_water))).await;
+
                         // Check tank status
                         let tank_status = house.lock().await
                             .get_displaystatus(ZoneKind::Tank, settings.tank_id)
                             .expect(&format!("Tank Zone {} not found", &settings.tank_id));
+                        // println!("Water update: tank status: {:?}", &tank_status);
                         if tank_status.indicator == Indicator::Red {
-                            to_log.send(SysLog::new(format!("Tank {} empty; watering zone {} failed", settings.tank_id, id)));
+                            // println!("Water update: tank status indicator was red");
+                            to_log.send(SysLog::new(format!("Tank {} empty; watering zone {} failed", settings.tank_id, id))).await;
                             continue;
                         }
-                        // Check pump status
-                        // Check arm status
 
-                        // get arm ststus and control rx
+                        // Check pump status
+                  
+                        // Get Arm ststus and control_rx
                         let movement = settings.position; 
                         let mut arm_status: Option<Arc<RwLock<crate::zone::arm::Status>>> = None;
                         let mut arm_control_rx: Option<broadcast::Receiver<ArmState>> = None;
                         for z in house.lock().await.zones() {
+                            // println!("Water update: Looking for arm among zones");
                             match z {
                                 Zone::Arm { id, runner, status, .. } if id == &movement.arm_id => {
                                     arm_status = Some(status.clone());
@@ -187,8 +205,8 @@ impl Manager {
                         }
                         let arm_status = arm_status.unwrap(); //expect(&format!("Arm Zone {} not found", &movement.arm_id));
                         let mut arm_control_rx = arm_control_rx.unwrap(); //expect(&format!("Arm Zone {} not found", &movement.arm_id));
+                        // Check arm status
 
-                        // let _ = house.lock().await.arm_goto(movement.arm_id, movement.x, movement.y, movement.z); // TODO check result
                         let mut tries = 0u8;
                         while tries < 3 {
                             let _ = house.lock().await.arm_goto(movement.arm_id, movement.x, movement.y, movement.z); // TODO check result
@@ -200,7 +218,7 @@ impl Manager {
                                 }
                             }
                             let confirmed = house.lock().await.confirm_arm_position(id, 5).unwrap();
-                            to_log.send(SysLog::new(format!("Confirm position: {:?}", confirmed)));
+                            to_log.send(SysLog::new(format!("Confirm position: {:?}", confirmed))).await;
                             if confirmed.0 {
                                 break;
                             }
@@ -210,10 +228,10 @@ impl Manager {
                             let _ = house.lock().await.pump_run(settings.pump_id); // TODO check result
                             sleep(settings.pump_time).await;
                             let _ = house.lock().await.pump_stop(settings.pump_id); // TODO check result
-                            to_log.send(SysLog::new(format!("Water zone {} ok", id)));
+                            to_log.send(SysLog::new(format!("Water zone {} ok", id))).await;
                         }
                         else {
-                            to_log.send(SysLog::new(format!("Water zone {} failed, couldn't confirm position", id)));
+                            to_log.send(SysLog::new(format!("Water zone {} failed, couldn't confirm position", id))).await;
                         }
                     }
                     ZoneUpdate::Tank { .. } => {}
@@ -234,65 +252,94 @@ impl Manager {
    
 
     pub async fn position_from_rc(&mut self, zid: u8) -> Option<(i32, i32, i32)> {
+        let to_log = self.ops_tx.syslog.clone();
+        
+        let settings = self.house.lock().await.get_water_settings(zid);
+        if settings.is_none() {
+            to_log.send(SysLog::new(format!("Set position failed; Water id:{} not found", &zid))).await;
+            return None 
+        }
+        let arm_id = settings.unwrap().position.arm_id;
+
+        let mut to_arm: Option<broadcast::Sender<ArmCmd>> = None;
+        for z in self.house.lock().await.zones() {
+            match z {
+                Zone::Arm {
+                    id,
+                    runner,
+                    ..
+                } if id == &arm_id => {
+                // } if id == &zid => {  // Calling Arm with non-existing id (like 2) leads to interesting panics, look to make that more resilient later   
+                    to_arm = Some(runner.cmd_sender());
+                }
+                _ => {}
+            }
+        }
+        if to_arm.is_none() {
+            to_log.send(SysLog::new(format!("Set position failed; Arm id:{} not found", arm_id))).await;
+            return None 
+        }
+        let to_arm = to_arm.unwrap(); 
+        
+        /// Init remote control
         let (rc_tx, mut rc_rx) = mpsc::channel::<RcInput>(64);
         let cancel = CancellationToken::new();
         let guard = cancel.clone().drop_guard();
         let _ = self.remote.init(rc_tx, cancel.clone()).await;
 
+        let house = self.house.clone();
 
-        let arm_id = self.house.lock().await.get_water_settings(zid).
-            expect(&format!("Water Zone {} not found", &zid))
-            .position.arm_id;
-        let to_log = self.ops_tx.syslog.clone();
-        let mutex = self.house.clone();
+        // Move: to_log, to_arm, rc_rx, house
         let position_finder = tokio::task::spawn(async move {
-            to_log
-                .send(SysLog {
-                    msg: format!("Spawned position finder"),
-                })
-                .await;
-            let mut arm_o: Option<Arc<&(dyn Arm + '_)>> = None;
-            let arm: Arc<&(dyn Arm + '_)>;
+            to_log.send(SysLog::new(format!("Spawned position finder"))).await;
+            // let mut arm_o: Option<Arc<&(dyn Arm + '_)>> = None;
+            // let arm: Arc<&(dyn Arm + '_)>;
             {
-                let mut lock = mutex.lock().await;
-                for z in lock.zones() {
-                    match z {
-                        Zone::Arm {
-                            id,
-                            interface,
-                            ..
-                        } if id == &arm_id => {
-                        // } if id == &zid => {  // Calling Arm with non-existing id (like 2) leads to interesting panics, look to make that more resilient later   
-                            arm_o = Some(Arc::new(interface.arm.as_deref().expect(&format!("Arm Zone {} not found", &arm_id))));
-                        }
-                        _ => continue,
-                    }
-                }
-                if arm_o.is_none() { return RcModeExit::ElseExit }
-                else { 
-                    arm = arm_o.unwrap(); 
-                } //expect("Zone not found");
+                let mut lock = house.lock().await;
+                // for z in lock.zones() {
+                //     match z {
+                //         Zone::Arm {
+                //             id,
+                //             interface,
+                //             ..
+                //         } if id == &arm_id => {
+                //         // } if id == &zid => {  // Calling Arm with non-existing id (like 2) leads to interesting panics, look to make that more resilient later   
+                //             arm_o = Some(Arc::new(interface.arm.as_deref().expect(&format!("Arm Zone {} not found", &arm_id))));
+                //         }
+                //         _ => {}
+                //     }
+                // }
+                // if arm_o.is_none() { eprintln!("arm_o was none"); return RcModeExit::ElseExit }
+                // else { 
+                //     arm = arm_o.unwrap(); 
+                // } //expect("Zone not found");
                 loop {
                     tokio::select! {
                         Some(data) = rc_rx.recv() => {
                             match data {
                                 RcInput::LeftUp | RcInput::RightUp => {
-                                    arm.stop_x();
+                                    // arm.stop_x();
+                                    to_arm.send(ArmCmd::StopX);
                                 }
                                 RcInput::DownUp | RcInput::UpUp => {
-                                    arm.stop_y();
+                                    // arm.stop_y();
+                                    to_arm.send(ArmCmd::StopY);
                                 }
                                 RcInput::Left => {
-                                    arm.start_x(-20);
+                                    to_arm.send(ArmCmd::StartX { speed: -20 });
+                                    // arm.start_x(-20);
                                 }
                                 RcInput::Right => {
-                                    arm.start_x(20);
+                                    // arm.start_x(20);
+                                    to_arm.send(ArmCmd::StartX { speed: 20 });
                                 }
                                 RcInput::Up => {
-                                    arm.start_y(80);
+                                    // arm.start_y(80);
+                                    to_arm.send(ArmCmd::StartY { speed: 80 });
                                 }
                                 RcInput::Down => {
-                                    arm.start_y(-80);
+                                    // arm.start_y(-80);
+                                    to_arm.send(ArmCmd::StartY { speed: -80 });
                                 }
                                 RcInput::Confirm => {
                                     break RcModeExit::Confirm;

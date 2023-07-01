@@ -44,10 +44,11 @@ impl Conf {
                 pump_id: 1,
                 tank_id: 1,
                 pump_time: Duration::from_secs(2),
+                settling_time: Duration::from_secs(60),
                 position: zone::water::arm::Position {
                     arm_id: 1,
-                    x: 20,
-                    y: 100,
+                    x: 84,
+                    y: 3872,
                     z: 0,
                 },
             },
@@ -63,10 +64,11 @@ impl Conf {
                 pump_id: 1,
                 tank_id: 1,
                 pump_time: Duration::from_secs(2),
+                settling_time: Duration::from_secs(60),
                 position: zone::water::arm::Position {
                     arm_id: 1,
-                    x: 50,
-                    y: 200,
+                    x: 210,
+                    y: 3653,
                     z: 0,
                 },
             },
@@ -97,8 +99,9 @@ impl Conf {
         ));
         h.zones
             .push(zone::auxiliary::new(1, zone::auxiliary::Settings {}));
+        // h.zones
+        //     .push(zone::auxiliary::new(2, zone::auxiliary::Settings {}));
         
-
         h
     }
 }

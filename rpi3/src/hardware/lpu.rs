@@ -2,7 +2,6 @@ use super::conf::*;
 
 use async_trait::async_trait;
 use core::time::Duration;
-use grow::ops::display::DisplayStatus;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio::sync::Mutex;
@@ -43,6 +42,7 @@ use grow::zone::pump::PumpCmd;
 use grow::zone::tank::TankLevel;
 use grow::TIME_OFFSET;
 use grow::zone::arm::ArmState;
+use grow::ops::display::DisplayStatus;
 
 pub async fn init(
     pu: Arc<TokioMutex<PoweredUp>>,
@@ -434,7 +434,7 @@ impl zone::water::arm::Arm for BrickArm {
         let before = (*self.pos_x.read(), *self.pos_y.read(), 0);
         self.device_x.preset_encoder(0);
         self.device_y.preset_encoder(0);
-
+        println!("Calibrated X Y from: {:?}", &before);
         Ok(before)
     }
 
@@ -576,7 +576,7 @@ impl BrickArm {
                         else {
                             tx_control.send(ArmState::Busy);
                         }    
-                        println!("Cmdfb X: {:?} States:{:?}{:?}", &data, &state_x, &state_y);
+                        // println!("Cmdfb X: {:?} States:{:?}{:?}", &data, &state_x, &state_y);
                     }
                     Ok(data) = rx_control_y.recv() => {
                         state_y = data.state;
@@ -586,7 +586,7 @@ impl BrickArm {
                         else {
                             tx_control.send(ArmState::Busy);
                         }
-                        println!("Cmdfb Y: {:?} State X:{:?} Y:{:?}", &data, &state_x, &state_y);
+                        // println!("Cmdfb Y: {:?} State X:{:?} Y:{:?}", &data, &state_x, &state_y);
                     }
                     _ = cancel.cancelled() => {
                         println!("Arm feedback task canceled");
@@ -641,7 +641,7 @@ impl LpuHub {
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
         let hub = self.hub.clone();
-        let mut rx_hub: Receiver<HubNotification>;
+        let mut rx_hub: broadcast::Receiver<HubNotification>;
         {
             //     let mut lock = tokio::task::block_in_place(move || {
             //         hub.blocking_lock_owned()
@@ -749,6 +749,10 @@ impl LpuHub {
                         match hub.lock().await.shutdown().await {
                             Ok(_) => { println!("LPU hub off"); }
                             Err(e) => { println!("LPU hub shutdown error: {:?}", e); }
+                        }
+                        match hub.lock().await.disconnect().await {
+                            Ok(_) => { println!("LPU hub disconnected"); }
+                            Err(e) => { println!("LPU hub disconnect error: {:?}", e); }
                         }
                         break;
                     }

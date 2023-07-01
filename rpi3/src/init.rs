@@ -136,7 +136,7 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
     let manager_mutex = Arc::new(TokioMutex::new(manager));
     {
         let mut lock = manager_mutex.lock().await;
-        lock.init(zone_rx, ops_rx, manager_mutex.clone());
+        lock.init(zone_rx, ops_rx, manager_mutex.clone()).await;
         // dbg!(&lock);
     }
     {
