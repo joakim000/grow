@@ -26,11 +26,11 @@ pub type ZoneLogTx = tokio::sync::mpsc::Sender<ZoneLog>;
 
 pub mod air;
 pub mod auxiliary;
-pub mod water;
 pub mod light;
+pub mod water;
 pub use water::{arm, pump, tank};
 
-#[derive( Debug, )]
+#[derive(Debug)]
 pub enum Zone {
     Air {
         id: u8,
@@ -82,75 +82,76 @@ pub enum Zone {
         runner: tank::Runner,
     },
 }
-impl Zone{
+impl Zone {
     pub fn display_status(&self) -> DisplayStatus {
         match self {
-            Zone::Air { status, ..} => {
-                status.read().disp.clone()
-            }
-            Zone::Light { status, ..} => {
-                status.read().disp.clone()
-            }
-            Zone::Water { status, ..} => {
-                status.read().disp.clone()
-            }
-            Zone::Arm { status, ..} => {
-                status.read().disp.clone()
-            }
-            Zone::Tank { status, ..} => {
-                status.read().disp.clone()
-            }
-            Zone::Pump { status, ..} => {
-                status.read().disp.clone()
-            }
-            Zone::Aux { status, ..} => {
-                status.read().disp.clone()
-            }
+            Zone::Air { status, .. } => status.read().disp.clone(),
+            Zone::Light { status, .. } => status.read().disp.clone(),
+            Zone::Water { status, .. } => status.read().disp.clone(),
+            Zone::Arm { status, .. } => status.read().disp.clone(),
+            Zone::Tank { status, .. } => status.read().disp.clone(),
+            Zone::Pump { status, .. } => status.read().disp.clone(),
+            Zone::Aux { status, .. } => status.read().disp.clone(),
         }
     }
     pub fn zone_display(&self) -> ZoneDisplay {
         match self {
-            Zone::Air { id, status, ..} => {
-                ZoneDisplay::Air { id: *id, info: status.read().disp.clone() }
-            }
-            Zone::Light { id, status, ..} => {
-                ZoneDisplay::Light { id: *id, info: status.read().disp.clone() }
-            }
-            Zone::Water { id,  status, ..} => {
-                ZoneDisplay::Water { id: *id, info: status.read().disp.clone() }
-            }
-            Zone::Arm {id,  status, ..} => {
-                ZoneDisplay::Arm { id: *id, info: status.read().disp.clone() }
-            }
-            Zone::Tank { id, status, ..} => {
-                ZoneDisplay::Tank { id: *id, info: status.read().disp.clone() }
-            }
-            Zone::Pump {id,  status, ..} => {
-                ZoneDisplay::Pump { id: *id, info: status.read().disp.clone() }
-            }
-            Zone::Aux {id,  status, ..} => {
-                ZoneDisplay::Aux { id: *id, info: status.read().disp.clone() }
-            }
+            Zone::Air { id, status, .. } => ZoneDisplay::Air {
+                id: *id,
+                info: status.read().disp.clone(),
+            },
+            Zone::Light { id, status, .. } => ZoneDisplay::Light {
+                id: *id,
+                info: status.read().disp.clone(),
+            },
+            Zone::Water { id, status, .. } => ZoneDisplay::Water {
+                id: *id,
+                info: status.read().disp.clone(),
+            },
+            Zone::Arm { id, status, .. } => ZoneDisplay::Arm {
+                id: *id,
+                info: status.read().disp.clone(),
+            },
+            Zone::Tank { id, status, .. } => ZoneDisplay::Tank {
+                id: *id,
+                info: status.read().disp.clone(),
+            },
+            Zone::Pump { id, status, .. } => ZoneDisplay::Pump {
+                id: *id,
+                info: status.read().disp.clone(),
+            },
+            Zone::Aux { id, status, .. } => ZoneDisplay::Aux {
+                id: *id,
+                info: status.read().disp.clone(),
+            },
         }
     }
     pub fn get_ref(self) -> Arc<Zone> {
         Arc::new(self)
-   
     }
 }
 
-
-
-#[derive(Clone, Debug,  )]
+#[derive(Clone, Debug)]
 pub enum ZoneUpdate {
-    Water { id: u8, settings: water::Settings, status: Arc<RwLock<water::Status>>,  },
-    Tank { id: u8, moisture: f32 },
-    Arm { id: u8, state: arm::ArmState, x:i32, y:i32,z:i32, },
+    Water {
+        id: u8,
+        settings: water::Settings,
+        status: Arc<RwLock<water::Status>>,
+    },
+    Tank {
+        id: u8,
+        moisture: f32,
+    },
+    Arm {
+        id: u8,
+        state: arm::ArmState,
+        x: i32,
+        y: i32,
+        z: i32,
+    },
 }
 
-
-
-#[derive(Clone, Debug, PartialEq,  )]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ZoneLog {
     Air {
         id: u8,
@@ -242,4 +243,3 @@ pub struct ZoneChannelsTx {
     pub zonestatus: ZoneStatusTx,
     pub zonelog: ZoneLogTx,
 }
-

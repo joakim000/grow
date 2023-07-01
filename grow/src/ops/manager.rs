@@ -1,11 +1,12 @@
+use crate::zone::water::arm::ArmCmd;
+use crate::zone::water::arm::ArmState;
 use crate::zone::*;
 use crate::House;
 use crate::HouseMutex;
 use crate::Zone;
 use crate::TIME_OFFSET;
-use crate::zone::water::arm::ArmCmd;
-use crate::zone::water::arm::ArmState;
 
+use super::display::Indicator;
 use core::error::Error;
 use core::fmt::Debug;
 use core::time::Duration;
@@ -19,7 +20,6 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
-use super::display::Indicator;
 // use time::macros::offset;
 use super::input::ButtonPanel;
 use super::remote;
@@ -83,11 +83,12 @@ impl Manager {
         mut ops_rx: OpsChannelsRx,
         selfmutex: crate::ManagerMutex,
     ) -> () {
-        let (log_enable_tx, mut log_enable_rx) = tokio::sync::watch::channel(false);
+        let (log_enable_tx, mut log_enable_rx) =
+            tokio::sync::watch::channel(false);
         self.zonelog_enable = Some(log_enable_tx);
-        let (status_enable_tx, mut status_enable_rx) = tokio::sync::watch::channel(false);
+        let (status_enable_tx, mut status_enable_rx) =
+            tokio::sync::watch::channel(false);
         self.status_enable = Some(status_enable_tx);
-
 
         /// Start log messages handler
         let manager_mutex = selfmutex.clone();
@@ -95,7 +96,9 @@ impl Manager {
         let log_handler = tokio::spawn(async move {
             let mut log_enabled = *log_enable_rx.borrow();
             let mut status_enabled = *status_enable_rx.borrow();
-            to_log.send(SysLog::new(format!("Spawned log handler"))).await; 
+            to_log
+                .send(SysLog::new(format!("Spawned log handler")))
+                .await;
             loop {
                 tokio::select! {
                     Ok(()) = log_enable_rx.changed() => {
@@ -134,14 +137,19 @@ impl Manager {
         {
             let mut lock = self.house.lock().await;
             let result = lock.arm_calibrate(1).await;
-            self.ops_tx.syslog.send(SysLog::new(format!("Calibrated X Y from: {:?}", result))).await; 
+            self.ops_tx
+                .syslog
+                .send(SysLog::new(format!("Calibrated X Y from: {:?}", result)))
+                .await;
         }
 
         // Start indicator display
 
         // Start text display
-        self.display.init(self.zone_tx.zonestatus.subscribe(), 
-                self.ops_tx.syslog.clone() );
+        self.display.init(
+            self.zone_tx.zonestatus.subscribe(),
+            self.ops_tx.syslog.clone(),
+        );
 
         /// Start action messages handler
         let to_log = self.ops_tx.syslog.clone();
@@ -158,11 +166,20 @@ impl Manager {
 
                 // let mut lock = house.lock().await;
                 match data {
-                    ZoneUpdate::Water { id, settings, status } => {
+                    ZoneUpdate::Water {
+                        id,
+                        settings,
+                        status,
+                    } => {
                         // Bryt ut nedan till funktion, task?
                         let moisture = status.read().moisture_level;
                         if moisture.is_none() {
-                            to_log.send(SysLog::new(format!("Moisture level not found for {}.", id))).await;
+                            to_log
+                                .send(SysLog::new(format!(
+                                    "Moisture level not found for {}.",
+                                    id
+                                )))
+                                .await;
                             continue;
                         }
                         let moisture = moisture.unwrap();
@@ -173,61 +190,107 @@ impl Manager {
                         to_log.send(SysLog::new(format!("Water {}; moist {} below limit {}. Init watering.", id, moisture, settings.moisture_limit_water))).await;
 
                         // Check tank status
-                        let tank_status = house.lock().await
+                        let tank_status = house
+                            .lock()
+                            .await
                             .get_displaystatus(ZoneKind::Tank, settings.tank_id)
-                            .expect(&format!("Tank Zone {} not found", &settings.tank_id));
+                            .expect(&format!(
+                                "Tank Zone {} not found",
+                                &settings.tank_id
+                            ));
                         if tank_status.indicator == Indicator::Red {
-                            to_log.send(SysLog::new(format!("Water zone {} failed: Tank {} empty", settings.tank_id, id))).await;
+                            to_log
+                                .send(SysLog::new(format!(
+                                    "Water zone {} failed: Tank {} empty",
+                                    settings.tank_id, id
+                                )))
+                                .await;
                             continue;
                         }
 
                         // Check pump status
-                  
+
                         // Get Arm ststus and control_rx
-                        let movement = settings.position; 
-                        let mut arm_status: Option<Arc<RwLock<crate::zone::arm::Status>>> = None;
-                        let mut arm_control_rx: Option<broadcast::Receiver<ArmState>> = None;
+                        let movement = settings.position;
+                        let mut arm_status: Option<
+                            Arc<RwLock<crate::zone::arm::Status>>,
+                        > = None;
+                        let mut arm_control_rx: Option<
+                            broadcast::Receiver<ArmState>,
+                        > = None;
                         for z in house.lock().await.zones() {
                             match z {
-                                Zone::Arm { id, runner, status, .. } if id == &movement.arm_id => {
+                                Zone::Arm {
+                                    id, runner, status, ..
+                                } if id == &movement.arm_id => {
                                     arm_status = Some(status.clone());
-                                    arm_control_rx = Some(runner.control_feedback_sender().subscribe());
+                                    arm_control_rx = Some(
+                                        runner
+                                            .control_feedback_sender()
+                                            .subscribe(),
+                                    );
                                 }
                                 _ => {}
-                            }    
+                            }
                         }
                         if arm_status.is_none() | arm_control_rx.is_none() {
-                            to_log.send(SysLog::new(format!("Water zone {} failed: Arm Zone {} not found", &id, &movement.arm_id)));
+                            to_log.send(SysLog::new(format!(
+                                "Water zone {} failed: Arm Zone {} not found",
+                                &id, &movement.arm_id
+                            )));
                             continue;
                         }
-                        let arm_status = arm_status.unwrap(); 
-                        let mut arm_control_rx = arm_control_rx.unwrap(); 
+                        let arm_status = arm_status.unwrap();
+                        let mut arm_control_rx = arm_control_rx.unwrap();
                         // Check arm status
 
                         let mut tries = 0u8;
                         while tries < 3 {
-                            let _ = house.lock().await.arm_goto(movement.arm_id, movement.x, movement.y, movement.z); // TODO check result
-                            // sleep(Duration::from_secs(2)).await; // TODO wait for arm position to be correct
-                            while let Ok(arm_data) = arm_control_rx.recv().await {
+                            let _ = house.lock().await.arm_goto(
+                                movement.arm_id,
+                                movement.x,
+                                movement.y,
+                                movement.z,
+                            ); // TODO check result
+                               // sleep(Duration::from_secs(2)).await; // TODO wait for arm position to be correct
+                            while let Ok(arm_data) = arm_control_rx.recv().await
+                            {
                                 match arm_data {
                                     ArmState::Busy => {}
-                                    ArmState::Idle => { break; }
+                                    ArmState::Idle => {
+                                        break;
+                                    }
                                 }
                             }
-                            let confirmed = house.lock().await.confirm_arm_position(id, 5).unwrap();
-                            to_log.send(SysLog::new(format!("Confirm position: {:?}", confirmed))).await;
+                            let confirmed = house
+                                .lock()
+                                .await
+                                .confirm_arm_position(id, 5)
+                                .unwrap();
+                            to_log
+                                .send(SysLog::new(format!(
+                                    "Confirm position: {:?}",
+                                    confirmed
+                                )))
+                                .await;
                             if confirmed.0 {
                                 break;
                             }
                             tries += 1;
                         }
                         if tries < 3 {
-                            let _ = house.lock().await.pump_run(settings.pump_id); // TODO check result
+                            let _ =
+                                house.lock().await.pump_run(settings.pump_id); // TODO check result
                             sleep(settings.pump_time).await;
-                            let _ = house.lock().await.pump_stop(settings.pump_id); // TODO check result
-                            to_log.send(SysLog::new(format!("Water zone {} ok", id))).await;
-                        }
-                        else {
+                            let _ =
+                                house.lock().await.pump_stop(settings.pump_id); // TODO check result
+                            to_log
+                                .send(SysLog::new(format!(
+                                    "Water zone {} ok",
+                                    id
+                                )))
+                                .await;
+                        } else {
                             to_log.send(SysLog::new(format!("Water zone {} failed, couldn't confirm position", id))).await;
                         }
                     }
@@ -244,40 +307,45 @@ impl Manager {
         self.board.set(all_ds).await;
     }
 
-    
-
-   
-
-    pub async fn position_from_rc(&mut self, zid: u8) -> Option<(i32, i32, i32)> {
+    pub async fn position_from_rc(
+        &mut self,
+        zid: u8,
+    ) -> Option<(i32, i32, i32)> {
         let to_log = self.ops_tx.syslog.clone();
-        
+
         let settings = self.house.lock().await.get_water_settings(zid);
         if settings.is_none() {
-            to_log.send(SysLog::new(format!("Set position failed; Water id:{} not found", &zid))).await;
-            return None 
+            to_log
+                .send(SysLog::new(format!(
+                    "Set position failed; Water id:{} not found",
+                    &zid
+                )))
+                .await;
+            return None;
         }
         let arm_id = settings.unwrap().position.arm_id;
 
         let mut to_arm: Option<broadcast::Sender<ArmCmd>> = None;
         for z in self.house.lock().await.zones() {
             match z {
-                Zone::Arm {
-                    id,
-                    runner,
-                    ..
-                } if id == &arm_id => {
-                // } if id == &zid => {  // Calling Arm with non-existing id (like 2) leads to interesting panics, look to make that more resilient later   
+                Zone::Arm { id, runner, .. } if id == &arm_id => {
+                    // } if id == &zid => {  // Calling Arm with non-existing id (like 2) leads to interesting panics, look to make that more resilient later
                     to_arm = Some(runner.cmd_sender());
                 }
                 _ => {}
             }
         }
         if to_arm.is_none() {
-            to_log.send(SysLog::new(format!("Set position failed; Arm id:{} not found", arm_id))).await;
-            return None 
+            to_log
+                .send(SysLog::new(format!(
+                    "Set position failed; Arm id:{} not found",
+                    arm_id
+                )))
+                .await;
+            return None;
         }
-        let to_arm = to_arm.unwrap(); 
-        
+        let to_arm = to_arm.unwrap();
+
         /// Init remote control
         let (rc_tx, mut rc_rx) = mpsc::channel::<RcInput>(64);
         let cancel = CancellationToken::new();
@@ -288,7 +356,9 @@ impl Manager {
 
         // Move: to_log, to_arm, rc_rx, house
         let position_finder = tokio::task::spawn(async move {
-            to_log.send(SysLog::new(format!("Spawned position finder"))).await;
+            to_log
+                .send(SysLog::new(format!("Spawned position finder")))
+                .await;
             // let mut arm_o: Option<Arc<&(dyn Arm + '_)>> = None;
             // let arm: Arc<&(dyn Arm + '_)>;
             {
@@ -300,15 +370,15 @@ impl Manager {
                 //             interface,
                 //             ..
                 //         } if id == &arm_id => {
-                //         // } if id == &zid => {  // Calling Arm with non-existing id (like 2) leads to interesting panics, look to make that more resilient later   
+                //         // } if id == &zid => {  // Calling Arm with non-existing id (like 2) leads to interesting panics, look to make that more resilient later
                 //             arm_o = Some(Arc::new(interface.arm.as_deref().expect(&format!("Arm Zone {} not found", &arm_id))));
                 //         }
                 //         _ => {}
                 //     }
                 // }
                 // if arm_o.is_none() { eprintln!("arm_o was none"); return RcModeExit::ElseExit }
-                // else { 
-                //     arm = arm_o.unwrap(); 
+                // else {
+                //     arm = arm_o.unwrap();
                 // } //expect("Zone not found");
                 loop {
                     tokio::select! {
@@ -362,12 +432,10 @@ impl Manager {
                         else => { break RcModeExit::ElseExit; }
                     };
                 }
-            }  
+            }
         });
         let exit_kind = match position_finder.await {
-            Ok(exitmode) => {
-                Some(exitmode)
-            },
+            Ok(exitmode) => Some(exitmode),
             Err(e) => {
                 eprintln!("Position finder error: {}", e);
                 None
@@ -380,14 +448,14 @@ impl Manager {
                 msg: format!("Exit position finder"),
             })
             .await;
-        
+
         // Get current position from house after exit:
         let pos: (i32, i32, i32);
         {
             let mut house = self.house.lock().await;
             pos = house
-            .arm_position(1)
-            .expect("Error getting arm position from house");
+                .arm_position(1)
+                .expect("Error getting arm position from house");
         }
 
         /// Exit mode from RC-loop determines what to do next
@@ -426,7 +494,9 @@ impl Manager {
                 self.ops_tx
                     .syslog
                     .send(SysLog {
-                        msg: format!("Position finder unexpected exit (wrong mode)"),
+                        msg: format!(
+                            "Position finder unexpected exit (wrong mode)"
+                        ),
                     })
                     .await;
                 None
@@ -435,7 +505,9 @@ impl Manager {
                 self.ops_tx
                     .syslog
                     .send(SysLog {
-                        msg: format!("Position finder unexpected exit (select else)"),
+                        msg: format!(
+                            "Position finder unexpected exit (select else)"
+                        ),
                     })
                     .await;
                 None
@@ -448,12 +520,11 @@ impl Manager {
         let mut r: Option<bool> = None;
         match &self.zonelog_enable {
             Some(sender) => {
-                if *sender.borrow() { 
-                    sender.send(false); 
+                if *sender.borrow() {
+                    sender.send(false);
                     r = Some(false);
-                } 
-                else { 
-                    sender.send(true); 
+                } else {
+                    sender.send(true);
                     r = Some(true);
                 }
             }
@@ -466,12 +537,11 @@ impl Manager {
         let mut r: Option<bool> = None;
         match &self.status_enable {
             Some(sender) => {
-                if *sender.borrow() { 
-                    sender.send(false); 
+                if *sender.borrow() {
+                    sender.send(false);
                     r = Some(false);
-                } 
-                else { 
-                    sender.send(true); 
+                } else {
+                    sender.send(true);
                     r = Some(true);
                 }
             }
@@ -487,4 +557,3 @@ impl Manager {
         Ok(())
     }
 }
-

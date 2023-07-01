@@ -28,7 +28,10 @@ pub trait Board: Send + Sync {
     //     &mut self,
     //     rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
     // ) -> Result<(), Box<dyn Error>>;
-    async fn set(&mut self, zones: Vec<ZoneDisplay>) -> Result<(), Box<dyn Error>>;
+    async fn set(
+        &mut self,
+        zones: Vec<ZoneDisplay>,
+    ) -> Result<(), Box<dyn Error>>;
     fn blink_all(&mut self, on: Duration, off: Duration) -> ();
     fn shutdown(&mut self) -> Result<(), Box<dyn Error>>;
 }

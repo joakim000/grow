@@ -1,8 +1,6 @@
 use lego_powered_up::PoweredUp;
 use std::sync::Arc;
 
-
-
 use tokio::sync::Mutex as TokioMutex;
 use tokio_util::sync::CancellationToken;
 
@@ -14,7 +12,9 @@ use grow::zone::*;
 use grow::HouseMutex;
 use grow::ManagerMutex;
 
-pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMutex) {
+pub async fn hardware_init(
+    cancel: CancellationToken,
+) -> (HouseMutex, ManagerMutex) {
     let pu = Arc::new(TokioMutex::new(
         PoweredUp::init()
             .await
@@ -29,7 +29,8 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
     let (zone_tx, zone_rx) = grow::zone::zone_channels();
     let (ops_tx, ops_rx) = grow::ops::ops_channels();
 
-    let mut house = ops::conf::Conf::read_test_into_house(zone_tx.clone(), ops_tx.clone());
+    let mut house =
+        ops::conf::Conf::read_test_into_house(zone_tx.clone(), ops_tx.clone());
     for zone in house.zones() {
         match zone {
             Zone::Air {
@@ -39,11 +40,11 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
                 interface,
                 runner: _,
             } => {
-                interface.fan = Some(Box::new(hardware::pwmfan::PwmFan::new(*id)));
-                interface.thermo = Some(Box::new(hardware::pcf8591::Thermistor::new(
-                    *id,
-                    adc_1.new_mutex(),
-                )));
+                interface.fan =
+                    Some(Box::new(hardware::pwmfan::PwmFan::new(*id)));
+                interface.thermo = Some(Box::new(
+                    hardware::pcf8591::Thermistor::new(*id, adc_1.new_mutex()),
+                ));
             }
             Zone::Aux {
                 id,
@@ -52,11 +53,12 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
                 interface,
                 runner: _,
             } => {
-                interface.aux_device = Some(Box::new(hardware::lpu::LpuHub::new(
-                    *id,
-                    lpu_hub.clone(),
-                    cancel.clone(),
-                )));
+                interface.aux_device =
+                    Some(Box::new(hardware::lpu::LpuHub::new(
+                        *id,
+                        lpu_hub.clone(),
+                        cancel.clone(),
+                    )));
             }
             Zone::Light {
                 id,
@@ -65,10 +67,11 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
                 interface,
                 runner: _,
             } => {
-                interface.lightmeter = Some(Box::new(hardware::pcf8591::Photoresistor::new(
-                    *id,
-                    adc_1.new_mutex(),
-                )));
+                interface.lightmeter =
+                    Some(Box::new(hardware::pcf8591::Photoresistor::new(
+                        *id,
+                        adc_1.new_mutex(),
+                    )));
                 interface.lamp = Some(Box::new(hardware::pcf8591::Led::new(
                     *id,
                     adc_1.new_mutex(),
@@ -81,10 +84,12 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
                 interface,
                 runner: _,
             } => {
-                interface.moist = Some(Box::new(hardware::pcf8591::CapacitiveMoistureSensor::new(
-                    *id,
-                    adc_1.new_mutex(),
-                )));
+                interface.moist = Some(Box::new(
+                    hardware::pcf8591::CapacitiveMoistureSensor::new(
+                        *id,
+                        adc_1.new_mutex(),
+                    ),
+                ));
             }
             Zone::Tank {
                 id,
@@ -93,8 +98,9 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
                 interface,
                 runner: _,
             } => {
-                interface.tank_sensor =
-                    Some(Box::new(hardware::lpu::Vsensor::new(*id, lpu_hub.clone())));
+                interface.tank_sensor = Some(Box::new(
+                    hardware::lpu::Vsensor::new(*id, lpu_hub.clone()),
+                ));
             }
             Zone::Pump {
                 id,
@@ -117,8 +123,7 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
                 interface.arm = Some(Box::new(
                     hardware::lpu::BrickArm::new(*id, lpu_hub.clone()).await,
                 ));
-            }
-            // _ => (),
+            } // _ => (),
         }
     }
     // dbg!(&house);

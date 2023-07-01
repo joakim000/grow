@@ -2,16 +2,16 @@
 
 extern crate alloc;
 use super::House;
+use crate::ops::OpsChannelsTx;
 use crate::zone;
 use crate::zone::Zone;
+use crate::zone::ZoneChannelsTx;
 use alloc::collections::BTreeMap;
 use alloc::vec::{IntoIter, Vec};
 use anyhow::*;
 use core::time::Duration;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::ops::OpsChannelsTx;
-use crate::zone::ZoneChannelsTx;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Conf {}
 impl Conf {
@@ -19,9 +19,12 @@ impl Conf {
         h
     }
 
-    pub fn read_test_into_house(zone_tx: ZoneChannelsTx, ops_tx: OpsChannelsTx) -> House {
+    pub fn read_test_into_house(
+        zone_tx: ZoneChannelsTx,
+        ops_tx: OpsChannelsTx,
+    ) -> House {
         // Return hardcoded config
-        let mut h = House::new(zone_tx, ops_tx,);
+        let mut h = House::new(zone_tx, ops_tx);
 
         h.zones.push(zone::air::new(
             1,
@@ -82,10 +85,8 @@ impl Conf {
                 // lamp off time
             },
         ));
-        h.zones.push(zone::water::arm::new(
-            1,
-            zone::water::arm::Settings {},
-        ));
+        h.zones
+            .push(zone::water::arm::new(1, zone::water::arm::Settings {}));
         h.zones.push(zone::water::pump::new(
             1,
             zone::water::pump::Settings {
@@ -93,16 +94,13 @@ impl Conf {
                 rest_secs: 60,
             },
         ));
-        h.zones.push(zone::water::tank::new(
-            1,
-            zone::water::tank::Settings {},
-        ));
+        h.zones
+            .push(zone::water::tank::new(1, zone::water::tank::Settings {}));
         h.zones
             .push(zone::auxiliary::new(1, zone::auxiliary::Settings {}));
         // h.zones
         //     .push(zone::auxiliary::new(2, zone::auxiliary::Settings {}));
-        
+
         h
     }
 }
-

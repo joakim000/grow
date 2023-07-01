@@ -1,7 +1,5 @@
-
 /// Enable any auxiliary equipment to provide status (eg. UPS, servo controller...)
 /// Example 'rpi3' uses this for alerts and updates from Lego hub  
-
 use alloc::collections::BTreeMap;
 use async_trait::async_trait;
 use core::error::Error;
@@ -84,7 +82,9 @@ impl Runner {
         }
     }
 
-    pub fn aux_feedback_sender(&self) -> broadcast::Sender<(u8, DisplayStatus)> {
+    pub fn aux_feedback_sender(
+        &self,
+    ) -> broadcast::Sender<(u8, DisplayStatus)> {
         self.tx_aux.clone()
     }
 
@@ -109,11 +109,14 @@ impl Runner {
                 *&mut status.write().disp = ds.clone();
                 &to_status_subscribers.send(ZoneDisplay::Aux { id, info: ds });
             };
-            set_and_send(DisplayStatus::new(Indicator::Green, Some( format!("Aux running") )) );
+            set_and_send(DisplayStatus::new(
+                Indicator::Green,
+                Some(format!("Aux running")),
+            ));
             // set_and_send(DisplayStatus {
-                // indicator: Indicator::Green,
-                // msg: Some(format!("Aux running")),
-                // changed: OffsetDateTime::now_utc().to_offset(TIME_OFFSET),
+            // indicator: Indicator::Green,
+            // msg: Some(format!("Aux running")),
+            // changed: OffsetDateTime::now_utc().to_offset(TIME_OFFSET),
             // });
             loop {
                 tokio::select! {

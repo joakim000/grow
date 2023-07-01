@@ -8,7 +8,7 @@ pub mod lpu_remote;
 /// I2C -> ADC/DAC with connected sensors and LED
 pub mod pcf8591;
 
-/// I2C -> OLED display 
+/// I2C -> OLED display
 pub mod ssd1306;
 
 /// PWM controlled case fan

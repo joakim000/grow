@@ -111,7 +111,7 @@ pub struct Runner {
     status: Arc<RwLock<Status>>,
 }
 impl Runner {
-    pub fn new(id: u8, status: Arc<RwLock<Status>>,  ) -> Self {
+    pub fn new(id: u8, status: Arc<RwLock<Status>>) -> Self {
         Self {
             id,
             status,
@@ -120,7 +120,9 @@ impl Runner {
         }
     }
 
-    pub fn moisture_feedback_sender(&self) -> broadcast::Sender<(u8, Option<f32>)> {
+    pub fn moisture_feedback_sender(
+        &self,
+    ) -> broadcast::Sender<(u8, Option<f32>)> {
         self.tx_moisture.clone()
     }
 
@@ -146,9 +148,13 @@ impl Runner {
                 .await;
             let set_and_send = |ds: DisplayStatus| {
                 *&mut status.write().disp = ds.clone();
-                &to_status_subscribers.send(ZoneDisplay::Water { id, info: ds });
+                &to_status_subscribers
+                    .send(ZoneDisplay::Water { id, info: ds });
             };
-            set_and_send(DisplayStatus::new(Indicator::Green, Some( format!("Water running") )) );
+            set_and_send(DisplayStatus::new(
+                Indicator::Green,
+                Some(format!("Water running")),
+            ));
             // let mut previous_watering = Instant::now();
             // println!("Created previous watering - elapsed: {:?}", &previous_watering.elapsed());
 
@@ -173,9 +179,9 @@ impl Runner {
                                 //         to_manager.send(ZoneUpdate::Water{id, settings, status: status.clone()}).await;
                                 //         previous_watering = Instant::now();
                                 //     }
-                                // }   
+                                // }
 
-                                    
+
                                 // Status update
                                 if (moisture < settings.moisture_low_red_alert) { //& (status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::AlertLow)) {
                                     o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Moisture LOW {}", moisture) )) );

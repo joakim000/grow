@@ -11,7 +11,7 @@ use core::error::Error;
 use core::result::Result;
 
 use rppal::gpio::{Gpio, Trigger};
-use rppal::pwm::{Pwm};
+use rppal::pwm::Pwm;
 
 use grow::zone::air::FanSetting;
 use std::sync::Arc;
@@ -46,7 +46,10 @@ impl zone::air::Fan for PwmFan {
         let lock = self.pwm_channel.lock()?;
         Ok(lock.set_duty_cycle(0.5)?)
     }
-    fn set_duty_cycle(&self, duty_cycle: f64) -> Result<(), Box<dyn Error + '_>> {
+    fn set_duty_cycle(
+        &self,
+        duty_cycle: f64,
+    ) -> Result<(), Box<dyn Error + '_>> {
         println!("Fan set to {:?}", &duty_cycle);
         let lock = self.pwm_channel.lock()?;
         Ok(lock.set_duty_cycle(duty_cycle)?)
@@ -82,9 +85,14 @@ impl PwmFan {
             .into_input_pullup();
         let _ = rpm_pin.set_interrupt(Trigger::Both);
         let rpm_mutex = Arc::new(Mutex::new(rpm_pin));
-        let pwm_channel =
-            Pwm::with_frequency(PWM_FAN_1, PWM_FREQ_FAN_1, 0.2, PWM_POLARITY_FAN_1, true)
-                .expect("Error setting up pwm");
+        let pwm_channel = Pwm::with_frequency(
+            PWM_FAN_1,
+            PWM_FREQ_FAN_1,
+            0.2,
+            PWM_POLARITY_FAN_1,
+            true,
+        )
+        .expect("Error setting up pwm");
         let pwm_mutex = Arc::new(Mutex::new(pwm_channel));
         Self {
             id,
@@ -116,7 +124,8 @@ impl PwmFan {
                 let mut fan_pulse_detected = true;
                 {
                     let mut pin = rpm_pin.lock().unwrap();
-                    let rpm_pulse = pin.poll_interrupt(true, Some(Duration::from_millis(100)));
+                    let rpm_pulse = pin
+                        .poll_interrupt(true, Some(Duration::from_millis(100)));
                     match rpm_pulse {
                         Ok(level_opt) => match level_opt {
                             None => fan_pulse_detected = false,
@@ -126,11 +135,14 @@ impl PwmFan {
                             println!("Error reading rpm: {}", err);
                         }
                     };
-                    let rpm_pulse = pin.poll_interrupt(true, Some(Duration::from_millis(100)));
+                    let rpm_pulse = pin
+                        .poll_interrupt(true, Some(Duration::from_millis(100)));
                     match rpm_pulse {
                         Ok(level_opt) => match level_opt {
                             None => fan_pulse_detected = false,
-                            Some(_level) => pulse_duration = pulse_start.elapsed(),
+                            Some(_level) => {
+                                pulse_duration = pulse_start.elapsed()
+                            }
                         },
                         Err(err) => {
                             println!("Error reading rpm: {}", err);
@@ -156,11 +168,11 @@ impl PwmFan {
                         // println!("Fanrpm {:?}   reading {:?}   previous {:?}   delta {:?}", &id, &rpm, &previous, (&rpm-&previous).abs());
                         if previous.is_none() {
                             let _ = tx.send((id, fan_rpm));
-                        }    
-                        else if (rpm - previous.unwrap()).abs() >= FAN_1_DELTA {
-                                let _ = tx.send((id, fan_rpm));
-                               // println!("sent rpm: {:?}", &fan_rpm);
-                        }   
+                        } else if (rpm - previous.unwrap()).abs() >= FAN_1_DELTA
+                        {
+                            let _ = tx.send((id, fan_rpm));
+                            // println!("sent rpm: {:?}", &fan_rpm);
+                        }
                     }
                     None => {
                         if previous.is_some() {
@@ -209,7 +221,8 @@ impl PwmFan {
         let mut fan_pulse_detected = true;
         let mut pin = self.rpm_pin.lock().unwrap();
 
-        let rpm_pulse = pin.poll_interrupt(true, Some(Duration::from_millis(100)));
+        let rpm_pulse =
+            pin.poll_interrupt(true, Some(Duration::from_millis(100)));
         match rpm_pulse {
             Ok(level_opt) => match level_opt {
                 None => fan_pulse_detected = false,
@@ -219,7 +232,8 @@ impl PwmFan {
                 eprintln!("Error reading rpm: {}", err);
             }
         };
-        let rpm_pulse = pin.poll_interrupt(true, Some(Duration::from_millis(100)));
+        let rpm_pulse =
+            pin.poll_interrupt(true, Some(Duration::from_millis(100)));
         match rpm_pulse {
             Ok(level_opt) => match level_opt {
                 None => fan_pulse_detected = false,

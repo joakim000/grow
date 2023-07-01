@@ -5,7 +5,7 @@ use grow::ops::display::DisplayStatus;
 use grow::ops::display::Indicator;
 use grow::zone::ZoneDisplay;
 use rppal::gpio::{Gpio, OutputPin};
-use std::time::{Duration};
+use std::time::Duration;
 use tokio::time::sleep;
 // use grow::ops::display::DisplayStatus::*;
 use async_trait::async_trait;
@@ -31,7 +31,17 @@ enum Leds {
 
 // #[derive(Debug, )]
 pub struct Shiftreg {
-    reg: Arc<RwLock<ShiftRegister<OutputPin, OutputPin, OutputPin, OutputPin, OutputPin>>>,
+    reg: Arc<
+        RwLock<
+            ShiftRegister<
+                OutputPin,
+                OutputPin,
+                OutputPin,
+                OutputPin,
+                OutputPin,
+            >,
+        >,
+    >,
     // current: u8,
     blink: bool,
     // cancel: CancellationToken,
@@ -47,7 +57,10 @@ impl Board for Shiftreg {
     //     Ok(())
     // }
 
-    async fn set(&mut self, zones: Vec<ZoneDisplay>) -> Result<(), Box<dyn Error>> {
+    async fn set(
+        &mut self,
+        zones: Vec<ZoneDisplay>,
+    ) -> Result<(), Box<dyn Error>> {
         let mut led_byte = 0;
         let mut water_lit = false;
         let mut blue_lit = false;
@@ -229,7 +242,8 @@ impl Shiftreg {
             .expect("Get pin error")
             .into_output();
 
-        let mut reg = ShiftRegister::new(sr_enable, sr_data, sr_reset, sr_clk, sr_latch);
+        let mut reg =
+            ShiftRegister::new(sr_enable, sr_data, sr_reset, sr_clk, sr_latch);
         reg.begin();
         reg.enable_output();
         reg.output_clear();

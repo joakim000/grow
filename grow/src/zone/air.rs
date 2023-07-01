@@ -6,9 +6,9 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 // use tokio::sync::Mutex;
 use core::fmt::Debug;
+use std::cmp;
 use std::sync::Mutex;
 use time::OffsetDateTime;
-use std::cmp;
 
 pub type FanMutex = Arc<Mutex<Box<dyn Fan>>>;
 use super::Zone;
@@ -84,7 +84,10 @@ pub trait Fan: Send {
     fn read(&mut self) -> Result<Option<f32>, Box<dyn Error + '_>>;
     fn to_high(&self) -> Result<(), Box<dyn Error + '_>>;
     fn to_low(&self) -> Result<(), Box<dyn Error + '_>>;
-    fn set_duty_cycle(&self, duty_cycle: f64) -> Result<(), Box<dyn Error + '_>>;
+    fn set_duty_cycle(
+        &self,
+        duty_cycle: f64,
+    ) -> Result<(), Box<dyn Error + '_>>;
 }
 impl Debug for dyn Fan {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -144,7 +147,9 @@ impl Runner {
     ) {
         (self.tx_fan_rpm.clone(), self.tx_fan_control.subscribe())
     }
-    pub fn thermo_feedback_sender(&self) -> broadcast::Sender<(u8, Option<f64>)> {
+    pub fn thermo_feedback_sender(
+        &self,
+    ) -> broadcast::Sender<(u8, Option<f64>)> {
         self.temp.clone()
     }
 
@@ -164,7 +169,7 @@ impl Runner {
         let mut rx_temp = self.temp.subscribe();
         let tx_fan = self.tx_fan_control.clone();
         let mut requested_fan_mode: FanSetting = FanSetting::Off;
-        
+
         self.task = tokio::spawn(async move {
             to_syslog
                 .send(SysLog::new(format!("Spawned air runner id {}", &id)))
@@ -173,10 +178,13 @@ impl Runner {
                 *&mut status.write().disp = ds.clone();
                 &to_status_subscribers.send(ZoneDisplay::Air { id, info: ds });
             };
-            set_and_send(DisplayStatus::new(Indicator::Green, Some( format!("Air running") )) );
+            set_and_send(DisplayStatus::new(
+                Indicator::Green,
+                Some(format!("Air running")),
+            ));
 
             // Workaround for temp and fan statuses overlappning in this zone. Not sure if zone should be refactored or DisplayStatus system?
-            // This solutions displays comma-separated temp and fan msgs and the most severe indicator of the two.  
+            // This solutions displays comma-separated temp and fan msgs and the most severe indicator of the two.
             let mut buf_temp = String::from("No data");
             let mut buf_fan = String::from("No data");
             let mut buf_temp_ind = Indicator::Red;

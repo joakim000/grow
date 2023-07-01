@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use pcf8591::{Pin};
+use pcf8591::Pin;
 
 // GPIO
 // pub const ACTIVITY_LED_PIN: u8 = 4; //BCM 17 phys 11
@@ -17,7 +17,8 @@ pub const PIN_FAN_1_RPM: u8 = 23; //BCM 26 phys 16
 pub const PULSES_PER_ROTATION: f32 = 4.0;
 pub const PWM_FREQ_FAN_1: f64 = 25000.0; // PWM frequency target 25 kHz
 pub const PWM_FAN_1: rppal::pwm::Channel = rppal::pwm::Channel::Pwm0;
-pub const PWM_POLARITY_FAN_1: rppal::pwm::Polarity = rppal::pwm::Polarity::Inverse;
+pub const PWM_POLARITY_FAN_1: rppal::pwm::Polarity =
+    rppal::pwm::Polarity::Inverse;
 
 // I2C
 pub const ADC_1_ADDR: u16 = 0x48;

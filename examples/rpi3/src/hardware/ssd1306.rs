@@ -1,25 +1,23 @@
-
 extern crate alloc;
 use alloc::collections::BTreeMap;
 use core::error::Error;
 // use parking_lot::Mutex;
 
-
 use async_trait::async_trait;
-use std::time::{Duration};
+use std::time::Duration;
+use time::OffsetDateTime;
 use tokio::task::JoinHandle;
 use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
-use time::OffsetDateTime;
 
-use rppal::i2c::I2c;
-use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
 use embedded_graphics::{
     mono_font::{ascii::*, MonoTextStyle},
     pixelcolor::BinaryColor,
     prelude::*,
     text::{Alignment, Text},
 };
+use rppal::i2c::I2c;
+use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
 type OledDisplay = Ssd1306<
     I2CInterface<I2c>,
     DisplaySize128x64,
@@ -29,11 +27,10 @@ type OledDisplay = Ssd1306<
 use super::conf::*;
 use grow::ops::display::DisplayStatus;
 use grow::ops::display::Indicator;
-use grow::zone::ZoneDisplay;
-use grow::zone::ZoneStatusRx;
 use grow::ops::{SysLogTx, TextDisplay};
+use grow::zone::ZoneDisplay;
 use grow::zone::ZoneKind;
-
+use grow::zone::ZoneStatusRx;
 
 pub struct Oled {
     cancel: CancellationToken,
@@ -45,7 +42,6 @@ impl TextDisplay for Oled {
         from_zones: ZoneStatusRx,
         to_syslog: SysLogTx,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
-        
         self.display_control(from_zones, self.cancel.clone(), to_syslog)
     }
     fn set(
@@ -57,9 +53,7 @@ impl TextDisplay for Oled {
 }
 impl Oled {
     pub fn new(cancel: CancellationToken) -> Self {
-        Self {
-            cancel,
-        }
+        Self { cancel }
     }
 
     fn get_display(&self) -> OledDisplay {
@@ -69,8 +63,12 @@ impl Oled {
         println!("i2c speed: {:#?}", i2c.clock_speed());
 
         let interface = I2CDisplayInterface::new(i2c);
-        let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
-            .into_buffered_graphics_mode();
+        let mut display = Ssd1306::new(
+            interface,
+            DisplaySize128x64,
+            DisplayRotation::Rotate0,
+        )
+        .into_buffered_graphics_mode();
         display.init().expect("Display init error");
 
         display
@@ -89,7 +87,10 @@ impl Oled {
         let mut interval = interval(Duration::from_millis(3000));
 
         Ok(tokio::spawn(async move {
-            let mut pagemap: BTreeMap<(ZoneKind, u8), (String, String, String, String)> = BTreeMap::new();
+            let mut pagemap: BTreeMap<
+                (ZoneKind, u8),
+                (String, String, String, String),
+            > = BTreeMap::new();
             // let pages: Vec<String> = Vec::new();
             let mut next_page: usize = 0;
             let mut text = (
@@ -169,9 +170,18 @@ impl Oled {
     }
 
     /// Format for display on small screen
-    fn format_zonedisplay(id: u8, info: DisplayStatus, show: &str) -> ( String, String, String, String ) {
-        ( format!("{} {} ", String::from(show), id),  Self::format_indicator(&info.indicator), Self::format_msg(info.msg), Self::format_time(info.changed) )
-    } 
+    fn format_zonedisplay(
+        id: u8,
+        info: DisplayStatus,
+        show: &str,
+    ) -> (String, String, String, String) {
+        (
+            format!("{} {} ", String::from(show), id),
+            Self::format_indicator(&info.indicator),
+            Self::format_msg(info.msg),
+            Self::format_time(info.changed),
+        )
+    }
 
     fn format_indicator(i: &Indicator) -> String {
         match i {
@@ -183,16 +193,14 @@ impl Oled {
     }
     fn format_msg(msg: Option<String>) -> String {
         match msg {
-
             Some(msg) => msg.replace(", ", "\n"),
-            None => 
-            String::from("No message"),
+            None => String::from("No message"),
         }
     }
     fn format_time(dt: OffsetDateTime) -> String {
         // format!("{}", dt.format(&Rfc2822).expect("Time formatting error"))
-        let hms = dt.to_hms(); 
-        format!("{} {}:{:02}:{:02}", dt.date(), hms.0, hms.1, hms.2)        
+        let hms = dt.to_hms();
+        format!("{} {}:{:02}:{:02}", dt.date(), hms.0, hms.1, hms.2)
     }
 }
 
@@ -203,5 +211,3 @@ impl Oled {
 //         pagemap.insert(( ZoneKind::$zone_variant, id), text.clone() );
 //     }}
 // }
-
-

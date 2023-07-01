@@ -87,7 +87,9 @@ impl Runner {
         }
     }
 
-    pub fn tank_feedback_sender(&self) -> broadcast::Sender<(u8, Option<TankLevel>)> {
+    pub fn tank_feedback_sender(
+        &self,
+    ) -> broadcast::Sender<(u8, Option<TankLevel>)> {
         self.tx_tank.clone()
     }
 
@@ -104,7 +106,7 @@ impl Runner {
         let to_syslog = ops_channels.syslog;
         let mut rx = self.tx_tank.subscribe();
         let status = self.status.clone();
-       
+
         self.task = tokio::spawn(async move {
             to_syslog
                 .send(SysLog::new(format!("Spawned tank runner id {}", &id)))
@@ -113,7 +115,10 @@ impl Runner {
                 *&mut status.write().disp = ds.clone();
                 &to_status_subscribers.send(ZoneDisplay::Tank { id, info: ds });
             };
-            set_and_send(DisplayStatus::new(Indicator::Green, Some( format!("Tank running") )) );
+            set_and_send(DisplayStatus::new(
+                Indicator::Green,
+                Some(format!("Tank running")),
+            ));
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {

@@ -54,7 +54,10 @@ impl zone::light::Lamp for Led {
         );
         Ok(())
     }
-    fn set_state(&self, state: zone::light::LampState) -> Result<(), Box<dyn Error + '_>> {
+    fn set_state(
+        &self,
+        state: zone::light::LampState,
+    ) -> Result<(), Box<dyn Error + '_>> {
         match state {
             zone::light::LampState::On => {
                 let mut lock = self.adc.lock()?;
@@ -254,7 +257,7 @@ impl Photoresistor {
                         // println!("Light {:?}   reading {:?}   previous {:?}", &id, &reading, &previous);
                         if (reading - previous).abs() >= LIGHT_1_DELTA {
                             // if reading != previous {
-                                let _ = tx.send((id, Some(reading)));
+                            let _ = tx.send((id, Some(reading)));
                             previous = reading;
                         }
                     }
@@ -332,7 +335,7 @@ impl CapacitiveMoistureSensor {
                         // println!("Moist {:?}   reading {:?}   previous {:?}", &id, &reading, &previous);
                         if (reading - previous).abs() >= MOIST_1_AND_2_DELTA {
                             // if reading != previous {
-                                let _ = tx.send((id, Some(reading)));
+                            let _ = tx.send((id, Some(reading)));
                             previous = reading;
                         }
                     }
@@ -353,8 +356,9 @@ fn celcius_from_byte(value: f64) -> f64 {
     let room_temperature_in_kelvin = 297.15f64;
 
     let res_r6: f64 = (res_r1 * value) / (256.0 - value);
-    let kelvin: f64 =
-        1.0 / ((1.0 / room_temperature_in_kelvin) + (1.0 / coeff_b) * (res_r6 / res_r0).ln());
+    let kelvin: f64 = 1.0
+        / ((1.0 / room_temperature_in_kelvin)
+            + (1.0 / coeff_b) * (res_r6 / res_r0).ln());
 
     kelvin - 273.15
 }
@@ -373,27 +377,33 @@ fn light_from_byte(value: u8) -> f32 {
 fn _show_raw_adc(adc: AdcMutex) {
     tokio::spawn(async move {
         loop {
-        let _reading: f32;
-        {
-        println!("ADC lock req");
-        // let mut lock = adc.lock().await;
-        let mut lock = adc.lock().unwrap();
-        println!("ADC lock acquired");
+            let _reading: f32;
+            {
+                println!("ADC lock req");
+                // let mut lock = adc.lock().await;
+                let mut lock = adc.lock().unwrap();
+                println!("ADC lock acquired");
 
-        let v0 = lock.analog_read_byte(Pin::AIN0); // photoresistor
-        let v1 = lock.analog_read_byte(Pin::AIN1); // thermistor
-        let v2 = lock.analog_read_byte(Pin::AIN2); // capacitive soil moisture 1
-        let v3 = lock.analog_read_byte(Pin::AIN3); // capacitive soil moisture 2
-        println!("Light {:?}  Temp {:?}    Moist 1 {:?}     Moist 2 {:?} ",&v0, &v1, &v2, &v3);
+                let v0 = lock.analog_read_byte(Pin::AIN0); // photoresistor
+                let v1 = lock.analog_read_byte(Pin::AIN1); // thermistor
+                let v2 = lock.analog_read_byte(Pin::AIN2); // capacitive soil moisture 1
+                let v3 = lock.analog_read_byte(Pin::AIN3); // capacitive soil moisture 2
+                println!(
+                    "Light {:?}  Temp {:?}    Moist 1 {:?}     Moist 2 {:?} ",
+                    &v0, &v1, &v2, &v3
+                );
 
-            let c0 = light_from_byte(v0.unwrap().into());
-            let c1 = celcius_from_byte(v1.unwrap().into());
-            let c2 = moist_from_byte(v2.unwrap().into());
-            let c3 = moist_from_byte(v3.unwrap().into());
-            println!("Light {:?}  Temp {:?}    Moist 1 {:?}     Moist 2 {:?} ",c0, c1, c2, c3);
-        }
-        println!("ADC lock drop");
-        tokio::time::sleep(Duration::from_millis(10000)).await;
+                let c0 = light_from_byte(v0.unwrap().into());
+                let c1 = celcius_from_byte(v1.unwrap().into());
+                let c2 = moist_from_byte(v2.unwrap().into());
+                let c3 = moist_from_byte(v3.unwrap().into());
+                println!(
+                    "Light {:?}  Temp {:?}    Moist 1 {:?}     Moist 2 {:?} ",
+                    c0, c1, c2, c3
+                );
+            }
+            println!("ADC lock drop");
+            tokio::time::sleep(Duration::from_millis(10000)).await;
         }
     });
 }

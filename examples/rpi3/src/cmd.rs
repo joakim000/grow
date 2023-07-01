@@ -5,8 +5,6 @@ use grow::zone::light::LampState;
 
 use grow::zone::pump::PumpCmd;
 
-
-
 use grow::HouseMutex;
 use grow::ManagerMutex;
 use text_io::read;
@@ -44,7 +42,7 @@ pub fn list_cmds() {
         ("calib", "Calibrate Arm zero-position"),
         ("confirmpos", "Confirm arm positioned for Water zone"),
     ];
-    let debug_list = vec![    
+    let debug_list = vec![
         ("armpos", "Show current Arm position"),
         ("arm1x", "Move Arm 1 x-axis"),
         ("arm1y", "Move Arm 1 y-axis"),
@@ -53,16 +51,22 @@ pub fn list_cmds() {
         ("ps", "Stop Pump 1"),
         ("fan1dc", "Set fan duty cycle for Air zone 1"),
     ];
-    let sensor_list = vec![    
+    let sensor_list = vec![
         ("moist", "Take moisture reading from Water zone"),
         ("light1", "Take brightness reading from Light zone 1"),
         ("temp1", "Take temp reading from Air zone 1"),
         ("tank1", "Take level reading from Tank zone 1"),
         ("fan1", "Take fan speed reading from Air zone 1"),
     ];
-    for cmd in general_list { println!("{:>10}\t{}", cmd.0, cmd.1); }
-    for cmd in sensor_list { println!("{:>10}\t{}", cmd.0, cmd.1); }
-    for cmd in debug_list { println!("{:>10}\t{}", cmd.0, cmd.1); }
+    for cmd in general_list {
+        println!("{:>10}\t{}", cmd.0, cmd.1);
+    }
+    for cmd in sensor_list {
+        println!("{:>10}\t{}", cmd.0, cmd.1);
+    }
+    for cmd in debug_list {
+        println!("{:>10}\t{}", cmd.0, cmd.1);
+    }
     println!("\tAlso:\nupdate\nblink\nlamp1on\nlamp1off\narmupdate\ncalibx\ncaliby\n");
 }
 
@@ -303,4 +307,3 @@ pub fn manual_cmds(
         let _ = shutdown.send(true);
     })) //;
 }
-

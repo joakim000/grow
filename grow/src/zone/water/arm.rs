@@ -6,8 +6,8 @@ use tokio::sync::broadcast;
 use tokio::sync::watch;
 // use tokio::sync::Mutex;
 use core::fmt::Debug;
-use std::sync::Mutex;
 use parking_lot::RwLock;
+use std::sync::Mutex;
 use time::OffsetDateTime;
 
 use super::Zone;
@@ -37,7 +37,7 @@ pub enum AxisState {
     Idle,
     BusyQueueEmpty,
     BusyQueuedCmds(u16),
-    BusyQueueFull
+    BusyQueueFull,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ArmState {
@@ -155,14 +155,8 @@ impl Runner {
     pub fn cmd_receiver(&self) -> broadcast::Receiver<ArmCmd> {
         self.tx_cmd.subscribe()
     }
-    pub fn control_feedback_sender(
-        &self,
-    ) -> (
-        ControlFeedbackTx
-    ) {
-        (
-            self.tx_control.clone()
-        )
+    pub fn control_feedback_sender(&self) -> (ControlFeedbackTx) {
+        (self.tx_control.clone())
     }
     pub fn pos_feedback_sender(
         &self,

@@ -114,7 +114,9 @@ impl Runner {
         }
     }
 
-    pub fn lightmeter_feedback_sender(&self) -> broadcast::Sender<(u8, Option<f32>)> {
+    pub fn lightmeter_feedback_sender(
+        &self,
+    ) -> broadcast::Sender<(u8, Option<f32>)> {
         self.tx_lightmeter.clone()
     }
     pub fn lamp_cmd_receiver(&self) -> broadcast::Receiver<(u8, bool)> {
@@ -144,9 +146,13 @@ impl Runner {
                 .await;
             let set_and_send = |ds: DisplayStatus| {
                 *&mut status.write().disp = ds.clone();
-                &to_status_subscribers.send(ZoneDisplay::Light { id, info: ds });
+                &to_status_subscribers
+                    .send(ZoneDisplay::Light { id, info: ds });
             };
-            set_and_send(DisplayStatus::new(Indicator::Green, Some( format!("Light running") )) );
+            set_and_send(DisplayStatus::new(
+                Indicator::Green,
+                Some(format!("Light running")),
+            ));
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {

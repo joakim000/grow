@@ -15,14 +15,14 @@ mod error;
 pub use error::ZoneError;
 pub mod ops;
 pub mod zone;
-use zone::light::LampState;
-use zone::tank::TankLevel;
-use zone::*;
-use zone::ZoneDisplay;
-use zone::{arm::ArmCmd, pump::PumpCmd, Zone};
-use ops::SysLog;
 use ops::display::DisplayStatus;
 use ops::OpsChannelsTx;
+use ops::SysLog;
+use zone::light::LampState;
+use zone::tank::TankLevel;
+use zone::ZoneDisplay;
+use zone::*;
+use zone::{arm::ArmCmd, pump::PumpCmd, Zone};
 pub type HouseMutex = Arc<Mutex<House>>;
 pub type ManagerMutex = Arc<Mutex<ops::manager::Manager>>;
 
@@ -38,8 +38,9 @@ pub struct House {
 
 impl House {
     pub fn new(zone_tx: ZoneChannelsTx, ops_tx: OpsChannelsTx) -> Self {
-        Self { zones: Vec::new(), 
-            zone_tx, 
+        Self {
+            zones: Vec::new(),
+            zone_tx,
             ops_tx,
         }
     }
@@ -53,7 +54,7 @@ impl House {
         &mut self.zones
     }
     // Macro candidate
-    pub async fn init(&mut self,) -> () {
+    pub async fn init(&mut self) -> () {
         let zone_channels = self.zone_tx.clone();
         let ops_channels = self.ops_tx.clone();
         for zone in self.zones_mut() {
@@ -65,7 +66,11 @@ impl House {
                     ..
                 } => {
                     let channels = runner.fan_channels();
-                    let _ = interface.fan.as_mut().unwrap().init(channels.0, channels.1);
+                    let _ = interface
+                        .fan
+                        .as_mut()
+                        .unwrap()
+                        .init(channels.0, channels.1);
                     let _ = interface
                         .thermo
                         .as_mut()
@@ -132,7 +137,6 @@ impl House {
                         settings.clone(),
                         zone_channels.clone(),
                         ops_channels.clone(),
-                      
                     );
                 }
                 Zone::Tank {
@@ -192,7 +196,11 @@ impl House {
                 } // _ => ()
             }
         }
-        let _ = self.ops_tx.syslog.send(SysLog::new(format!("House zones initiated"))).await;
+        let _ = self
+            .ops_tx
+            .syslog
+            .send(SysLog::new(format!("House zones initiated")))
+            .await;
     }
 
     pub fn collect_display_status(&mut self) -> Vec<ZoneDisplay> {
@@ -204,7 +212,10 @@ impl House {
         r
     }
 
-    pub fn get_water_settings(&mut self, zid: u8) -> Option<zone::water::Settings> {
+    pub fn get_water_settings(
+        &mut self,
+        zid: u8,
+    ) -> Option<zone::water::Settings> {
         let mut r: Option<zone::water::Settings> = None;
         for zone in self.zones() {
             match zone {
@@ -224,15 +235,17 @@ impl House {
         r
     }
 
-    pub fn get_displaystatus(&mut self, kind: ZoneKind, zid: u8) -> Option<DisplayStatus> {
+    pub fn get_displaystatus(
+        &mut self,
+        kind: ZoneKind,
+        zid: u8,
+    ) -> Option<DisplayStatus> {
         let mut r: Option<DisplayStatus> = None;
         for zone in self.zones() {
             match zone {
-                Zone::Tank {
-                    id,
-                    status,
-                    ..
-                } if (kind == ZoneKind::Tank) & (id == &zid) => {
+                Zone::Tank { id, status, .. }
+                    if (kind == ZoneKind::Tank) & (id == &zid) =>
+                {
                     r = Some(status.read().disp.clone());
                 }
                 _ => continue,
@@ -241,7 +254,7 @@ impl House {
 
         r
     }
-  
+
     pub fn set_water_position(&mut self, zid: u8, pos: (i32, i32, i32)) -> () {
         for zone in self.zones_mut() {
             match zone {
@@ -263,20 +276,36 @@ impl House {
         }
     }
 
-    pub fn confirm_arm_position(&mut self, zid: u8, acceptable_delta: u32) -> Result<( bool, ( i32, i32, i32 ) ), Box<dyn Error + '_>> {
+    pub fn confirm_arm_position(
+        &mut self,
+        zid: u8,
+        acceptable_delta: u32,
+    ) -> Result<(bool, (i32, i32, i32)), Box<dyn Error + '_>> {
         if let Some(ws) = self.get_water_settings(zid) {
             if let Ok(ap) = self.arm_position(ws.position.arm_id) {
                 let mut r = true;
-                let diff = ( (ws.position.x - ap.0), (ws.position.y - ap.1), (ws.position.z - ap.2) );                
-                if (diff.0.abs() as u32 > acceptable_delta) | (diff.0.abs() as u32 > acceptable_delta) | (diff.0.abs() as u32 > acceptable_delta) { r = false; }
-                return Ok(( r, diff ))
+                let diff = (
+                    (ws.position.x - ap.0),
+                    (ws.position.y - ap.1),
+                    (ws.position.z - ap.2),
+                );
+                if (diff.0.abs() as u32 > acceptable_delta)
+                    | (diff.0.abs() as u32 > acceptable_delta)
+                    | (diff.0.abs() as u32 > acceptable_delta)
+                {
+                    r = false;
+                }
+                return Ok((r, diff));
             }
         }
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
 
     /// Sensor commands
-    pub fn read_moisture_value(&mut self, zid: u8) -> Result<f32, Box<dyn Error + '_>> {
+    pub fn read_moisture_value(
+        &mut self,
+        zid: u8,
+    ) -> Result<f32, Box<dyn Error + '_>> {
         for z in self.zones() {
             match z {
                 Zone::Water {
@@ -297,7 +326,10 @@ impl House {
         }
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
-    pub fn read_light_value(&mut self, zid: u8) -> Result<f32, Box<dyn Error + '_>> {
+    pub fn read_light_value(
+        &mut self,
+        zid: u8,
+    ) -> Result<f32, Box<dyn Error + '_>> {
         for z in self.zones() {
             match z {
                 Zone::Light {
@@ -318,7 +350,10 @@ impl House {
         }
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
-    pub fn read_temperature_value(&mut self, zid: u8) -> Result<f64, Box<dyn Error + '_>> {
+    pub fn read_temperature_value(
+        &mut self,
+        zid: u8,
+    ) -> Result<f64, Box<dyn Error + '_>> {
         for z in self.zones() {
             match z {
                 Zone::Air { id, interface, .. } if id == &zid => {
@@ -333,7 +368,10 @@ impl House {
         }
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
-    pub fn read_tank_level(&mut self, zid: u8) -> Result<TankLevel, Box<dyn Error + '_>> {
+    pub fn read_tank_level(
+        &mut self,
+        zid: u8,
+    ) -> Result<TankLevel, Box<dyn Error + '_>> {
         for z in self.zones() {
             match z {
                 Zone::Tank { id, interface, .. } if id == &zid => {
@@ -348,7 +386,10 @@ impl House {
         }
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
-    pub fn read_fan_speed(&mut self, zid: u8) -> Result<Option<f32>, Box<dyn Error + '_>> {
+    pub fn read_fan_speed(
+        &mut self,
+        zid: u8,
+    ) -> Result<Option<f32>, Box<dyn Error + '_>> {
         for z in self.zones_mut() {
             match z {
                 Zone::Air { id, interface, .. } if id == &zid => {
@@ -365,7 +406,11 @@ impl House {
     }
 
     /// General action commands
-    pub fn set_lamp_state(&mut self, zid: u8, state: LampState) -> Result<(), Box<dyn Error + '_>> {
+    pub fn set_lamp_state(
+        &mut self,
+        zid: u8,
+        state: LampState,
+    ) -> Result<(), Box<dyn Error + '_>> {
         for z in self.zones() {
             match z {
                 Zone::Light {
@@ -411,7 +456,11 @@ impl House {
         for z in self.zones() {
             match z {
                 Zone::Pump { id, interface, .. } if id == &zid => {
-                    return interface.pump.as_ref().expect("Interface not found").run()
+                    return interface
+                        .pump
+                        .as_ref()
+                        .expect("Interface not found")
+                        .run()
                 }
                 _ => continue,
             }
@@ -422,7 +471,11 @@ impl House {
         for z in self.zones() {
             match z {
                 Zone::Pump { id, interface, .. } if id == &zid => {
-                    return interface.pump.as_ref().expect("Interface not found").stop()
+                    return interface
+                        .pump
+                        .as_ref()
+                        .expect("Interface not found")
+                        .stop()
                 }
                 _ => continue,
             }
@@ -451,7 +504,13 @@ impl House {
     }
 
     /// Arm commands
-    pub fn arm_goto(&mut self, zid: u8, x: i32, y: i32, z: i32) -> Result<(), Box<dyn Error + '_>> {
+    pub fn arm_goto(
+        &mut self,
+        zid: u8,
+        x: i32,
+        y: i32,
+        z: i32,
+    ) -> Result<(), Box<dyn Error + '_>> {
         for zone in self.zones() {
             match zone {
                 Zone::Arm { id, interface, .. } if id == &zid => {
@@ -466,7 +525,11 @@ impl House {
         }
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
-    pub fn arm_goto_x(&mut self, zid: u8, x: i32) -> Result<(), Box<dyn Error + '_>> {
+    pub fn arm_goto_x(
+        &mut self,
+        zid: u8,
+        x: i32,
+    ) -> Result<(), Box<dyn Error + '_>> {
         for z in self.zones() {
             match z {
                 Zone::Arm { id, interface, .. } if id == &zid => {
@@ -481,7 +544,11 @@ impl House {
         }
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
-    pub fn arm_goto_y(&mut self, zid: u8, y: i32) -> Result<(), Box<dyn Error + '_>> {
+    pub fn arm_goto_y(
+        &mut self,
+        zid: u8,
+        y: i32,
+    ) -> Result<(), Box<dyn Error + '_>> {
         for z in self.zones() {
             match z {
                 Zone::Arm { id, interface, .. } if id == &zid => {
@@ -496,7 +563,10 @@ impl House {
         }
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
-    pub async fn arm_update(&mut self, zid: u8) -> Result<(), Box<dyn Error + '_>> {
+    pub async fn arm_update(
+        &mut self,
+        zid: u8,
+    ) -> Result<(), Box<dyn Error + '_>> {
         for z in self.zones() {
             match z {
                 Zone::Arm { id, interface, .. } if id == &zid => {
@@ -512,7 +582,10 @@ impl House {
         }
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
-    pub fn arm_position(&mut self, zid: u8) -> Result<(i32, i32, i32), Box<dyn Error + '_>> {
+    pub fn arm_position(
+        &mut self,
+        zid: u8,
+    ) -> Result<(i32, i32, i32), Box<dyn Error + '_>> {
         for z in self.zones() {
             match z {
                 Zone::Arm { id, interface, .. } if id == &zid => {
@@ -546,7 +619,6 @@ impl House {
         }
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
-  
 
     /// Alternative command model
     pub fn collect_cmd_senders(&mut self) -> Vec<ZoneCmd> {
@@ -573,8 +645,6 @@ impl House {
     }
 }
 
-
-
 /// Alternative command model
 #[derive(Clone, Debug)]
 pub enum ZoneCmd {
@@ -596,8 +666,6 @@ pub enum ZoneCmd {
     // Tank {id: u8, info: DisplayStatus},
 }
 
-
-
 // pub fn get_tank_status(&self, zid: u8) -> Option<Arc<RwLock<zone::tank::Status>>> {
 //     let mut r: Option<Arc<RwLock<zone::tank::Status>>> = None;
 //     for zone in self.zones() {
@@ -615,7 +683,6 @@ pub enum ZoneCmd {
 
 //     r
 // }
-
 
 // pub fn get_pump_status(&mut self, zid: u8) -> Option<Arc<RwLock<zone::pump::Status>>> {
 //     let mut r: Option<Arc<RwLock<zone::pump::Status>>> = None;

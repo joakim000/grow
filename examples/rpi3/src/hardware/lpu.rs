@@ -17,12 +17,13 @@ use tokio_util::sync::CancellationToken;
 use lego_powered_up::consts::HubPropertyOperation;
 use lego_powered_up::consts::HubPropertyRef;
 
-use lego_powered_up::consts::{HubType};
+use lego_powered_up::consts::HubType;
 
 use lego_powered_up::hubs::HubNotification;
 use lego_powered_up::iodevice::basic::Basic;
 use lego_powered_up::iodevice::modes;
 
+use lego_powered_up::iodevice::motor::BufferState;
 use lego_powered_up::iodevice::visionsensor::DetectedColor;
 use lego_powered_up::iodevice::visionsensor::VisionSensor;
 use lego_powered_up::iodevice::{motor::*, sensor::*};
@@ -32,8 +33,6 @@ use lego_powered_up::notifications::*;
 use lego_powered_up::HubMutex;
 use lego_powered_up::{ConnectedHub, IoDevice, IoTypeId, PoweredUp};
 use lego_powered_up::{Hub, HubFilter};
-use lego_powered_up::iodevice::motor::BufferState;
-
 
 use grow::ops::display::Indicator;
 use grow::zone;
@@ -41,8 +40,8 @@ use grow::zone::arm::ArmCmd;
 use grow::zone::pump::PumpCmd;
 use grow::zone::tank::TankLevel;
 
-use grow::zone::arm::ArmState;
 use grow::ops::display::DisplayStatus;
+use grow::zone::arm::ArmState;
 
 pub async fn init(
     pu: Arc<TokioMutex<PoweredUp>>,
@@ -57,18 +56,17 @@ pub async fn init(
     let created_hub = lock.create_hub(&hub).await;
     match created_hub {
         Ok(_) => {}
-        Err(e) => { return Err(Box::new(e)) } 
+        Err(e) => return Err(Box::new(e)),
     }
     let hub = ConnectedHub::setup_hub(created_hub.unwrap()).await;
     match hub {
         Ok(_) => {}
-        Err(e) => { return Err(Box::new(e)) } 
+        Err(e) => return Err(Box::new(e)),
     }
     // let hub = ConnectedHub::setup_hub(lock.create_hub(&hub).await).expect("Error creating hub") // thread 'main' panicked at 'Error creating hub: BluetoothError(Other(DbusError(D-Bus error: Operation already in progress (org.bluez.Error.Failed))))', src/hardware/lpu.rs:54:67
     //     .await
     //     .expect("Error setting up hub");
-    println!("Connectedhub  created");  
-
+    println!("Connectedhub  created");
 
     Ok(hub.unwrap().mutex.clone())
 }
@@ -131,7 +129,8 @@ impl Vsensor {
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
         let level = self.level.clone();
-        let (mut rx_color, _color_task) = self.device.visionsensor_color().unwrap();
+        let (mut rx_color, _color_task) =
+            self.device.visionsensor_color().unwrap();
         Ok(tokio::spawn(async move {
             println!("Spawned tank feedback");
             while let Ok(data) = rx_color.recv().await {
@@ -158,7 +157,7 @@ impl Vsensor {
                         *level.write() = TankLevel::Red;
                     }
                     _ => {
-                        let _ =  tx.send((id, None));
+                        let _ = tx.send((id, None));
                     }
                 }
             }
@@ -303,9 +302,14 @@ impl zone::water::arm::Arm for BrickArm {
         rx_cmd: tokio::sync::broadcast::Receiver<ArmCmd>,
     ) -> Result<(), Box<dyn Error>> {
         self.feedback_task = Some(
-            self.arm_feedback(tx_axis_x, tx_axis_y, tx_control, self.cancel.clone())
-                .await
-                .expect("Error initializing feedback task"),
+            self.arm_feedback(
+                tx_axis_x,
+                tx_axis_y,
+                tx_control,
+                self.cancel.clone(),
+            )
+            .await
+            .expect("Error initializing feedback task"),
         );
         self.cmd_task = Some(
             self.arm_cmd(rx_cmd, self.cancel.clone())
@@ -330,19 +334,31 @@ impl zone::water::arm::Arm for BrickArm {
     }
 
     async fn update_pos(&self) -> Result<(), Box<dyn Error>> {
-        self.device_x
-            .device_mode(modes::TechnicLargeLinearMotorTechnicHub::SPEED, 1, true)?;
+        self.device_x.device_mode(
+            modes::TechnicLargeLinearMotorTechnicHub::SPEED,
+            1,
+            true,
+        )?;
         // sleep(Duration::from_millis(100)).await;
-        self.device_y
-            .device_mode(modes::TechnicLargeLinearMotorTechnicHub::SPEED, 1, true)?;
+        self.device_y.device_mode(
+            modes::TechnicLargeLinearMotorTechnicHub::SPEED,
+            1,
+            true,
+        )?;
         sleep(Duration::from_millis(100)).await;
-        self.device_x
-            .device_mode(modes::TechnicLargeLinearMotorTechnicHub::POS, 1, true)?;
+        self.device_x.device_mode(
+            modes::TechnicLargeLinearMotorTechnicHub::POS,
+            1,
+            true,
+        )?;
         // sleep(Duration::from_millis(100)).await;
-        self.device_y
-            .device_mode(modes::TechnicLargeLinearMotorTechnicHub::POS, 1, true)?;
+        self.device_y.device_mode(
+            modes::TechnicLargeLinearMotorTechnicHub::POS,
+            1,
+            true,
+        )?;
 
-        Ok(()) 
+        Ok(())
     }
     fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>> {
         self.device_x
@@ -384,7 +400,6 @@ impl zone::water::arm::Arm for BrickArm {
         let (tx_axis_y, mut rx_axis_y) = broadcast::channel::<(i8, i32)>(16);
         let (tx_control, _rx_control) = broadcast::channel::<ArmState>(16);
 
-
         let _feedback_task = Some(
             self.arm_feedback(tx_axis_x, tx_axis_y, tx_control, cancel.clone())
                 .await
@@ -400,7 +415,7 @@ impl zone::water::arm::Arm for BrickArm {
                     _ = sleep(Duration::from_millis(500)) => {
                         if !started {
                             let _ = device_x.start_power(Power::Float);
-                            break; 
+                            break;
                         }
                     }
                     Ok(data) = rx_axis_x.recv() => {
@@ -426,7 +441,7 @@ impl zone::water::arm::Arm for BrickArm {
                     _ = sleep(Duration::from_millis(500)) => {
                         if !started {
                             let _ = device_y.start_power(Power::Float);
-                            break; 
+                            break;
                         }
                     }
                     Ok(data) = rx_axis_y.recv() => {
@@ -451,8 +466,6 @@ impl zone::water::arm::Arm for BrickArm {
         // println!("Calibrated X Y from: {:?}", &before);
         Ok(before)
     }
-
-  
 
     /// Calibrate zero-point and range
     /// Needed if we want to use relative position settings, using absolute values for now
@@ -518,17 +531,37 @@ impl BrickArm {
                         let _ = device_y.start_speed(speed, 20);
                     }
                     ArmCmd::Goto { x, y } => {
-                        let _ = device_x.goto_absolute_position(x, 20, 20, EndState::Brake);
+                        let _ = device_x.goto_absolute_position(
+                            x,
+                            20,
+                            20,
+                            EndState::Brake,
+                        );
                         // .await;
-                        let _ = device_y.goto_absolute_position(y, 20, 20, EndState::Brake);
+                        let _ = device_y.goto_absolute_position(
+                            y,
+                            20,
+                            20,
+                            EndState::Brake,
+                        );
                         // .await;
                     }
                     ArmCmd::GotoX { x } => {
-                        let _ = device_x.goto_absolute_position(x, 20, 20, EndState::Brake);
+                        let _ = device_x.goto_absolute_position(
+                            x,
+                            20,
+                            20,
+                            EndState::Brake,
+                        );
                         // .await;
                     }
                     ArmCmd::GotoY { y } => {
-                        let _ = device_y.goto_absolute_position(y, 20, 20, EndState::Brake);
+                        let _ = device_y.goto_absolute_position(
+                            y,
+                            20,
+                            20,
+                            EndState::Brake,
+                        );
                         // .await;
                     }
                 }
@@ -556,7 +589,7 @@ impl BrickArm {
             .motor_combined_sensor_enable(1, 2)
             .await
             .unwrap();
-        // let mut rx_cmdfb = 
+        // let mut rx_cmdfb =
         //     self.hub_channels.commandfeedback_sender.as_ref().unwrap().subscribe();
         let (mut rx_control_x, _control_x_task) = self
             .device_x
@@ -589,7 +622,7 @@ impl BrickArm {
                         }
                         else {
                             let _ = tx_control.send(ArmState::Busy);
-                        }    
+                        }
                         // println!("Cmdfb X: {:?} States:{:?}{:?}", &data, &state_x, &state_y);
                     }
                     Ok(data) = rx_control_y.recv() => {
@@ -686,19 +719,41 @@ impl LpuHub {
             )?;
 
             // These will not send current status when enabling updates; request single update first
-            let _ = lock.hub_alerts(AlertType::LowVoltage, AlertOperation::RequestUpdate)?;
-            let _ = lock.hub_alerts(AlertType::LowVoltage, AlertOperation::EnableUpdates)?;
+            let _ = lock.hub_alerts(
+                AlertType::LowVoltage,
+                AlertOperation::RequestUpdate,
+            )?;
+            let _ = lock.hub_alerts(
+                AlertType::LowVoltage,
+                AlertOperation::EnableUpdates,
+            )?;
 
-            let _ = lock.hub_alerts(AlertType::HighCurrent, AlertOperation::RequestUpdate)?;
-            let _ = lock.hub_alerts(AlertType::HighCurrent, AlertOperation::EnableUpdates)?;
+            let _ = lock.hub_alerts(
+                AlertType::HighCurrent,
+                AlertOperation::RequestUpdate,
+            )?;
+            let _ = lock.hub_alerts(
+                AlertType::HighCurrent,
+                AlertOperation::EnableUpdates,
+            )?;
 
-            let _ = lock.hub_alerts(AlertType::LowSignalStrength, AlertOperation::RequestUpdate)?;
-            let _ = lock.hub_alerts(AlertType::LowSignalStrength, AlertOperation::EnableUpdates)?;
+            let _ = lock.hub_alerts(
+                AlertType::LowSignalStrength,
+                AlertOperation::RequestUpdate,
+            )?;
+            let _ = lock.hub_alerts(
+                AlertType::LowSignalStrength,
+                AlertOperation::EnableUpdates,
+            )?;
 
-            let _ =
-                lock.hub_alerts(AlertType::OverPowerCondition, AlertOperation::RequestUpdate)?;
-            let _ =
-                lock.hub_alerts(AlertType::OverPowerCondition, AlertOperation::EnableUpdates)?;
+            let _ = lock.hub_alerts(
+                AlertType::OverPowerCondition,
+                AlertOperation::RequestUpdate,
+            )?;
+            let _ = lock.hub_alerts(
+                AlertType::OverPowerCondition,
+                AlertOperation::EnableUpdates,
+            )?;
         }
 
         let cancel_clone = self.cancel.clone();
@@ -776,4 +831,3 @@ impl LpuHub {
         }))
     }
 }
-
