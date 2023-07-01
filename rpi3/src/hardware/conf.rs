@@ -1,6 +1,6 @@
-use pcf8591::{Pin, PCF8591};
-use rppal::gpio::{Gpio, Level, Trigger};
-use rppal::pwm::{Channel, Polarity, Pwm};
+use pcf8591::{Pin};
+
+
 
 // GPIO
 pub const ACTIVITY_LED_PIN: u8 = 4; //BCM 17 phys 11

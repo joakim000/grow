@@ -2,11 +2,11 @@ use core::error::Error;
 use core::time::Duration;
 use grow::zone::arm::ArmCmd;
 use grow::zone::light::LampState;
-use grow::zone::pump;
+
 use grow::zone::pump::PumpCmd;
-use grow::zone::pump::Runner;
-use grow::zone::Zone;
-use grow::House;
+
+
+
 use grow::HouseMutex;
 use grow::ManagerMutex;
 use text_io::read;
@@ -67,8 +67,8 @@ pub fn list_cmds() {
 }
 
 pub fn manual_cmds(
-    mut house: HouseMutex,
-    mut manager: ManagerMutex,
+    house: HouseMutex,
+    manager: ManagerMutex,
     shutdown: mpsc::UnboundedSender<bool>,
 ) -> Result<JoinHandle<()>, Box<dyn Error>> {
     Ok(tokio::spawn(async move {

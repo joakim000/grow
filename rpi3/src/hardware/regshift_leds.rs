@@ -4,12 +4,12 @@ use drive_74hc595::ShiftRegister;
 use grow::ops::display::DisplayStatus;
 use grow::ops::display::Indicator;
 use grow::zone::ZoneDisplay;
-use rppal::gpio::{Gpio, OutputPin, Trigger};
-use std::time::{Duration, Instant};
+use rppal::gpio::{Gpio, OutputPin};
+use std::time::{Duration};
 use tokio::time::sleep;
 // use grow::ops::display::DisplayStatus::*;
 use async_trait::async_trait;
-use embedded_hal::digital::v2::OutputPin as HalOutputPin;
+
 use grow::ops::Board;
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -238,7 +238,7 @@ impl Shiftreg {
 
         let reg_clone = reg_rw.clone();
         let cancel_clone = cancel.clone();
-        let shutdown_task = tokio::spawn(async move {
+        let _shutdown_task = tokio::spawn(async move {
             tokio::select! {
                 _ = cancel_clone.cancelled() => {
                     reg_clone.write().output_clear();

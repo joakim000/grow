@@ -1,7 +1,7 @@
 use core::error::Error;
 
 
-use crate::hardware::conf::*;
+
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -14,33 +14,33 @@ use lego_powered_up::HubMutex;
 use lego_powered_up::{Hub, HubFilter};
 use lego_powered_up::consts::{named_port, HubType};
 use lego_powered_up::iodevice::remote::{RcButtonState, RcDevice};
-use lego_powered_up::notifications::HubAction;
-use lego_powered_up::consts::HubPropertyOperation;
-use lego_powered_up::consts::HubPropertyRef;
-use lego_powered_up::consts::MotorSensorMode;
-use lego_powered_up::error::{Error as LpuError, OptionContext, Result as LpuResult};
-use lego_powered_up::hubs::HubNotification;
-use lego_powered_up::iodevice::basic::Basic;
-use lego_powered_up::iodevice::modes;
-use lego_powered_up::iodevice::visionsensor::DetectedColor;
-use lego_powered_up::iodevice::visionsensor::VisionSensor;
-use lego_powered_up::iodevice::{hubled::*, motor::*, sensor::*};
-use lego_powered_up::notifications::HubPropertyValue;
-use lego_powered_up::notifications::Power;
-use lego_powered_up::notifications::*;
-use lego_powered_up::{ConnectedHub, IoDevice, IoTypeId, PoweredUp};
-use lego_powered_up::iodevice::motor::BufferState;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+use lego_powered_up::{ConnectedHub, IoDevice, PoweredUp};
+
 
 use grow::ops::remote::RcInput;
 use grow::ops::remote::RemoteControl;
-use grow::ops::display::Indicator;
-use grow::zone;
-use grow::zone::arm::ArmCmd;
-use grow::zone::pump::PumpCmd;
-use grow::zone::tank::TankLevel;
-use grow::TIME_OFFSET;
-use grow::zone::arm::ArmState;
-use grow::ops::display::DisplayStatus;
+
+
+
+
+
+
+
+
 
 
 pub struct LpuRemote {
@@ -88,11 +88,11 @@ impl RemoteControl for LpuRemote {
             // println!("RC device: {:?}", rc);
         }
         println!("Setting up device and channel");
-        let (mut rx_rc, _rc_task) = rc.remote_connect_with_green()?;
+        let (rx_rc, _rc_task) = rc.remote_connect_with_green()?;
         println!("Starting feedback task");
 
         let hub_clone = self.hub.as_ref().expect("No connected hub").mutex.clone();
-        let feedback_task = self
+        let _feedback_task = self
             .rc_feedback(tx_rc, rx_rc, position_finder_cancel, hub_clone)
             // .await
             .expect("Error initializing feedback task");
@@ -135,7 +135,7 @@ impl LpuRemote {
         &self,
         tx: mpsc::Sender<RcInput>,
         mut rx: broadcast::Receiver<RcButtonState>,
-        position_finder_cancel: CancellationToken,
+        _position_finder_cancel: CancellationToken,
         hub: HubMutex,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let mut red_down = (false, false);

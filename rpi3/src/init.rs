@@ -1,21 +1,21 @@
 use lego_powered_up::PoweredUp;
 use std::sync::Arc;
-use std::sync::Mutex;
-use tokio::sync::broadcast;
-use tokio::sync::mpsc;
+
+
+
 use tokio::sync::Mutex as TokioMutex;
 use tokio_util::sync::CancellationToken;
 
 use crate::hardware;
 use grow::ops;
 use grow::ops::manager::Manager;
-use grow::zone::ZoneUpdate;
+
 use grow::zone::*;
 use grow::HouseMutex;
 use grow::ManagerMutex;
 
 pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMutex) {
-    let mut pu = Arc::new(TokioMutex::new(
+    let pu = Arc::new(TokioMutex::new(
         PoweredUp::init()
             .await
             .expect("Error from PoweredUp::init()"),
@@ -37,7 +37,7 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
                 settings: _,
                 status: _,
                 interface,
-                runner,
+                runner: _,
             } => {
                 interface.fan = Some(Box::new(hardware::pwmfan::PwmFan::new(*id)));
                 interface.thermo = Some(Box::new(hardware::pcf8591::Thermistor::new(
@@ -50,7 +50,7 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
                 settings: _,
                 status: _,
                 interface,
-                runner,
+                runner: _,
             } => {
                 interface.aux_device = Some(Box::new(hardware::lpu::LpuHub::new(
                     *id,
@@ -63,7 +63,7 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
                 settings: _,
                 status: _,
                 interface,
-                runner,
+                runner: _,
             } => {
                 interface.lightmeter = Some(Box::new(hardware::pcf8591::Photoresistor::new(
                     *id,
@@ -79,7 +79,7 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
                 settings: _,
                 status: _,
                 interface,
-                runner,
+                runner: _,
             } => {
                 interface.moist = Some(Box::new(hardware::pcf8591::CapacitiveMoistureSensor::new(
                     *id,
@@ -91,7 +91,7 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
                 settings: _,
                 status: _,
                 interface,
-                runner,
+                runner: _,
             } => {
                 interface.tank_sensor =
                     Some(Box::new(hardware::lpu::Vsensor::new(*id, lpu_hub.clone())));
@@ -101,7 +101,7 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
                 settings: _,
                 status: _,
                 interface,
-                runner,
+                runner: _,
             } => {
                 interface.pump = Some(Box::new(
                     hardware::lpu::BrickPump::new(*id, lpu_hub.clone()).await,
@@ -112,7 +112,7 @@ pub async fn hardware_init(cancel: CancellationToken) -> (HouseMutex, ManagerMut
                 settings: _,
                 status: _,
                 interface,
-                runner,
+                runner: _,
             } => {
                 interface.arm = Some(Box::new(
                     hardware::lpu::BrickArm::new(*id, lpu_hub.clone()).await,

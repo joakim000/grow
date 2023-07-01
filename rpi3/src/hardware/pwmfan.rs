@@ -4,14 +4,14 @@ use core::time::Duration;
 use rppal::gpio::InputPin;
 use std::time::Instant;
 use tokio::sync::broadcast;
-use tokio::sync::mpsc;
+
 use tokio::task::JoinHandle;
 
 use core::error::Error;
 use core::result::Result;
 
-use rppal::gpio::{Gpio, Level, Trigger};
-use rppal::pwm::{Channel, Polarity, Pwm};
+use rppal::gpio::{Gpio, Trigger};
+use rppal::pwm::{Pwm};
 
 use grow::zone::air::FanSetting;
 use std::sync::Arc;
@@ -96,14 +96,14 @@ impl PwmFan {
         }
     }
     pub fn mutex(self) {
-        let m: FanMutex = Arc::new(Mutex::new(Box::new(self)));
+        let _m: FanMutex = Arc::new(Mutex::new(Box::new(self)));
     }
 
     fn fan_feedback(
         &mut self,
         tx: broadcast::Sender<(u8, Option<f32>)>,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
-        let mut rpm_pin = self.rpm_pin.clone();
+        let rpm_pin = self.rpm_pin.clone();
 
         let mut pulse_start: Instant = Instant::now();
         let mut pulse_duration: Duration = pulse_start.elapsed();

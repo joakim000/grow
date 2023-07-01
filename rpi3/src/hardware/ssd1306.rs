@@ -1,5 +1,5 @@
 use super::conf::*;
-use embedded_graphics::text::TextStyle;
+
 use grow::ops::display::DisplayStatus;
 use grow::ops::display::Indicator;
 use grow::zone::ZoneDisplay;
@@ -10,33 +10,32 @@ use alloc::collections::BTreeMap;
 use core::error::Error;
 // use parking_lot::Mutex;
 use async_trait::async_trait;
-use core::fmt::Write;
+
 use embedded_graphics::{
-    mono_font::{ascii::*, MonoTextStyle, MonoTextStyleBuilder},
+    mono_font::{ascii::*, MonoTextStyle},
     pixelcolor::BinaryColor,
-    pixelcolor::Rgb565,
     prelude::*,
-    text::{Alignment, Baseline, LineHeight, Text, TextStyleBuilder},
+    text::{Alignment, Text},
 };
-use parking_lot::RwLock;
-use rppal::gpio::{Gpio, OutputPin, Trigger};
-use rppal::hal::Timer;
+
+
+
 use rppal::i2c::I2c;
-use ssd1306::command::Command;
-use ssd1306::{command, mode::TerminalMode, prelude::*, I2CDisplayInterface, Ssd1306};
+
+use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::thread;
-use std::time::{Duration, Instant};
+
+use std::time::{Duration};
 use tokio::task::JoinHandle;
 use tokio::time::interval;
-use tokio::time::sleep;
+
 use tokio_util::sync::CancellationToken;
 use time::OffsetDateTime;
-use time::format_description::well_known::{Rfc3339, Rfc2822};
 
-use super::conf::*;
-use grow::ops::{OpsChannelsTx, SysLog, SysLogTx, TextDisplay};
+
+
+use grow::ops::{SysLogTx, TextDisplay};
 type OledDisplay = Ssd1306<
     I2CInterface<I2c>,
     DisplaySize128x64,
@@ -55,15 +54,15 @@ pub struct Oled {
 impl TextDisplay for Oled {
     fn init(
         &self,
-        mut from_zones: ZoneStatusRx,
+        from_zones: ZoneStatusRx,
         to_syslog: SysLogTx,
-    ) -> Result<(JoinHandle<()>), Box<dyn Error>> {
+    ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         
         self.display_control(from_zones, self.cancel.clone(), to_syslog)
     }
     fn set(
         &mut self,
-        status_all: Vec<ZoneDisplay>,
+        _status_all: Vec<ZoneDisplay>,
     ) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
@@ -81,7 +80,7 @@ impl Oled {
         println!("i2c bus: {:#?}", i2c.bus());
         println!("i2c speed: {:#?}", i2c.clock_speed());
 
-        let mut interface = I2CDisplayInterface::new(i2c);
+        let interface = I2CDisplayInterface::new(i2c);
         let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
             .into_buffered_graphics_mode();
         display.init().expect("Display init error");
@@ -93,7 +92,7 @@ impl Oled {
         &self,
         mut from_zones: ZoneStatusRx,
         cancel: CancellationToken,
-        to_syslog: SysLogTx,
+        _to_syslog: SysLogTx,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let mut display = self.get_display();
         let style_heading = MonoTextStyle::new(&FONT_10X20, BinaryColor::On);
@@ -133,7 +132,7 @@ impl Oled {
                             }
                         }
                         display.clear_buffer();
-                        let next_text = Text::new(&text.0, Point::new(0,14), style_heading).draw(&mut display).unwrap();
+                        let _next_text = Text::new(&text.0, Point::new(0,14), style_heading).draw(&mut display).unwrap();
                         Text::with_alignment(&text.1, Point::new(128,14), style_heading, Alignment::Right).draw(&mut display).unwrap();
                         Text::new(&text.2, Point::new(0, 30), style_msg).draw(&mut display).unwrap();
                         Text::with_alignment(&text.3, Point::new(128, 60), style_dt, Alignment::Right).draw(&mut display).unwrap(); //thread 'tokio-runtime-worker' panicked at 'called `Result::unwrap()` on an `Err` value: BusWriteError', src/hardware/ssd1306.rs:140:41

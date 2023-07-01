@@ -5,30 +5,30 @@ mod cmd;
 mod hardware;
 mod init;
 use crate::hardware::conf::*;
-use grow::ops;
-use grow::zone::*;
+
+
 
 use std::error::Error;
 // use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 
-use std::sync::atomic::{AtomicBool, Ordering};
+
 use std::sync::Arc;
-use std::sync::Mutex;
+
 use tokio::sync::Mutex as TokioMutex;
 pub type HouseMutex = Arc<TokioMutex<grow::House>>;
 use tokio::signal;
 use tokio::sync::mpsc;
 
-use rppal::gpio::{Gpio, OutputPin, Trigger};
-use rppal::pwm::{Channel, Polarity, Pwm};
+use rppal::gpio::{Gpio, Trigger};
 
-use drive_74hc595::ShiftRegister;
+
+
 // use dummy_pin::DummyPin;
-use lego_powered_up::PoweredUp;
-use pcf8591::{Pin, PCF8591};
+
+
 
 
 #[tokio::main]
@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let cancel_token = CancellationToken::new();
 
     let (house, manager) = init::hardware_init(cancel_token.clone()).await;
-    let cmd_task = cmd::manual_cmds(house.clone(), manager.clone(), shutdown_send);
+    let _cmd_task = cmd::manual_cmds(house.clone(), manager.clone(), shutdown_send);
 
     // Buttons
     let mut btn_1 = Gpio::new()?.get(BUTTON_1_PIN)?.into_input_pulldown();

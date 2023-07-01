@@ -21,7 +21,7 @@ pub struct Adc {
     mutex: AdcMutex,
 }
 impl Adc {
-    pub fn new(cancel: CancellationToken) -> Self {
+    pub fn new(_cancel: CancellationToken) -> Self {
         let control = PCF8591::new(ADC_1_BUS, ADC_1_ADDR, ADC_1_VREF).unwrap();
         let adc = Arc::new(Mutex::new(control));
         // show_raw_adc(adc.clone());  // Dev use
@@ -69,7 +69,7 @@ impl zone::light::Lamp for Led {
         }
     }
     fn state(&self) -> Result<LampState, Box<dyn Error>> {
-        Ok((*self.state.read()))
+        Ok(*self.state.read())
     }
 }
 impl Debug for Led {
@@ -90,17 +90,17 @@ impl Led {
         &self,
         mut rx: broadcast::Receiver<(u8, bool)>,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
-        let id = self.id;
+        let _id = self.id;
         let adc = self.adc.clone();
         Ok(tokio::spawn(async move {
             while let Ok(data) = rx.recv().await {
                 println!("Received lamp command: {:?}", data);
                 match data {
-                    (id, true) => {
+                    (_id, true) => {
                         let mut lock = adc.lock().unwrap();
                         lock.analog_write_byte(255);
                     }
-                    (id, false) => {
+                    (_id, false) => {
                         let mut lock = adc.lock().unwrap();
                         lock.analog_write_byte(0);
                     }
@@ -131,7 +131,7 @@ impl zone::air::Thermometer for Thermistor {
 
         Ok(())
     }
-    fn read(&self) -> Result<(f64), Box<dyn Error + '_>> {
+    fn read(&self) -> Result<f64, Box<dyn Error + '_>> {
         let pin = TEMP_SENSOR[self.id as usize - 1];
         let reading: f64;
         {
@@ -182,7 +182,7 @@ impl Thermistor {
                             previous = reading;
                         }
                     }
-                    Err(e) => {
+                    Err(_e) => {
                         tx.send((id, None));
                     }
                 }
@@ -213,8 +213,8 @@ impl zone::light::Lightmeter for Photoresistor {
 
         Ok(())
     }
-    fn read(&self) -> Result<(f32), Box<dyn Error + '_>> {
-        let pin: Pin;
+    fn read(&self) -> Result<f32, Box<dyn Error + '_>> {
+        let _pin: Pin;
         let pin = LIGHT_SENSOR[self.id as usize - 1];
         let reading: f32;
         {
@@ -258,7 +258,7 @@ impl Photoresistor {
                             previous = reading;
                         }
                     }
-                    Err(e) => {
+                    Err(_e) => {
                         tx.send((id, None));
                     }
                 }
@@ -279,7 +279,7 @@ impl zone::water::MoistureSensor for CapacitiveMoistureSensor {
     fn id(&self) -> u8 {
         self.id
     }
-    fn read(&self) -> Result<(f32), Box<dyn Error + '_>> {
+    fn read(&self) -> Result<f32, Box<dyn Error + '_>> {
         let pin = MOIST_SENSOR[self.id as usize - 1];
         let reading: f32;
         {
@@ -336,7 +336,7 @@ impl CapacitiveMoistureSensor {
                             previous = reading;
                         }
                     }
-                    Err(e) => {
+                    Err(_e) => {
                         tx.send((id, None));
                     }
                 }
@@ -367,13 +367,13 @@ fn moist_from_byte(value: u8) -> f32 {
 }
 fn light_from_byte(value: u8) -> f32 {
     // 15(240) = dark, 40 = 5v LED up close, 208(47) = very light,
-    (255f32 - value as f32)
+    255f32 - value as f32
 }
 
 fn show_raw_adc(adc: AdcMutex) {
     tokio::spawn(async move {
         loop {
-        let reading: f32;
+        let _reading: f32;
         {
         println!("ADC lock req");
         // let mut lock = adc.lock().await;
