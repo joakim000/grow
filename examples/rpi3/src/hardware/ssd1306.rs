@@ -57,8 +57,8 @@ impl Oled {
     }
 
     fn get_display(&self) -> OledDisplay {
-        let mut i2c = I2c::with_bus(DISPLAY_BUS).expect("I2C bus not found");
-        let _ = i2c.set_slave_address(DISPLAY_ADDR);
+        let mut i2c = I2c::with_bus(SSD1306_BUS).expect("I2C bus not found");
+        let _ = i2c.set_slave_address(SSD1306_ADDR);
         println!("i2c bus: {:#?}", i2c.bus());
         println!("i2c speed: {:#?}", i2c.clock_speed());
 

@@ -33,6 +33,7 @@ use lego_powered_up::notifications::*;
 use lego_powered_up::HubMutex;
 use lego_powered_up::{ConnectedHub, IoDevice, IoTypeId, PoweredUp};
 use lego_powered_up::{Hub, HubFilter};
+use lego_powered_up::iodevice::hubled::{HubLed, HubLedMode};
 
 use grow::ops::display::Indicator;
 use grow::zone;
@@ -694,6 +695,13 @@ impl LpuHub {
             //         hub.blocking_lock_owned()
             //     });
             let mut lock = hub.lock().await;
+
+            // Turn off hubled
+            let hubled = lock.io_from_kind(IoTypeId::HubLed)?;
+            hubled.set_hubled_mode(HubLedMode::Rgb)?;
+            hubled.set_hubled_rgb(&[0u8; 3])?;
+
+            // Get channel 
             rx_hub = lock
                 .channels()
                 .hubnotification_sender

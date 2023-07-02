@@ -21,16 +21,18 @@ pub const PWM_POLARITY_FAN_1: rppal::pwm::Polarity =
     rppal::pwm::Polarity::Inverse;
 
 // I2C
-pub const ADC_1_ADDR: u16 = 0x48;
-pub const ADC_1_BUS: &str = "/dev/i2c-1";
-pub const ADC_1_VREF: f64 = 5.0;
+pub const YL40_BUS: &str = "/dev/i2c-1";
+pub const YL40_ADDR: u16 = 0x48;
+pub const YL40_VREF: f64 = 5.0;
 pub const LIGHT_SENSOR: [Pin; 1] = [Pin::AIN0];
 pub const TEMP_SENSOR: [Pin; 1] = [Pin::AIN1];
 pub const MOIST_SENSOR: [Pin; 2] = [Pin::AIN2, Pin::AIN3];
 
-// pub const DISPLAY_BUS: &str = "/dev/i2c-1";
-pub const DISPLAY_BUS: u8 = 1;
-pub const DISPLAY_ADDR: u16 = 0xc3;
+pub const BMP180_BUS: u8 = 1;
+pub const BMP180_BUS: u16 = 0x77;
+
+pub const SSD1306_BUS: u8 = 3;
+pub const SSD1306_ADDR: u16 = 0xc3;
 
 // LPU
 pub const HUB_ADDR: &str = "90:84:2B:70:93:75";
