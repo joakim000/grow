@@ -40,8 +40,7 @@ pub mod conf {
     pub const PULSES_PER_ROTATION: f32 = 4.0;
     pub const PWM_FREQ_FAN_1: f64 = 25000.0; // PWM frequency target 25 kHz
     pub const PWM_FAN_1: rppal::pwm::Channel = rppal::pwm::Channel::Pwm0;
-    pub const PWM_POLARITY_FAN_1: rppal::pwm::Polarity =
-        rppal::pwm::Polarity::Inverse;
+    pub const PWM_POLARITY_FAN_1: rppal::pwm::Polarity = rppal::pwm::Polarity::Inverse;
 
     // I2C
     pub const YL40_BUS: &str = "/dev/i2c-1";
@@ -64,6 +63,8 @@ pub mod conf {
     pub const ARM_EXTENSION_ADDR: u8 = 0x01; // Ext hub port B
     pub const PUMP_ADDR: u8 = 0x02; // Ext hub port C
     pub const TANK_SENSOR_ADDR: u8 = 0x03; // Ext hub port D
+    pub const LPU_TEMP_SENSOR_1_ADDR: u8 = 0x3d; 
+    pub const LPU_TEMP_SENSOR_2_ADDR: u8 = 0x60; 
 
     // Poll intervals
     pub const DELAY_TEMP_1: u64 = 7;

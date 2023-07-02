@@ -839,3 +839,66 @@ impl LpuHub {
         }))
     }
 }
+
+#[derive( Debug, )]
+pub struct LpuTemp {
+    id: u8,
+    device: IoDevice,
+    temperature: Arc<RwLock<f32>>;
+    feedback_task: Option<JoinHandle<()>>,
+}
+impl zone::air::Thermometer for LpuTemp {
+    fn id(&self) -> u8 {
+        self.id
+    }
+    fn init(
+        &mut self,
+        tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f64>)>,
+    ) -> Result<(), Box<dyn Error>> {
+        self.feedback_task = Some(
+            self.temp_feedback(tx_temp)
+                .expect("Error initializing feedback task"),
+        );
+
+        Ok(())
+    }
+    fn read(&self) -> Result<f64, Box<dyn Error + '_>> {
+        Ok(*self.temperature.read().into())
+    }
+}
+impl LpuTemp {
+    pub fn new(id: u8, hub: HubMutex) -> Self {
+        let device: IoDevice;
+        {
+            // let lock = hub.lock().await;
+            let lock = tokio::task::block_in_place(move || {
+                hub.blocking_lock_owned()
+            });
+            device = lock
+                .io_from_port(LPU_TEMP_SENSOR_2_ADDR)
+                .expect("Error accessing LPU device");
+        }
+        Self {
+            id,
+            device,
+            temperature: Arc::new(RwLock::new(f32::MAX)),
+            feedback_task: None,
+        }
+    }
+
+    fn temp_feedback(
+        &self,
+        tx: broadcast::Sender<(u8, Option<f64>)>,
+    ) -> Result<JoinHandle<()>, Box<dyn Error>> {
+        let id = self.id;
+        let (mut rx_temp, _temp_task) =
+            self.device.enable_16bit_sensor(0x00, 5).unwrap();
+        Ok(tokio::spawn(async move {
+            println!("Spawned lpu temp feedback");
+            while let Ok(data) = rx_temp.recv().await {
+                let reading = data[0] / 10;
+                let _ = tx.send(( id, reading.into()));
+            }
+        }))
+    }
+}
