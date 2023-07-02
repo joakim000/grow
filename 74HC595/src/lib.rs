@@ -113,13 +113,13 @@ where
 
     fn pulse_srclk(&mut self) {
         self.srclk.set_high();
-        thread::sleep(Duration::from_millis(1));
+        thread::sleep(Duration::from_micros(200));
         self.srclk.set_low();
     }
 
     fn pulse_rclk(&mut self) {
         self.rclk.set_high();
-        thread::sleep(Duration::from_millis(1));
+        thread::sleep(Duration::from_micros(200));
         self.rclk.set_low();
     }
 }
