@@ -125,6 +125,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmp085"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98b083a334cc36da847a12461417e03174d4767be14a6a0619ce97a6086d04f1"
+dependencies = [
+ "i2cdev 0.3.2",
+]
+
+[[package]]
 name = "btleplug"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -711,9 +720,38 @@ dependencies = [
  "bitflags 1.3.2",
  "byteorder",
  "libc",
- "nix",
+ "nix 0.10.0",
  "skeptic",
 ]
+
+[[package]]
+name = "i2cdev"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8fe61341e9ce588ede54fd131bf0df63eed3c6e45fcc7fa0e548ea176f39358"
+dependencies = [
+ "bitflags 1.3.2",
+ "byteorder",
+ "libc",
+ "nix 0.23.2",
+]
+
+[[package]]
+name = "i2cdev-bmp180"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dfe1b356f7906203d8ea51188d270efd4f9034e62dd43cf614ef5bca4f3532f4"
+dependencies = [
+ "byteorder",
+ "i2cdev 0.3.2",
+ "i2csensors",
+]
+
+[[package]]
+name = "i2csensors"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5507a8d4f0920eec851f7fa13db7b5055066e98f604f13a1eb24375ba8269d5"
 
 [[package]]
 name = "instant"
@@ -886,6 +924,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
+name = "memoffset"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "micromath"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -938,6 +985,19 @@ dependencies = [
  "gcc",
  "libc",
  "void",
+]
+
+[[package]]
+name = "nix"
+version = "0.23.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f3790c00a0150112de0f4cd161e3d7fc4b2d8a5542ffc35f099a2562aecb35c"
+dependencies = [
+ "bitflags 1.3.2",
+ "cc",
+ "cfg-if 1.0.0",
+ "libc",
+ "memoffset",
 ]
 
 [[package]]
@@ -1042,7 +1102,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28b5310bc72c6d1f5e1e1a82da6c7f1f7b56ce180e59698915c46805e1502024"
 dependencies = [
- "i2cdev",
+ "i2cdev 0.3.2",
 ]
 
 [[package]]
@@ -1131,6 +1191,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bmp085",
  "dbus",
  "defmt",
  "defmt-rtt",
@@ -1138,6 +1199,8 @@ dependencies = [
  "embedded-graphics",
  "embedded-hal 0.2.7",
  "grow",
+ "i2cdev 0.5.1",
+ "i2cdev-bmp180",
  "lego-powered-up",
  "panic-probe",
  "parking_lot",

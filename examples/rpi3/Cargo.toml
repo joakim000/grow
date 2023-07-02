@@ -45,6 +45,9 @@ defmt = {version = "0.3", optional = true }
 defmt-rtt = {version = "0.4", optional = true } 
 panic-probe = { version = "0.3", features = ["print-defmt"], optional = true }
 parking_lot = "0.12.1"
+i2cdev-bmp180 = "0.1.0"
+i2cdev = "0.5.1"
+bmp085 = "0.1.2"
 
 
 # tracing = "0.1"

@@ -22,7 +22,8 @@ pub struct Adc {
 }
 impl Adc {
     pub fn new(_cancel: CancellationToken) -> Self {
-        let control = PCF8591::new(YL40_BUS, YL40_ADDR, YL40_VREF).unwrap();
+        let path = format!("/dev/i2c-{}", YL40_BUS);
+        let control = PCF8591::new(&path, YL40_ADDR, YL40_VREF).unwrap();
         let adc = Arc::new(Mutex::new(control));
         // _show_raw_adc(adc.clone());  // Dev use
 

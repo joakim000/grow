@@ -9,32 +9,22 @@ use std::sync::Mutex;
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
+use i2cdev::linux::{LinuxI2CDevice, LinuxI2CError};
+use i2cdev::core::I2CDevice;
+use i2cdev_bmp180::{BMP180BarometerThermometer, BMP180PressureMode};
 
-extern crate bmp085;
-extern crate i2cdev;
-use bmp085::*;
-use i2cdev::linux::*;
-// use i2cdev::sensors::{Barometer, Thermometer};
-// pub type BmpMutex = Arc<RwLock<BMP085BarometerThermometer<T>>>;
-
-
-// use i2cdev::linux::{LinuxI2CDevice, LinuxI2CError};
-// use i2cdev::core::I2CDevice;
-// use i2cdev_bmp180::{BMP180BarometerThermometer, BMP180PressureMode};
-// pub type BmpMutex<T> = Arc<RwLock<BMP180BarometerThermometer<T>>>;
-
-
+pub type BmpMutex<T> = Arc<RwLock<BMP180BarometerThermometer<T>>>;
 use super::conf::*;
 use grow::zone;
 
 #[derive( Debug, )]
-pub struct BoschSensor {
+pub struct BoschSensor<T:i2cdev::core::I2CDevice + Sized> {
     id: u8,
-    // sensor: BmpMutex,
+    sensor: BmpMutex<T>,
     // sensor: BMP180BarometerThermometer,
     feedback_task: Option<JoinHandle<()>>,
 }
-impl zone::air::Thermometer for BoschSensor {
+impl<T> zone::air::Thermometer for BoschSensor<T> {
     fn id(&self) -> u8 {
         self.id
     }
@@ -58,12 +48,11 @@ impl zone::air::Thermometer for BoschSensor {
         //     let reading_temp = sensor.temperature_celsius();
         //     let reading_pressure = sensor.pressure_kpa(); 
         // }
-        // let reading_temp = self.sensor.write().temperature_celsius();
-        // let reading_pressure = self.sensor.write().pressure_kpa();
-        // println!("BMP temp:{}  press:{}", reading_temp, reading_pressure);    
-        
-        // Ok(reading_temp.into())
-        Ok(0.0)
+        let reading_temp = self.sensor.write().temperature_celsius();
+        let reading_pressure = self.sensor.write().pressure_kpa();
+        println!("BMP temp:{}  press:{}", reading_temp, reading_pressure);    
+
+        Ok(reading_temp.into())
     }
 }
 // impl Debug for BoschSensor {
@@ -71,20 +60,16 @@ impl zone::air::Thermometer for BoschSensor {
 //         write!(f, "BoschTempSensor")
 //     }
 // }
-impl BoschSensor {
+impl<T> BoschSensor<T> {
     pub fn new(id: u8) -> Self {
         let path = format!("/dev/i2c-{}", BMP180_BUS);
-        let i2c_dev = LinuxI2CDevice::new(&path, BMP180_ADDR).unwrap();
-        let mut sensor = BMP085BarometerThermometer::new(i2c_dev, SamplingMode::Standard).unwrap();
-        
-        
         // let i2c = LinuxI2CDevice::new(&path, BMP180_ADDR).unwrap();
-        // let i2c = i2cdev::linux::LinuxI2CDevice::new(&path, BMP180_ADDR).unwrap();
-        // let sensor = BMP180BarometerThermometer::new(i2c, BMP180PressureMode::BMP180Standard);
+        let i2c = i2cdev::linux::LinuxI2CDevice::new(&path, BMP180_ADDR).unwrap();
+        let sensor = BMP180BarometerThermometer::new(i2c, BMP180PressureMode::BMP180Standard);
         Self {
             id,
             feedback_task: None,
-            // sensor: Arc::new(RwLock::new(sensor)),
+            sensor: Arc::new(RwLock::new(sensor)),
         }
     }
 
@@ -105,11 +90,9 @@ impl BoschSensor {
                 //     let reading_temp = sensor.temperature_celsius();
                 //     let reading_pressure = sensor.pressure_kpa(); 
                 // }
-          
-                // let reading_temp = self.sensor.write().temperature_celsius();
-                // let reading_pressure = self.sensor.write().pressure_kpa();
-                // println!("BMP temp:{}  press:{}", reading_temp, reading_pressure);    
-          
+                let reading_temp = self.sensor.write().temperature_celsius();
+                let reading_pressure = self.sensor.write().pressure_kpa();
+                println!("BMP temp:{}  press:{}", reading_temp, reading_pressure);    
                 // match read_result {
                 //     Ok(raw_reading) => {
                 //         reading = celcius_from_byte(raw_reading.into());

@@ -33,26 +33,20 @@ pub async fn hardware_init(
         ops::conf::Conf::read_test_into_house(zone_tx.clone(), ops_tx.clone());
     for zone in house.zones() {
         match zone {
-            Zone::Air {
-                id,
-                settings: _,
-                status: _,
-                interface,
-                runner: _,
-            } => {
+            Zone::Air {id, interface, ..} if id == &1 => {
                 interface.fan =
                     Some(Box::new(hardware::pwmfan::PwmFan::new(*id)));
                 interface.thermo = Some(Box::new(
                     hardware::pcf8591::Thermistor::new(*id, adc_1.new_mutex()),
                 ));
             }
-            Zone::Aux {
-                id,
-                settings: _,
-                status: _,
-                interface,
-                runner: _,
-            } => {
+            Zone::Air {id, interface, ..} if id == &2 => {
+                interface.fan = None;
+                interface.thermo = Some(Box::new(
+                    hardware::bmp180::BoschSensor::new(*id),
+                ));
+            }
+            Zone::Aux {id, interface, ..} => {
                 interface.aux_device =
                     Some(Box::new(hardware::lpu::LpuHub::new(
                         *id,
@@ -60,13 +54,7 @@ pub async fn hardware_init(
                         cancel.clone(),
                     )));
             }
-            Zone::Light {
-                id,
-                settings: _,
-                status: _,
-                interface,
-                runner: _,
-            } => {
+            Zone::Light {id, interface, ..} => {
                 interface.lightmeter =
                     Some(Box::new(hardware::pcf8591::Photoresistor::new(
                         *id,
@@ -77,13 +65,7 @@ pub async fn hardware_init(
                     adc_1.new_mutex(),
                 )));
             }
-            Zone::Water {
-                id,
-                settings: _,
-                status: _,
-                interface,
-                runner: _,
-            } => {
+            Zone::Water {id, interface, ..} => {
                 interface.moist = Some(Box::new(
                     hardware::pcf8591::CapacitiveMoistureSensor::new(
                         *id,
@@ -91,39 +73,22 @@ pub async fn hardware_init(
                     ),
                 ));
             }
-            Zone::Tank {
-                id,
-                settings: _,
-                status: _,
-                interface,
-                runner: _,
-            } => {
+            Zone::Tank {id, interface, ..} => {
                 interface.tank_sensor = Some(Box::new(
                     hardware::lpu::Vsensor::new(*id, lpu_hub.clone()),
                 ));
             }
-            Zone::Pump {
-                id,
-                settings: _,
-                status: _,
-                interface,
-                runner: _,
-            } => {
+            Zone::Pump {id, interface, ..} => {
                 interface.pump = Some(Box::new(
                     hardware::lpu::BrickPump::new(*id, lpu_hub.clone()).await,
                 ));
             }
-            Zone::Arm {
-                id,
-                settings: _,
-                status: _,
-                interface,
-                runner: _,
-            } => {
+            Zone::Arm {id, interface, ..} => {
                 interface.arm = Some(Box::new(
                     hardware::lpu::BrickArm::new(*id, lpu_hub.clone()).await,
                 ));
-            } // _ => (),
+            } 
+            _ => (),
         }
     }
     // dbg!(&house);
