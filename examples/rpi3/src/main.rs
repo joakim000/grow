@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let (shutdown_send, mut shutdown_recv) = mpsc::unbounded_channel::<bool>();
     let cancel_token = CancellationToken::new();
 
-    let (house, manager) = init::hardware_init(cancel_token.clone()).await;
+    let (house, manager) = init::init(cancel_token.clone()).await;
     let _cmd_task =
         cmd::manual_cmds(house.clone(), manager.clone(), shutdown_send);
 

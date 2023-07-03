@@ -14,6 +14,7 @@ use crate::ops::display::DisplayStatus;
 use light::LampState;
 use parking_lot::RwLock;
 use std::sync::Mutex;
+use serde::{Serialize, Deserialize};
 
 pub type ZoneUpdateRx = tokio::sync::mpsc::Receiver<ZoneUpdate>;
 pub type ZoneUpdateTx = tokio::sync::mpsc::Sender<ZoneUpdate>;
@@ -242,4 +243,36 @@ pub struct ZoneChannelsTx {
     pub zoneupdate: ZoneUpdateTx,
     pub zonestatus: ZoneStatusTx,
     pub zonelog: ZoneLogTx,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub enum ZoneSave {
+    Air {
+        id: u8,
+        settings: air::Settings,
+    },
+    Aux {
+        id: u8,
+        settings: auxiliary::Settings,
+    },
+    Light {
+        id: u8,
+        settings: light::Settings,
+    },
+    Water {
+        id: u8,
+        settings: water::Settings,
+    },
+    Arm {
+        id: u8,
+        settings: arm::Settings,
+    },
+    Pump {
+        id: u8,
+        settings: pump::Settings,
+    },
+    Tank {
+        id: u8,
+        settings: tank::Settings,
+    },
 }

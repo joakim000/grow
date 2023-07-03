@@ -1,5 +1,6 @@
 #![feature(error_in_core)]
-#![feature(async_closure)]
+// #![feature(async_closure)]
+// #![feature(file_create_new)]
 
 extern crate alloc;
 use core::error::Error;
@@ -10,7 +11,8 @@ use tokio::sync::Mutex;
 pub use tokio::sync::broadcast;
 pub use tokio::sync::mpsc;
 // use parking_lot::RwLock;
-use serde::{Serialize, Deserialize};
+use std::fs::File;
+use std::io::Write;
 
 mod error;
 pub use error::ZoneError;
@@ -41,6 +43,13 @@ impl House {
     pub fn new(zone_tx: ZoneChannelsTx, ops_tx: OpsChannelsTx) -> Self {
         Self {
             zones: Vec::new(),
+            zone_tx,
+            ops_tx,
+        }
+    }
+    pub fn new2(zones: Vec<Zone>, zone_tx: ZoneChannelsTx, ops_tx: OpsChannelsTx) -> Self {
+        Self {
+            zones,
             zone_tx,
             ops_tx,
         }
@@ -216,14 +225,46 @@ impl House {
         r
     }
     pub fn load_settings(&mut self) -> Result<(), Box<dyn Error>> {
-        // let t: T = serde_json::from_str(r#"{"i":1,"f":321.456}"#).unwrap();
-        // println!("i: {}, f: {}", t.i, t.f);
+        let readdata = std::fs::read_to_string("grow-conf.js")?;
+        println!("File data:{:?}", &readdata);
+        let loaddata: Vec<ZoneSave> = serde_json::from_str(&readdata)?;
+        println!("Deser:{:?}", &loaddata);
+        
+        
         Ok(())
     }
-    pub fn save_settings(&mut self) -> Result<(), Box<dyn Error>> {
-        
-        
-        // println!("{}", serde_json::to_string(&t).unwrap());
+    pub fn save_settings(&self) -> Result<(), Box<dyn Error>> {
+        let mut savedata: Vec<ZoneSave> = Vec::new();
+        for zone in &self.zones {
+            match zone {
+                Zone::Water {id, settings, ..} => {
+                    savedata.push(ZoneSave::Water { id:*id, settings:*settings });
+                }
+                Zone::Air {id, settings, ..} => {
+                    savedata.push(ZoneSave::Air { id:*id, settings:*settings });
+                }
+                Zone::Light {id, settings, ..} => {
+                    savedata.push(ZoneSave::Light { id:*id, settings:*settings });
+                }
+                Zone::Aux {id, settings, ..} => {
+                    savedata.push(ZoneSave::Aux { id:*id, settings:*settings });
+                }
+                Zone::Tank {id, settings, ..} => {
+                    savedata.push(ZoneSave::Tank { id:*id, settings:*settings });
+                }
+                Zone::Pump {id, settings, ..} => {
+                    savedata.push(ZoneSave::Pump { id:*id, settings:*settings });
+                }
+                Zone::Arm {id, settings, ..} => {
+                    savedata.push(ZoneSave::Arm { id:*id, settings:*settings });
+                }
+            }
+        }
+        let writestring = serde_json::to_string_pretty(&savedata)?;
+        let mut f = File::create("grow-conf.js")?;
+        f.write_all(writestring.as_bytes())?;
+
+
         Ok(())
     }
 

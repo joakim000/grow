@@ -133,7 +133,7 @@ impl Vsensor {
         let (mut rx_color, _color_task) =
             self.device.visionsensor_color().unwrap();
         Ok(tokio::spawn(async move {
-            println!("Spawned tank feedback");
+            // println!("Spawned tank feedback");
             while let Ok(data) = rx_color.recv().await {
                 // println!("Tank color: {:?} ", data,);
                 match data {
@@ -242,7 +242,7 @@ impl BrickPump {
         let _id = self.id;
         let device = self.device.clone();
         Ok(tokio::spawn(async move {
-            println!("Spawned pump control");
+            // println!("Spawned pump control");
             while let Ok(data) = rx_cmd.recv().await {
                 // println!("Pump recv cmd: {:?}", &data);
                 match data {
@@ -269,7 +269,7 @@ impl BrickPump {
             // .await
             .unwrap();
         Ok(tokio::spawn(async move {
-            println!("Spawned pump feedback");
+            // println!("Spawned pump feedback");
             while let Ok(data) = rx_motor.recv().await {
                 // println!("Pump feedback: {:?} ", data,);
                 let _ = tx.send((id, (data[0], 0)));
@@ -510,7 +510,7 @@ impl BrickArm {
         let device_x = self.device_x.clone();
         let device_y = self.device_y.clone();
         Ok(tokio::spawn(async move {
-            println!("Spawned arm cmd");
+            // println!("Spawned arm cmd");
             while let Ok(data) = rx_cmd.recv().await {
                 match data {
                     ArmCmd::Stop => {
@@ -605,7 +605,7 @@ impl BrickArm {
         // let state_arm = grow::zone::arm::ArmState::Idle;
 
         Ok(tokio::spawn(async move {
-            println!("Spawned arm feedback");
+            // println!("Spawned arm feedback");
             loop {
                 tokio::select! {
                     Ok(data) = rx_axis_x.recv() => {
@@ -766,7 +766,7 @@ impl LpuHub {
 
         let cancel_clone = self.cancel.clone();
         Ok(tokio::spawn(async move {
-            println!("Spawned hub feedback");
+            // println!("Spawned hub feedback");
             loop {
                 tokio::select! {
                     Ok(data) = rx_hub.recv() => {
@@ -894,7 +894,7 @@ impl LpuTemp {
         let (mut rx_temp, _temp_task) =
             self.device.enable_16bit_sensor(0x00, 5).unwrap();
         Ok(tokio::spawn(async move {
-            println!("Spawned lpu temp feedback");
+            // println!("Spawned lpu temp feedback");
             while let Ok(data) = rx_temp.recv().await {
                 let reading = data[0] / 10;
                 let _ = tx.send(( id, Some(reading.into())));

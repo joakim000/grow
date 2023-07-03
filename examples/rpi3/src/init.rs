@@ -8,13 +8,38 @@ use crate::hardware;
 use grow::ops;
 use grow::ops::manager::Manager;
 
+use grow::House;
 use grow::zone::*;
 use grow::HouseMutex;
 use grow::ManagerMutex;
+use grow::ops::OpsChannelsTx;
+use grow::zone::ZoneChannelsTx;
 
-pub async fn hardware_init(
+pub async fn init(cancel: CancellationToken)  -> (HouseMutex, ManagerMutex) {
+    let (zone_tx, zone_rx) = grow::zone::zone_channels();
+    let (ops_tx, ops_rx) = grow::ops::ops_channels();
+    
+    let mut house =
+        ops::conf::read_file_into_house("grow-conf.js", zone_tx.clone(), ops_tx.clone());
+    let (house, pu) = house_hardware_init(house, cancel.clone()).await;    
+    let house = Arc::new(TokioMutex::new(house));
+
+    let manager = manager_hardware_init(
+            house.clone(), cancel.clone(), 
+            zone_tx.clone(), ops_tx.clone(), pu).await;    
+    let manager = Arc::new(TokioMutex::new(manager));
+    
+    manager.lock().await.init(zone_rx, ops_rx, manager.clone()).await;
+    house.lock().await.init().await;
+   
+    (house, manager)
+}
+
+pub async fn house_hardware_init(
+    mut house: House,
     cancel: CancellationToken,
-) -> (HouseMutex, ManagerMutex) {
+// ) -> (HouseMutex, ManagerMutex) {
+) -> (House,  Arc<TokioMutex<PoweredUp>>) {
     let pu = Arc::new(TokioMutex::new(
         PoweredUp::init()
             .await
@@ -25,12 +50,6 @@ pub async fn hardware_init(
         .expect("Error from lpu::init()"); //thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: BluetoothError(DeviceNotFound)', src/init.rs:19:64
     let adc_1 = hardware::pcf8591::Adc::new(cancel.clone());
 
-    // Create main channels
-    let (zone_tx, zone_rx) = grow::zone::zone_channels();
-    let (ops_tx, ops_rx) = grow::ops::ops_channels();
-
-    let mut house =
-        ops::conf::Conf::read_test_into_house(zone_tx.clone(), ops_tx.clone());
     for zone in house.zones() {
         match zone {
             Zone::Air {id, interface, ..} if id == &1 => {
@@ -92,27 +111,26 @@ pub async fn hardware_init(
         }
     }
     // dbg!(&house);
-    let house_mutex = Arc::new(TokioMutex::new(house));
+  
+    (house, pu)
+}
 
+pub async fn manager_hardware_init(
+    house: HouseMutex,
+    cancel: CancellationToken,
+    zone_tx: ZoneChannelsTx,
+    ops_tx: OpsChannelsTx,
+    pu: Arc<TokioMutex<PoweredUp>>,
+) -> Manager {
     let manager = Manager::new(
-        house_mutex.clone(),
+        house, //_mutex.clone(),
         Box::new(hardware::regshift_leds::Shiftreg::new(cancel.clone())),
         Box::new(hardware::ssd1306::Oled::new(cancel.clone())),
         Box::new(hardware::lpu_remote::LpuRemote::new(pu, cancel.clone())),
         Box::new(hardware::pushbuttons::PushButtons::new(cancel.clone())),
-        ops_tx.clone(),
-        zone_tx.clone(),
+        ops_tx, //.clone(),
+        zone_tx, //.clone(),
     );
-    let manager_mutex = Arc::new(TokioMutex::new(manager));
-    {
-        let mut lock = manager_mutex.lock().await;
-        lock.init(zone_rx, ops_rx, manager_mutex.clone()).await;
-        // dbg!(&lock);
-    }
-    {
-        let mut lock = house_mutex.lock().await;
-        lock.init().await;
-        // dbg!(&lock);
-    }
-    (house_mutex, manager_mutex)
+ 
+    manager
 }

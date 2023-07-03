@@ -150,12 +150,13 @@ pub fn manual_cmds(
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("load") => {
-                    print!("Load settings...");
+                    println!("Load settings...");
+                    house.lock().await.load_settings();
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("save") => {
-                    print!("Save settings...");
-                    
+                    println!("Save settings...");
+                    house.lock().await.save_settings();
                     tokio::task::yield_now().await;
                 }
 

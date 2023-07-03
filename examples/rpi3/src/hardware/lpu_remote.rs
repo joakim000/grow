@@ -120,7 +120,7 @@ impl LpuRemote {
         let mut red_down = (false, false);
         let main_cancel = self.main_cancel.clone();
         Ok(tokio::spawn(async move {
-            println!("Spawned RC feedback");
+            // println!("Spawned RC feedback");
             loop {
                 tokio::select! {
                     _ = main_cancel.cancelled() => {

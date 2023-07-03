@@ -65,7 +65,7 @@ impl Runner {
         let mut rx = self.tx_from_rc.subscribe();
         let tx = self.tx_to_manager.clone(); // Få från manager i init istället
         self.task = tokio::spawn(async move {
-            println!("Spawned remote runner");
+            // println!("Spawned remote runner");
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {

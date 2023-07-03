@@ -685,6 +685,7 @@ dependencies = [
  "async-trait",
  "parking_lot",
  "serde",
+ "serde_json",
  "text_io",
  "time",
  "tokio",
@@ -1130,7 +1131,6 @@ dependencies = [
 name = "rpi3"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-trait",
  "dbus",
  "defmt",

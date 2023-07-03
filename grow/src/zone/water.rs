@@ -46,11 +46,11 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Settings {
+    pub moisture_low_red_alert: f32,
+    pub moisture_low_yellow_warning: f32,
     pub moisture_limit_water: f32,
     pub moisture_high_yellow_warning: f32,
     pub moisture_high_red_alert: f32,
-    pub moisture_low_yellow_warning: f32,
-    pub moisture_low_red_alert: f32,
     pub tank_id: u8,
     pub pump_id: u8,
     pub pump_time: Duration,

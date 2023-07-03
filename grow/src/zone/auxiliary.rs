@@ -11,6 +11,7 @@ use tokio::sync::broadcast;
 use core::fmt::Debug;
 use std::sync::Mutex;
 use time::OffsetDateTime;
+use serde::{Serialize, Deserialize};
 
 use super::Zone;
 use super::*;
@@ -37,7 +38,7 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Settings {}
 
 #[derive(Clone, Debug, PartialEq)]

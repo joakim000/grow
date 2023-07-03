@@ -45,10 +45,10 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Settings {
-    pub temp_fan_low: f32,
-    pub temp_fan_high: f32,
     pub temp_high_yellow_warning: f64,
     pub temp_high_red_alert: f64,
+    pub temp_fan_low: f32,
+    pub temp_fan_high: f32,
     pub fan_rpm_low_red_alert: f32,
 }
 
