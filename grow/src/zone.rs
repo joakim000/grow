@@ -1,4 +1,4 @@
-#![allow(unused)]
+// #![allow(unused)]
 
 extern crate alloc;
 use alloc::collections::BTreeMap;
@@ -276,3 +276,23 @@ pub enum ZoneSave {
         settings: tank::Settings,
     },
 }
+
+// #[derive(Clone, Debug)]
+// pub enum ZoneCmd {
+//     // Air { id: u8, sender: broadcast::Sender<AirCmd>, },
+//     // Aux { id: u8, sender: broadcast::Sender<AuxCmd>, },
+//     Light {
+//         id: u8,
+//         sender: broadcast::Sender<(u8, bool)>,
+//     },
+//     // Water { id: u8, sender: broadcast::Sender<WaterCmd>, },
+//     Arm {
+//         id: u8,
+//         sender: broadcast::Sender<ArmCmd>,
+//     },
+//     Pump {
+//         id: u8,
+//         sender: broadcast::Sender<(u8, PumpCmd)>,
+//     },
+//     // Tank { id: u8, sender: broadcast::Sender<(u8, TankCmd)>, },
+// }

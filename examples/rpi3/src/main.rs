@@ -1,5 +1,5 @@
 #![feature(error_in_core)]
-#![allow(unused)]
+// #![allow(unused)]
 
 mod cmd;
 mod hardware;
@@ -50,6 +50,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // cmd_task.unwrap().abort();
     sleep(Duration::from_millis(1000)).await;
 
-    println!("Cleanup successful");
+    // println!("Cleanup successful");
     Ok(())
 }
