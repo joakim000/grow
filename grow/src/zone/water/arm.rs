@@ -9,6 +9,7 @@ use core::fmt::Debug;
 use parking_lot::RwLock;
 use std::sync::Mutex;
 use time::OffsetDateTime;
+use serde::{Serialize, Deserialize};
 
 use super::Zone;
 use super::*;
@@ -66,10 +67,10 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Settings {}
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Position {
     pub arm_id: u8,
     pub x: i32,

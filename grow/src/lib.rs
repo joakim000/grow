@@ -10,6 +10,7 @@ use tokio::sync::Mutex;
 pub use tokio::sync::broadcast;
 pub use tokio::sync::mpsc;
 // use parking_lot::RwLock;
+use serde::{Serialize, Deserialize};
 
 mod error;
 pub use error::ZoneError;
@@ -206,7 +207,6 @@ impl House {
             .send(SysLog::new(format!("House zones initiated")))
             .await;
     }
-
     pub fn collect_display_status(&mut self) -> Vec<ZoneDisplay> {
         let mut r: Vec<ZoneDisplay> = Vec::new();
         for zone in self.zones() {
@@ -215,6 +215,18 @@ impl House {
 
         r
     }
+    pub fn load_settings(&mut self) -> Result<(), Box<dyn Error>> {
+        // let t: T = serde_json::from_str(r#"{"i":1,"f":321.456}"#).unwrap();
+        // println!("i: {}, f: {}", t.i, t.f);
+        Ok(())
+    }
+    pub fn save_settings(&mut self) -> Result<(), Box<dyn Error>> {
+        
+        
+        // println!("{}", serde_json::to_string(&t).unwrap());
+        Ok(())
+    }
+
 
     pub fn get_water_settings(
         &mut self,

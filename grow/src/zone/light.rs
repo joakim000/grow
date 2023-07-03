@@ -10,6 +10,8 @@ use std::sync::Mutex;
 use time::OffsetDateTime;
 use time::Time;
 use core::time::Duration;
+use serde::{Serialize, Deserialize};
+
 
 use super::Zone;
 use super::*;
@@ -42,7 +44,7 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Settings {
     pub lightlevel_low_yellow_warning: f32,
     pub lightlevel_low_red_alert: f32,

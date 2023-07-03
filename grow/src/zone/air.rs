@@ -9,6 +9,7 @@ use core::fmt::Debug;
 use std::cmp;
 use std::sync::Mutex;
 use time::OffsetDateTime;
+use serde::{Serialize, Deserialize};
 
 pub type FanMutex = Arc<Mutex<Box<dyn Fan>>>;
 use super::Zone;
@@ -42,7 +43,7 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Settings {
     pub temp_fan_low: f32,
     pub temp_fan_high: f32,

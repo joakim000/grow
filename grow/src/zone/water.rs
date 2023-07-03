@@ -13,6 +13,7 @@ use tokio::sync::mpsc;
 use std::sync::Mutex;
 // use cond_utils::Between;
 use tokio::time::Instant;
+use serde::{Serialize, Deserialize};
 
 use crate::ops::display::{DisplayStatus, Indicator};
 use crate::ops::OpsChannelsTx;
@@ -43,7 +44,7 @@ pub fn new(id: u8, settings: Settings) -> super::Zone {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Settings {
     pub moisture_limit_water: f32,
     pub moisture_high_yellow_warning: f32,
