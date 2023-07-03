@@ -1,21 +1,21 @@
-use alloc::collections::BTreeMap;
+
 use async_trait::async_trait;
 use core::error::Error;
 use parking_lot::RwLock;
-use std::{sync::Arc, time::Duration};
+use std::{sync::Arc};
 use tokio::sync::broadcast;
-use tokio::time::sleep;
+
 // use tokio::sync::Mutex;
 use core::fmt::Debug;
-use std::sync::Mutex;
+
 use time::OffsetDateTime;
 use serde::{Serialize, Deserialize};
 
 use super::Zone;
 use super::*;
-use crate::ops::display::{DisplayStatus, Indicator};
-use crate::ops::OpsChannelsTx;
-use crate::ops::SysLog;
+use crate::ops::display::{DisplayStatus};
+
+
 // use crate::TIME_OFFSET;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -100,14 +100,14 @@ impl Runner {
         self.tx_feedback.clone()
     }
 
-    pub fn run(&mut self, settings: Settings) {
+    pub fn run(&mut self, _settings: Settings) {
         let mut rx_feedback = self.tx_feedback.subscribe();
-        let tx_pumpcmd = self.tx_pumpcmd.clone();
+        let _tx_pumpcmd = self.tx_pumpcmd.clone();
         self.task = tokio::spawn(async move {
             println!("Spawned pump runner");
             loop {
                 tokio::select! {
-                    Ok(data) = rx_feedback.recv() => {
+                    Ok(_data) = rx_feedback.recv() => {
                         // println!("\tPump speed: {:?}", data);
                     }
                     else => { break }

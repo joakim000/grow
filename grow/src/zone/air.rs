@@ -1,4 +1,4 @@
-use alloc::collections::BTreeMap;
+
 use async_trait::async_trait;
 use core::error::Error;
 use parking_lot::RwLock;
@@ -94,7 +94,7 @@ pub trait Thermometer: Send {
         &mut self,
         tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f64>)>,
     ) -> Result<(), Box<dyn Error>>;
-    fn read(&self) -> Result<(f64), Box<dyn Error + '_>>;
+    fn read(&self) -> Result<f64, Box<dyn Error + '_>>;
 }
 impl Debug for dyn Thermometer {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -155,7 +155,7 @@ impl Runner {
         have_fan: bool,
     ) {
         let id = self.id;
-        let to_manager = zone_channels.zoneupdate;
+        let _to_manager = zone_channels.zoneupdate;
         let to_status_subscribers = zone_channels.zonestatus;
         let to_logger = zone_channels.zonelog;
         let to_syslog = ops_channels.syslog;
@@ -166,12 +166,12 @@ impl Runner {
         let mut requested_fan_mode: FanSetting = FanSetting::Off;
 
         self.task = tokio::spawn(async move {
-            to_syslog
+            let _ = to_syslog
                 .send(SysLog::new(format!("Spawned air runner id {}", &id)))
                 .await;
             let set_and_send = |ds: DisplayStatus| {
                 *&mut status.write().disp = ds.clone();
-                &to_status_subscribers.send(ZoneDisplay::Air { id, info: ds });
+                let _ = &to_status_subscribers.send(ZoneDisplay::Air { id, info: ds });
             };
             set_and_send(DisplayStatus::new(
                 Indicator::Green,
@@ -189,30 +189,30 @@ impl Runner {
                 tokio::select! {
                     Ok(data) = rx_rpm.recv() => {
                         // println!("\tFan rpm: {:?}", data);
-                        let mut o_ds: Option<DisplayStatus> = None;
+                        let o_ds: Option<DisplayStatus>; // = None;
                         status.write().fan_rpm = data.1;
                         match data {
-                            (id, None) => {
+                            (_id, None) => {
                                 // if { (status.read().fan_rpm.is_some()) {
                                     buf_fan = format!("No rpm data");
                                     buf_fan_ind = Indicator::Red;
                                     o_ds = Some(DisplayStatus::new(cmp::max(buf_fan_ind, buf_temp_ind), Some( format!("{},  {}", buf_temp, buf_fan) )) );
                                 // }
                             }
-                            (id, Some(rpm)) if rpm < settings.fan_rpm_low_red_alert => {
+                            (_id, Some(rpm)) if rpm < settings.fan_rpm_low_red_alert => {
                                 buf_fan = format!("Fan LOW: {:.0} rpm", rpm);
                                 buf_fan_ind = Indicator::Yellow;
                                 o_ds = Some(DisplayStatus::new(cmp::max(buf_fan_ind, buf_temp_ind), Some( format!("{},  {}", buf_temp, buf_fan) )) );
                             }
-                            (id, Some(rpm)) => { // if (status.read().disp.indicator != Indicator::Green) => {
+                            (_id, Some(rpm)) => { // if (status.read().disp.indicator != Indicator::Green) => {
                                 buf_fan = format!("Fan: {:.0} rpm", rpm);
                                 buf_fan_ind = Indicator::Green;
                                 o_ds = Some(DisplayStatus::new(cmp::max(buf_fan_ind, buf_temp_ind), Some( format!("{},  {}", buf_temp, buf_fan) )) );
                             }
-                            _ => {}
+                            // _ => {}
                         }
                         let temp = status.read().temp;
-                        to_logger.send(ZoneLog::Air {id: data.0, temp: temp, fan_rpm: data.1, changed_status: o_ds.clone() }).await;
+                        let _ = to_logger.send(ZoneLog::Air {id: data.0, temp: temp, fan_rpm: data.1, changed_status: o_ds.clone() }).await;
                         match o_ds {
                             Some(ds) => { set_and_send(ds); }
                             None => {}
@@ -220,15 +220,15 @@ impl Runner {
                     }
                     Ok(data) = rx_temp.recv() => {
                         // println!("\tTemp: {:?}", data);
-                        let mut o_ds: Option<DisplayStatus> = None;
+                        let o_ds: Option<DisplayStatus>; // = None;
                         status.write().temp = data.1;
                         match data {
-                            (id, None) => {
+                            (_id, None) => {
                                 buf_temp = format!("No temp data");
                                 buf_temp_ind = Indicator::Red;
                                 o_ds = Some(DisplayStatus::new(cmp::max(buf_fan_ind, buf_temp_ind), Some( format!("{},  {}", buf_temp, buf_fan) )) );
                             }
-                            (id, Some(temp)) => {
+                            (_id, Some(temp)) => {
                                 // Fan control
                                 if temp > settings.temp_fan_high.into() { requested_fan_mode = FanSetting::High }
                                 else if temp > settings.temp_fan_low.into() { requested_fan_mode = FanSetting::Low }
@@ -258,17 +258,17 @@ impl Runner {
                             if !(current_mode.is_some_and(|x|x == requested_fan_mode))  {
                                 match tx_fan.send(requested_fan_mode) {
                                     Ok(_) => {
-                                        to_syslog.send(SysLog::new(format!("Air {} fan set to {:?}", &id, &requested_fan_mode))).await;
+                                        let _ = to_syslog.send(SysLog::new(format!("Air {} fan set to {:?}", &id, &requested_fan_mode))).await;
                                         status.write().fan_mode = Some(requested_fan_mode);
                                     },
                                     Err(e) => {
-                                        to_syslog.send(SysLog::new(format!("Air {} fan error: {:?}", &id, e))).await;
+                                        let _ = to_syslog.send(SysLog::new(format!("Air {} fan error: {:?}", &id, e))).await;
                                     }
                                 }
                             }
                         }
                         let fan_rpm = status.read().fan_rpm;
-                        to_logger.send(ZoneLog::Air {id: data.0, temp: data.1, fan_rpm, changed_status: o_ds.clone() }).await;
+                        let _ = to_logger.send(ZoneLog::Air {id: data.0, temp: data.1, fan_rpm, changed_status: o_ds.clone() }).await;
                         match o_ds {
                             Some(ds) => { set_and_send(ds); }
                             None => {}

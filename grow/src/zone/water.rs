@@ -8,11 +8,11 @@ use parking_lot::RwLock;
 use std::sync::Arc;
 use time::OffsetDateTime;
 use tokio::sync::broadcast;
-use tokio::sync::mpsc;
+
 // use tokio::sync::Mutex;
-use std::sync::Mutex;
+
 // use cond_utils::Between;
-use tokio::time::Instant;
+
 use serde::{Serialize, Deserialize};
 
 use crate::ops::display::{DisplayStatus, Indicator};
@@ -72,7 +72,7 @@ pub trait MoistureSensor: Send {
         &mut self,
         tx_moist: tokio::sync::broadcast::Sender<(u8, Option<f32>)>,
     ) -> Result<(), Box<dyn Error>>;
-    fn read(&self) -> Result<(f32), Box<dyn Error + '_>>;
+    fn read(&self) -> Result<f32, Box<dyn Error + '_>>;
 }
 
 #[derive(Debug)]
@@ -144,12 +144,12 @@ impl Runner {
         let mut interval = tokio::time::interval(settings.settling_time);
 
         self.task = tokio::spawn(async move {
-            to_syslog
+            let _ = to_syslog
                 .send(SysLog::new(format!("Spawned water runner id {}", &id)))
                 .await;
             let set_and_send = |ds: DisplayStatus| {
                 *&mut status.write().disp = ds.clone();
-                &to_status_subscribers
+                let _ = &to_status_subscribers
                     .send(ZoneDisplay::Water { id, info: ds });
             };
             set_and_send(DisplayStatus::new(
@@ -162,35 +162,35 @@ impl Runner {
                         let mut o_ds: Option<DisplayStatus> = None;
                         status.write().moisture_level = data.1;
                         match data {
-                            (id, None) if status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::NoData) => {
+                            (_id, None) if status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::NoData) => {
                                 o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("No data from moisture sensor") )) );
                             },
-                            (id, Some(moisture)) => {
+                            (_id, Some(moisture)) => {
                                 // Status update
-                                if (moisture < settings.moisture_low_red_alert) { //& (status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::AlertLow)) {
+                                if moisture < settings.moisture_low_red_alert { //& (status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::AlertLow)) {
                                     o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Moisture LOW {}", moisture) )) );
-                                    status.write().kind == Some(WaterStatusKind::AlertLow);
+                                    status.write().kind = Some(WaterStatusKind::AlertLow);
                                 }
-                                else if (moisture > settings.moisture_high_red_alert) { //& !(status.read().kind.as_ref().is_some_and(|k| k == &WaterStatusKind::AlertHigh)) {
+                                else if moisture > settings.moisture_high_red_alert { //& !(status.read().kind.as_ref().is_some_and(|k| k == &WaterStatusKind::AlertHigh)) {
                                     o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Moisture HIGH {}", moisture) )) );
-                                    status.write().kind == Some(WaterStatusKind::AlertHigh);
+                                    status.write().kind = Some(WaterStatusKind::AlertHigh);
                                 }
-                                else if (moisture < settings.moisture_low_yellow_warning)  { //& (status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::WarningLow)) {
+                                else if moisture < settings.moisture_low_yellow_warning  { //& (status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::WarningLow)) {
                                     o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("Moisture LOW {}", moisture) )) );
-                                    status.write().kind == Some(WaterStatusKind::WarningLow);
+                                    status.write().kind = Some(WaterStatusKind::WarningLow);
                                 }
-                                else if (moisture > settings.moisture_high_yellow_warning) { //& (status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::WarningLow)) {
+                                else if moisture > settings.moisture_high_yellow_warning { //& (status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::WarningLow)) {
                                     o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("Moisture HIGH {}", moisture) )) );
-                                    status.write().kind == Some(WaterStatusKind::WarningLow);
+                                    status.write().kind = Some(WaterStatusKind::WarningHigh);
                                 }
                                 else { // if (status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::Ok)) {
                                     o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Moisture {}", moisture) )) );
-                                    status.write().kind == Some(WaterStatusKind::Ok);
+                                    status.write().kind = Some(WaterStatusKind::Ok);
                                 }
                             },
                             _ => ()
                         }
-                        to_logger.send(ZoneLog::Water{id: data.0, moisture: data.1, changed_status: o_ds.clone() }).await;
+                        let _ = to_logger.send(ZoneLog::Water{id: data.0, moisture: data.1, changed_status: o_ds.clone() }).await;
                         match o_ds {
                             Some(ds) => { set_and_send(ds); }
                             None => {}
@@ -198,7 +198,7 @@ impl Runner {
 
                     }
                     _ = interval.tick() => {
-                        to_manager.send(ZoneUpdate::Water{id, settings, status: status.clone()}).await;
+                        let _ = to_manager.send(ZoneUpdate::Water{id, settings, status: status.clone()}).await;
                     }
                     else => { break }
                 };

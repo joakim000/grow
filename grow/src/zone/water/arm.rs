@@ -1,21 +1,21 @@
-use alloc::collections::BTreeMap;
+
 use async_trait::async_trait;
 use core::error::Error;
 use std::sync::Arc;
 use tokio::sync::broadcast;
-use tokio::sync::watch;
+
 // use tokio::sync::Mutex;
 use core::fmt::Debug;
 use parking_lot::RwLock;
-use std::sync::Mutex;
+
 use time::OffsetDateTime;
 use serde::{Serialize, Deserialize};
 
 use super::Zone;
 use super::*;
-use crate::ops::display::{DisplayStatus, Indicator};
-use crate::ops::OpsChannelsTx;
-use crate::ops::SysLog;
+use crate::ops::display::{DisplayStatus};
+
+
 // use crate::TIME_OFFSET;
 pub type ControlFeedbackRx = broadcast::Receiver<ArmState>;
 pub type ControlFeedbackTx = broadcast::Sender<ArmState>;
@@ -96,9 +96,9 @@ pub trait Arm: Send + Sync {
     fn id(&self) -> u8;
     async fn init(
         &mut self,
-        tx_axis_x: tokio::sync::broadcast::Sender<((i8, i32))>,
-        tx_axis_y: tokio::sync::broadcast::Sender<((i8, i32))>,
-        tx_axis_z: tokio::sync::broadcast::Sender<((i8, i32))>,
+        tx_axis_x: tokio::sync::broadcast::Sender<(i8, i32)>,
+        tx_axis_y: tokio::sync::broadcast::Sender<(i8, i32)>,
+        tx_axis_z: tokio::sync::broadcast::Sender<(i8, i32)>,
         tx_control: ControlFeedbackTx,
         rx_cmd: tokio::sync::broadcast::Receiver<ArmCmd>,
     ) -> Result<(), Box<dyn Error>>;
@@ -113,7 +113,7 @@ pub trait Arm: Send + Sync {
     fn start_y(&self, speed: i8) -> Result<(), Box<dyn Error>>;
     fn stop_y(&self) -> Result<(), Box<dyn Error>>;
     async fn update_pos(&self) -> Result<(), Box<dyn Error>>;
-    fn position(&self) -> Result<((i32, i32, i32)), Box<dyn Error>>;
+    fn position(&self) -> Result<(i32, i32, i32), Box<dyn Error>>;
     async fn calibrate(&self) -> Result<(i32, i32, i32), Box<dyn Error>>;
     async fn calibrate_with_range(&self) -> Result<(), Box<dyn Error>>;
 }
@@ -126,7 +126,7 @@ impl Debug for dyn Arm {
 
 #[derive(Debug)]
 pub struct Runner {
-    id: u8,
+    _id: u8,
     pub tx_axis_x: broadcast::Sender<(i8, i32)>,
     // axis_x: (watch::Sender<(i8, i32)>, watch::Receiver<(i8, i32)> ),
     pub tx_axis_y: broadcast::Sender<(i8, i32)>,
@@ -137,9 +137,9 @@ pub struct Runner {
     status: Arc<RwLock<Status>>,
 }
 impl Runner {
-    pub fn new(id: u8, status: Arc<RwLock<Status>>) -> Self {
+    pub fn new(_id: u8, status: Arc<RwLock<Status>>) -> Self {
         Self {
-            id,
+            _id,
             status,
             tx_axis_x: broadcast::channel(64).0,
             // axis_x: tokio::sync::watch::channel((0, 0)),
@@ -156,8 +156,8 @@ impl Runner {
     pub fn cmd_receiver(&self) -> broadcast::Receiver<ArmCmd> {
         self.tx_cmd.subscribe()
     }
-    pub fn control_feedback_sender(&self) -> (ControlFeedbackTx) {
-        (self.tx_control.clone())
+    pub fn control_feedback_sender(&self) -> ControlFeedbackTx {
+        self.tx_control.clone()
     }
     pub fn pos_feedback_sender(
         &self,
@@ -173,7 +173,7 @@ impl Runner {
         )
     }
 
-    pub fn run(&mut self, settings: Settings) {
+    pub fn run(&mut self, _settings: Settings) {
         let mut rx_axis_x = self.tx_axis_x.subscribe();
         let mut rx_axis_y = self.tx_axis_y.subscribe();
         let mut rx_axis_z = self.tx_axis_z.subscribe();
@@ -194,7 +194,7 @@ impl Runner {
                     Ok(data) = rx_axis_z.recv() => {
                         status.write().pos_z = data.1;
                     }
-                    Ok(data) = rx_control.recv() => {
+                    Ok(_data) = rx_control.recv() => {
                         // println!("\tControl:{:?} ", data);
                     }
                     else => { break }

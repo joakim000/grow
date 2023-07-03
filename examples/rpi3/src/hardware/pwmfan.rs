@@ -21,14 +21,13 @@ use std::sync::Mutex;
 pub type PwmMutex = Arc<Mutex<Pwm>>;
 pub type RpmMutex = Arc<Mutex<InputPin>>;
 use super::conf::*;
-use grow::zone::air::Fan;
 
 pub struct PwmFan {
     id: u8,
     // pwm_channel: Pwm,
     pwm_channel: PwmMutex,
     rpm_pin: RpmMutex,
-    fan_setting: FanSetting,
+    _fan_setting: FanSetting,
     feedback_task: Option<JoinHandle<()>>,
     control_task: Option<JoinHandle<()>>,
 }
@@ -98,7 +97,7 @@ impl PwmFan {
             id,
             rpm_pin: rpm_mutex,
             pwm_channel: pwm_mutex,
-            fan_setting: FanSetting::High, // Initial
+            _fan_setting: FanSetting::High, // Initial
             feedback_task: None,
             control_task: None,
         }

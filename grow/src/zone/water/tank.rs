@@ -1,4 +1,4 @@
-use alloc::collections::BTreeMap;
+
 use async_trait::async_trait;
 use core::error::Error;
 use parking_lot::RwLock;
@@ -6,7 +6,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 // use tokio::sync::Mutex;
 use core::fmt::Debug;
-use std::sync::Mutex;
+
 use time::OffsetDateTime;
 use serde::{Serialize, Deserialize};
 
@@ -63,7 +63,7 @@ pub trait TankSensor: Send + Sync {
         &mut self,
         tx_tank: tokio::sync::broadcast::Sender<(u8, Option<TankLevel>)>,
     ) -> Result<(), Box<dyn Error>>;
-    fn read(&self) -> Result<(TankLevel), Box<dyn Error>>;
+    fn read(&self) -> Result<TankLevel, Box<dyn Error>>;
 }
 impl Debug for dyn TankSensor {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -96,12 +96,12 @@ impl Runner {
 
     pub fn run(
         &mut self,
-        settings: Settings,
+        _settings: Settings,
         zone_channels: ZoneChannelsTx,
         ops_channels: OpsChannelsTx,
     ) {
         let id = self.id;
-        let to_manager = zone_channels.zoneupdate;
+        let _to_manager = zone_channels.zoneupdate;
         let to_status_subscribers = zone_channels.zonestatus;
         let to_logger = zone_channels.zonelog;
         let to_syslog = ops_channels.syslog;
@@ -109,12 +109,12 @@ impl Runner {
         let status = self.status.clone();
 
         self.task = tokio::spawn(async move {
-            to_syslog
+            let _ = to_syslog
                 .send(SysLog::new(format!("Spawned tank runner id {}", &id)))
                 .await;
             let set_and_send = |ds: DisplayStatus| {
                 *&mut status.write().disp = ds.clone();
-                &to_status_subscribers.send(ZoneDisplay::Tank { id, info: ds });
+                let _ = &to_status_subscribers.send(ZoneDisplay::Tank { id, info: ds });
             };
             set_and_send(DisplayStatus::new(
                 Indicator::Blue,
@@ -125,21 +125,21 @@ impl Runner {
                     Ok(data) = rx.recv() => {
                         let mut o_ds: Option<DisplayStatus> = None;
                         match data {
-                            (id, None) => {
+                            (_id, None) => {
                                 o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("No data from tank sensor") )) );
                             },
-                            (id, Some(TankLevel::Green)) => {
+                            (_id, Some(TankLevel::Green)) => {
                                 o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Tank ok") )) );
                             },
-                            (id, Some(TankLevel::Yellow)) => {
+                            (_id, Some(TankLevel::Yellow)) => {
                                 o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("Tank low") )) );
                             },
-                            (id, Some(TankLevel::Red)) => {
+                            (_id, Some(TankLevel::Red)) => {
                                 o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Tank empty") )) );
                             },
                             _ => ()
                         }
-                        to_logger.send(ZoneLog::Tank {id: data.0, changed_status: o_ds.clone() }).await;
+                        let _ = to_logger.send(ZoneLog::Tank {id: data.0, changed_status: o_ds.clone() }).await;
                         match o_ds {
                             Some(ds) => { set_and_send(ds); }
                             None => {}

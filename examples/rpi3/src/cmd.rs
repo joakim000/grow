@@ -1,14 +1,14 @@
 use core::error::Error;
 use core::time::Duration;
-use grow::zone::arm::ArmCmd;
+
 use grow::zone::light::LampState;
-use grow::zone::arm::Position;
-use grow::zone::pump::PumpCmd;
+
+
 
 use grow::HouseMutex;
 use grow::ManagerMutex;
 use text_io::read;
-use tokio::sync::broadcast;
+
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
@@ -83,7 +83,7 @@ pub fn manual_cmds(
         }
     };
     Ok(tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_millis(500));
+        tokio::time::sleep(Duration::from_millis(500)).await;
         loop {
             print!("(l)ist cmds, or (q)uit\n> ");
             let line: String = read!("{}\n");
@@ -150,7 +150,7 @@ pub fn manual_cmds(
                         let response = lock.get_water_settings(zid.1);
                         println!("\tWater zone {} settings: {:#?}", &zid.1, &response);
                         let movement = response.unwrap().position;
-                        lock.arm_goto(
+                        let _ = lock.arm_goto(
                             movement.arm_id,
                             movement.x,
                             movement.y,
@@ -172,12 +172,12 @@ pub fn manual_cmds(
                 }
                 _line if _line.contains("load") => {
                     println!("Load settings...");
-                    house.lock().await.load_settings();
+                    let _ = house.lock().await.load_settings();
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("save") => {
                     println!("Save settings...");
-                    house.lock().await.save_settings();
+                    let _ = house.lock().await.save_settings();
                     tokio::task::yield_now().await;
                 }
 

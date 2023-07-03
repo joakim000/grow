@@ -6,7 +6,7 @@ use grow::ops::display::Indicator;
 use grow::zone::ZoneDisplay;
 use rppal::gpio::{Gpio, OutputPin};
 use std::time::Duration;
-use tokio::time::sleep;
+
 use async_trait::async_trait;
 
 use grow::ops::io::Board;

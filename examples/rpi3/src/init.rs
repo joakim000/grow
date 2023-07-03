@@ -19,7 +19,7 @@ pub async fn init(cancel: CancellationToken)  -> (HouseMutex, ManagerMutex) {
     let (zone_tx, zone_rx) = grow::zone::zone_channels();
     let (ops_tx, ops_rx) = grow::ops::ops_channels();
     
-    let mut house =
+    let house =
         ops::conf::read_file_into_house("grow-conf.js", zone_tx.clone(), ops_tx.clone());
     let (house, pu) = house_hardware_init(house, cancel.clone()).await;    
     let house = Arc::new(TokioMutex::new(house));

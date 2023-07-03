@@ -11,7 +11,7 @@ use tokio_util::sync::CancellationToken;
 use lego_powered_up::consts::{named_port, HubType};
 use lego_powered_up::iodevice::remote::{RcButtonState, RcDevice};
 use lego_powered_up::HubMutex;
-use lego_powered_up::{Hub, HubFilter};
+use lego_powered_up::{HubFilter};
 
 use lego_powered_up::{ConnectedHub, IoDevice, PoweredUp};
 
@@ -21,7 +21,7 @@ use grow::ops::remote::RemoteControl;
 pub struct LpuRemote {
     hub: Option<ConnectedHub>,
     pu: Arc<TokioMutex<PoweredUp>>,
-    feedback_task: Option<JoinHandle<()>>,
+    _feedback_task: Option<JoinHandle<()>>,
     main_cancel: CancellationToken,
 }
 #[async_trait]
@@ -106,7 +106,7 @@ impl LpuRemote {
         Self {
             pu,
             hub: None,
-            feedback_task: None,
+            _feedback_task: None,
             main_cancel: cancel,
         }
     }

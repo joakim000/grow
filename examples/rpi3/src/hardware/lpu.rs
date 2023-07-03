@@ -32,7 +32,7 @@ use lego_powered_up::notifications::Power;
 use lego_powered_up::notifications::*;
 use lego_powered_up::HubMutex;
 use lego_powered_up::{ConnectedHub, IoDevice, IoTypeId, PoweredUp};
-use lego_powered_up::{Hub, HubFilter};
+use lego_powered_up::{HubFilter};
 use lego_powered_up::iodevice::hubled::{HubLed, HubLedMode};
 
 use grow::ops::display::Indicator;

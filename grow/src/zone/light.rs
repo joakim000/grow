@@ -1,12 +1,12 @@
-use alloc::collections::BTreeMap;
-use async_trait::async_trait;
+
+
 use core::error::Error;
 use parking_lot::RwLock;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 // use tokio::sync::Mutex;
 use core::fmt::Debug;
-use std::sync::Mutex;
+
 use time::OffsetDateTime;
 use time::Time;
 use core::time::Duration;
@@ -93,7 +93,7 @@ pub trait Lightmeter: Send {
         &mut self,
         tx_light: tokio::sync::broadcast::Sender<(u8, Option<f32>)>,
     ) -> Result<(), Box<dyn Error>>;
-    fn read(&self) -> Result<(f32), Box<dyn Error + '_>>;
+    fn read(&self) -> Result<f32, Box<dyn Error + '_>>;
 }
 impl Debug for dyn Lightmeter {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -139,7 +139,7 @@ impl Runner {
         ops_channels: OpsChannelsTx,
     ) {
         let id = self.id;
-        let to_manager = zone_channels.zoneupdate;
+        let _to_manager = zone_channels.zoneupdate;
         let to_status_subscribers = zone_channels.zonestatus;
         let to_logger = zone_channels.zonelog;
         let to_syslog = ops_channels.syslog;
@@ -148,12 +148,12 @@ impl Runner {
         let to_lamp = self.lamp_cmd_sender();
         let mut each_minute = tokio::time::interval(Duration::from_secs(60));
         self.task = tokio::spawn(async move {
-            to_syslog
+            let _ = to_syslog
                 .send(SysLog::new(format!("Spawned light runner id {}", &id)))
                 .await;
             let set_and_send = |ds: DisplayStatus| {
                 *&mut status.write().disp = ds.clone();
-                &to_status_subscribers
+                let _ = &to_status_subscribers
                     .send(ZoneDisplay::Light { id, info: ds });
             };
             set_and_send(DisplayStatus::new(
@@ -164,33 +164,33 @@ impl Runner {
                 tokio::select! {
                     Ok(data) = rx.recv() => {
                         // println!("Light: {:?}", data);
-                        let mut o_ds: Option<DisplayStatus> = None;
+                        let o_ds: Option<DisplayStatus>; // = None;
                         let state = status.read().lamp_state.expect("Lamp status error");
                         match data {
-                            (id, None) => {
+                            (_id, None) => {
                                 o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("No data from lightmeter") )));
                             },
-                            (id, Some(lightlevel)) => {
-                                if (&state == &LampState::Off) { // & (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OffOk)) {
+                            (_id, Some(lightlevel)) => {
+                                if &state == &LampState::Off { // & (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OffOk)) {
                                     o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Lamp OFF, Ambient: {}", lightlevel) )) );
-                                    status.write().kind == Some(LightStatusKind::OffOk);
+                                    status.write().kind = Some(LightStatusKind::OffOk);
                                 }
-                                else if (lightlevel < settings.lightlevel_low_red_alert) { // & (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OnAlert)) {
+                                else if lightlevel < settings.lightlevel_low_red_alert { // & (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OnAlert)) {
                                     o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Lamp ON, Alert: {}", lightlevel) )) );
-                                    status.write().kind == Some(LightStatusKind::OnAlert);
+                                    status.write().kind = Some(LightStatusKind::OnAlert);
                                 }
-                                else if (lightlevel < settings.lightlevel_low_yellow_warning) { //& (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OnWarning)) {
+                                else if lightlevel < settings.lightlevel_low_yellow_warning { //& (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OnWarning)) {
                                     o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("Lamp ON, Warning: {}", lightlevel) )) );
-                                    status.write().kind == Some(LightStatusKind::OnWarning);
+                                    status.write().kind = Some(LightStatusKind::OnWarning);
                                 }
                                 else { // if (status.read().kind.as_ref().is_some_and(|k| k != &LightStatusKind::OnOk)) {
                                     o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Lamp ON, Ok: {}", lightlevel) )) );
-                                    status.write().kind == Some(LightStatusKind::OnOk);
+                                    status.write().kind = Some(LightStatusKind::OnOk);
                                 }
                             },
-                            _ => ()
+                            // _ => ()
                         }
-                        to_logger.send(ZoneLog::Light {id: data.0, lamp_on: Some(state), light_level: data.1, changed_status: o_ds.clone() }).await;
+                        let _ = to_logger.send(ZoneLog::Light {id: data.0, lamp_on: Some(state), light_level: data.1, changed_status: o_ds.clone() }).await;
                         match o_ds {
                             Some(ds) => { set_and_send(ds); }
                             None => {}
@@ -202,9 +202,9 @@ impl Runner {
                         if now.time() > settings.lamp_off { 
                             match state {
                                 Some(LampState::On) | None => {
-                                    to_lamp.send((id, false));
+                                    let _ = to_lamp.send((id, false));
                                     status.write().lamp_state = Some(LampState::Off);
-                                    to_syslog.send(SysLog::new(format!("Lamp OFF @ {} (Set: {}", crate::ops::display::format_time(now), settings.lamp_off))).await;
+                                    let _ = to_syslog.send(SysLog::new(format!("Lamp OFF @ {} (Set: {}", crate::ops::display::format_time(now), settings.lamp_off))).await;
                                 }
                                 _ => {}
                             }
@@ -212,9 +212,9 @@ impl Runner {
                         else if now.time() > settings.lamp_on {
                             match state {
                                 Some(LampState::Off) | None => {
-                                    to_lamp.send((id, true));
+                                    let _ = to_lamp.send((id, true));
                                     status.write().lamp_state = Some(LampState::On);
-                                    to_syslog.send(SysLog::new(format!("Lamp ON @ {} (Set: {}", crate::ops::display::format_time(now), settings.lamp_on))).await;
+                                    let _ = to_syslog.send(SysLog::new(format!("Lamp ON @ {} (Set: {}", crate::ops::display::format_time(now), settings.lamp_on))).await;
                                 }
                                 _ => {}
                             }
