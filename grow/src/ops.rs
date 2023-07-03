@@ -13,7 +13,7 @@ use core::error::Error;
 use core::time::Duration;
 use tokio::sync::{broadcast, mpsc};
 pub mod conf;
-pub mod input;
+pub mod io;
 pub mod manager;
 pub mod remote;
 // mod warning;
@@ -22,41 +22,6 @@ use tokio::task::JoinHandle;
 use zone::ZoneStatusRx;
 pub mod display;
 
-#[async_trait]
-pub trait Board: Send + Sync {
-    // fn init(
-    //     &mut self,
-    //     rx: tokio::sync::broadcast::Receiver<Vec<ZoneDisplay>>,
-    // ) -> Result<(), Box<dyn Error>>;
-    async fn set(
-        &mut self,
-        zones: Vec<ZoneDisplay>,
-    ) -> Result<(), Box<dyn Error>>;
-    fn blink_all(&mut self, on: Duration, off: Duration) -> ();
-    fn shutdown(&mut self) -> Result<(), Box<dyn Error>>;
-}
-impl Debug for dyn Board {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Indicator board")
-    }
-}
-#[async_trait]
-pub trait TextDisplay: Send {
-    fn init(
-        &self,
-        from_zones: ZoneStatusRx,
-        to_syslog: SysLogTx,
-    ) -> Result<(JoinHandle<()>), Box<dyn Error>>;
-    fn set(
-        &mut self,
-        status_all: Vec<ZoneDisplay>,
-    ) -> Result<(), Box<dyn Error>>;
-}
-impl Debug for dyn TextDisplay {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Text display")
-    }
-}
 
 // }
 #[derive(Clone, Debug)]
@@ -88,3 +53,5 @@ pub struct OpsChannelsRx {
 pub struct OpsChannelsTx {
     pub syslog: SysLogTx,
 }
+
+

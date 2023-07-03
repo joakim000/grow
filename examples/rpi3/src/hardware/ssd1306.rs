@@ -27,7 +27,9 @@ type OledDisplay = Ssd1306<
 use super::conf::*;
 use grow::ops::display::DisplayStatus;
 use grow::ops::display::Indicator;
-use grow::ops::{SysLogTx, TextDisplay};
+use grow::ops::SysLogTx;
+use grow::ops::io::TextDisplay;
+
 use grow::zone::ZoneDisplay;
 use grow::zone::ZoneKind;
 use grow::zone::ZoneStatusRx;

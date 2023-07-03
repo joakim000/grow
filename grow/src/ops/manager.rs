@@ -21,14 +21,12 @@ use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 // use time::macros::offset;
-use super::input::ButtonPanel;
+use super::io::{ButtonPanel, ButtonInput, TextDisplay, Board};
 use super::remote;
 use super::remote::*;
-use super::Board;
 use super::OpsChannelsRx;
 use super::OpsChannelsTx;
 use super::SysLog;
-use super::TextDisplay;
 use crate::zone::water::arm::Arm;
 use time::format_description::well_known::{Rfc2822, Rfc3339};
 use tokio::task::spawn_blocking;
@@ -121,8 +119,9 @@ impl Manager {
                     }
                     Ok(data) = from_zones.zonestatus.recv() => {
                         if status_enabled {
-                            let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
-                            println!("{} {}", now.format(&Rfc2822).expect("Time formatting error"), &data);
+                            // let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
+                            // println!("{} {}", now.format(&Rfc2822).expect("Time formatting error"), &data);
+                            println!("{}", &data);
                         }
                         {
                             manager_mutex.lock().await.update_board().await;
@@ -143,12 +142,44 @@ impl Manager {
                 .await;
         }
 
+        // The 3 below are handled with different alternatives. 
+        // Handled by log messages handler that runs an update-method from here. In contrast TextDisplay (below)
+        // subscribes to zonestatus and handles updates there. Uncertain what is preferable. 
+
         // Init buttons
-        let (buttons_tx, mut from_buttons_rx) =
+        let (buttons_tx, mut from_buttons) =
             broadcast::channel(16);
         let _ = self.buttons.init(buttons_tx.clone());
+        let to_log = self.ops_tx.syslog.clone();
+        let house = self.house.clone();
+        let btn_handler = tokio::spawn(async move {
+            to_log
+                .send(SysLog::new(format!("Spawned button handler")))
+                .await;
+            loop {
+                tokio::select! {
+                    Ok(data) = from_buttons.recv() => {
+                        println!("{:?}", &data);
+                        match data {
+                            ButtonInput::OneUp => {
+                                house.lock().await.pump_stop(1);
+                            }
+                            ButtonInput::OneDown => {
+                                house.lock().await.pump_run(1);
+                            }
+                            ButtonInput::TwoUp => {
+                            }
+                            ButtonInput::TwoDown => {
+                            }
+                        }
+                    }
+                    else => { break }
+                };
+            }
+        });
 
         // Start indicator display
+        
 
         // Start text display
         self.display.init(
@@ -172,7 +203,7 @@ impl Manager {
                 // let mut lock = house.lock().await;
                 match data {
                     ZoneUpdate::Water {
-                        id,
+                        id: water_id,
                         settings,
                         status,
                     } => {
@@ -182,7 +213,7 @@ impl Manager {
                             to_log
                                 .send(SysLog::new(format!(
                                     "Moisture level not found for {}.",
-                                    id
+                                    water_id
                                 )))
                                 .await;
                             continue;
@@ -192,7 +223,7 @@ impl Manager {
                             // to_log.send(SysLog::new(format!("Water {}; moist {} above limit {}.", id, moisture, settings.moisture_limit_water))).await;
                             continue;
                         }
-                        to_log.send(SysLog::new(format!("Water {}; moist {} below limit {}. Init watering.", id, moisture, settings.moisture_limit_water))).await;
+                        to_log.send(SysLog::new(format!("Water {}; moist {} below limit {}. Init watering.", water_id, moisture, settings.moisture_limit_water))).await;
 
                         // Check tank status
                         let tank_status = house
@@ -207,7 +238,7 @@ impl Manager {
                             to_log
                                 .send(SysLog::new(format!(
                                     "Water zone {} failed: Tank {} empty",
-                                    settings.tank_id, id
+                                    water_id, settings.tank_id
                                 )))
                                 .await;
                             continue;
@@ -226,8 +257,8 @@ impl Manager {
                         for z in house.lock().await.zones() {
                             match z {
                                 Zone::Arm {
-                                    id, runner, status, ..
-                                } if id == &movement.arm_id => {
+                                    id: arm_id , runner, status, ..
+                                } if arm_id == &movement.arm_id => {
                                     arm_status = Some(status.clone());
                                     arm_control_rx = Some(
                                         runner
@@ -241,7 +272,7 @@ impl Manager {
                         if arm_status.is_none() | arm_control_rx.is_none() {
                             to_log.send(SysLog::new(format!(
                                 "Water zone {} failed: Arm Zone {} not found",
-                                &id, &movement.arm_id
+                                &water_id, &movement.arm_id
                             )));
                             continue;
                         }
@@ -270,7 +301,7 @@ impl Manager {
                             let confirmed = house
                                 .lock()
                                 .await
-                                .confirm_arm_position(id, 5)
+                                .confirm_arm_position(water_id, 5)
                                 .unwrap();
                             to_log
                                 .send(SysLog::new(format!(
@@ -292,11 +323,11 @@ impl Manager {
                             to_log
                                 .send(SysLog::new(format!(
                                     "Water zone {} ok",
-                                    id
+                                    water_id
                                 )))
                                 .await;
                         } else {
-                            to_log.send(SysLog::new(format!("Water zone {} failed, couldn't confirm position", id))).await;
+                            to_log.send(SysLog::new(format!("Water zone {} failed, couldn't confirm position", water_id))).await;
                         }
                     }
                     ZoneUpdate::Tank { .. } => {}
@@ -314,16 +345,16 @@ impl Manager {
 
     pub async fn position_from_rc(
         &mut self,
-        zid: u8,
+        water_id: u8,
     ) -> Option<(i32, i32, i32)> {
         let to_log = self.ops_tx.syslog.clone();
 
-        let settings = self.house.lock().await.get_water_settings(zid);
+        let settings = self.house.lock().await.get_water_settings(water_id);
         if settings.is_none() {
             to_log
                 .send(SysLog::new(format!(
                     "Set position failed; Water id:{} not found",
-                    &zid
+                    &water_id
                 )))
                 .await;
             return None;
@@ -459,7 +490,7 @@ impl Manager {
         {
             let mut house = self.house.lock().await;
             pos = house
-                .arm_position(1)
+                .arm_position(arm_id)
                 .expect("Error getting arm position from house");
         }
 
@@ -473,7 +504,7 @@ impl Manager {
                     })
                     .await;
                 // println!("Req house lock for set water pos");
-                self.house.lock().await.set_water_position(zid, pos);
+                self.house.lock().await.set_water_position(water_id, pos);
                 // println!("Water pos NOT set");
                 Some(pos)
             }

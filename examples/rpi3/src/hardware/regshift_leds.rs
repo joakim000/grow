@@ -7,10 +7,9 @@ use grow::zone::ZoneDisplay;
 use rppal::gpio::{Gpio, OutputPin};
 use std::time::Duration;
 use tokio::time::sleep;
-// use grow::ops::display::DisplayStatus::*;
 use async_trait::async_trait;
 
-use grow::ops::Board;
+use grow::ops::io::Board;
 use parking_lot::RwLock;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;

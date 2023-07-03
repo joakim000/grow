@@ -322,7 +322,7 @@ impl House {
                     ..
                 } if id == &zid => {
                     settings.position = zone::arm::Position {
-                        arm_id: zid,
+                        arm_id: settings.position.arm_id,
                         x: pos.0,
                         y: pos.1,
                         z: pos.2,

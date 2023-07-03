@@ -2,7 +2,7 @@ use core::error::Error;
 use core::time::Duration;
 use grow::zone::arm::ArmCmd;
 use grow::zone::light::LampState;
-
+use grow::zone::arm::Position;
 use grow::zone::pump::PumpCmd;
 
 use grow::HouseMutex;
@@ -19,17 +19,19 @@ pub fn list_cmds() {
         ("board", "Show status board"),
         ("status", "Toggle output on status change"),
         ("log", "Toggle output on zone log event"),
-        ("remote", "Connect remote control"),
-        ("waterpos", "Show settings for Water zone"),
+        ("pset", "Set water position with RC"),
+        ("pshow", "Show settings for Water zone"),
+        ("pconfirm", "Confirm arm positioned for Water zone"),
+        ("pgoto", "Go to position for Water zone"),
         ("calib", "Calibrate Arm zero-position"),
-        ("confirmpos", "Confirm arm positioned for Water zone"),
     ];
     let debug_list = vec![
         ("armpos", "Show current Arm position"),
+        ("arm1", "Move Arm 1"),
         ("arm1x", "Move Arm 1 x-axis"),
         ("arm1y", "Move Arm 1 y-axis"),
         ("pump1", "Run Pump 1 for 3 seconds"),
-        ("pump1", "Run Pump 1 until stopped"),
+        ("pump1run", "Run Pump 1 until stopped"),
         ("ps", "Stop Pump 1"),
         ("fan1dc", "Set fan duty cycle for Air zone 1"),
     ];
@@ -81,6 +83,7 @@ pub fn manual_cmds(
         }
     };
     Ok(tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(500));
         loop {
             print!("(l)ist cmds, or (q)uit\n> ");
             let line: String = read!("{}\n");
@@ -109,28 +112,28 @@ pub fn manual_cmds(
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("log") => {
-                    let set_to = manager.lock().await.zonelog_toggle();
+                    let set_to = manager.lock().await.zonelog_toggle().unwrap();
                     println!("Output zone log: {:?}", set_to);
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("status") => {
-                    let set_to = manager.lock().await.statuslog_toggle();
+                    let set_to = manager.lock().await.statuslog_toggle().unwrap();
                     println!("Output status log: {:?}", set_to);
                     tokio::task::yield_now().await;
                 }
-                _line if _line.contains("remote") => {
+                _line if _line.contains("pset") => {
                     // Connect to remote
                     print!("Set position for Water zone > ");
                     let zid = getnum_u8();
-                    if zid.0 {continue}
+                    if !zid.0 {continue;}
                     let pos = manager.lock().await.position_from_rc(zid.1).await;
                     println!("Set position for Water zone {}: {:?}", &zid.1, &pos);
                     tokio::task::yield_now().await;
                 }
-                _line if _line.contains("waterpos") => {
+                _line if _line.contains("pshow") => {
                     print!("Show settings from Water zone > ");
                     let zid = getnum_u8();
-                    if zid.0 {continue}
+                    if !zid.0 {continue;}
                     {
                         let mut lock = house.lock().await;
                         let response = lock.get_water_settings(zid.1);
@@ -138,10 +141,28 @@ pub fn manual_cmds(
                     }
                     tokio::task::yield_now().await;
                 }
-                _line if _line.contains("confirmpos") => {
+                _line if _line.contains("pgoto") => {
+                    print!("Move Arm to Water position > ");
+                    let zid = getnum_u8();
+                    if !zid.0 {continue;}
+                    {
+                        let mut lock = house.lock().await;
+                        let response = lock.get_water_settings(zid.1);
+                        println!("\tWater zone {} settings: {:#?}", &zid.1, &response);
+                        let movement = response.unwrap().position;
+                        lock.arm_goto(
+                            movement.arm_id,
+                            movement.x,
+                            movement.y,
+                            movement.z,
+                        );
+                    }
+                    tokio::task::yield_now().await;
+                }
+                _line if _line.contains("pconfirm") => {
                     print!("Confirm arm positioned for Water zone > ");
                     let zid = getnum_u8();
-                    if zid.0 {continue}
+                    if !zid.0 {continue;}
                     {
                         let mut lock = house.lock().await;
                         let response = lock.confirm_arm_position(zid.1, 5);
@@ -166,7 +187,7 @@ pub fn manual_cmds(
                 _line if _line.contains("moist") => {
                     print!("Read moisture from Water zone > ");
                     let zid = getnum_u8();
-                    if zid.0 {continue}
+                    if !zid.0 {continue}
                     let mut lock = house.lock().await;
                     let response = lock.read_moisture_value(zid.1);
                     println!("\tWater zone {} moisture: {:?}", &zid.1, &response);
@@ -238,24 +259,24 @@ pub fn manual_cmds(
                 _line if _line.contains("arm1x") => {
                     print!("Arm 1 goto X > ");
                     let pos_x = getnum_i32();
-                    if !pos_x.0 {continue}
+                    if !pos_x.0 {continue;}
                     let _ = house.lock().await.arm_goto_x(1u8, pos_x.1);
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("arm1y") => {
                     print!("Arm 1 goto Y > ");
                     let pos_y = getnum_i32();
-                    if !pos_y.0 {continue}
+                    if !pos_y.0 {continue;}
                     let _ = house.lock().await.arm_goto_y(1u8, pos_y.1);
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("arm1") => {
                     print!("Arm 1 goto X > ");
                     let pos_x = getnum_i32();
-                    if !pos_x.0 {continue}
+                    if !pos_x.0 {continue;}
                     print!("Arm 1 goto Y > ");
                     let pos_y = getnum_i32();
-                    if !pos_y.0 {continue}
+                    if !pos_y.0 {continue;}
                     let _ = house.lock().await.arm_goto(1u8, pos_x.1, pos_y.1, 0);
                     tokio::task::yield_now().await;
                 }

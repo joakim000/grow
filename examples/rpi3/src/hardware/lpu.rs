@@ -64,10 +64,7 @@ pub async fn init(
         Ok(_) => {}
         Err(e) => return Err(Box::new(e)),
     }
-    // let hub = ConnectedHub::setup_hub(lock.create_hub(&hub).await).expect("Error creating hub") // thread 'main' panicked at 'Error creating hub: BluetoothError(Other(DbusError(D-Bus error: Operation already in progress (org.bluez.Error.Failed))))', src/hardware/lpu.rs:54:67
-    //     .await
-    //     .expect("Error setting up hub");
-    println!("Connectedhub  created");
+    println!("Connected hub ok");
 
     Ok(hub.unwrap().mutex.clone())
 }
@@ -76,10 +73,7 @@ pub struct Vsensor {
     id: u8,
     device: IoDevice,
     level: Arc<RwLock<TankLevel>>,
-    // hub: HubMutex,
     feedback_task: Option<JoinHandle<()>>,
-    // color_task: JoinHandle<()>,
-    // rx_color: broadcast::Receiver<DetectedColor>,
 }
 #[async_trait]
 impl zone::water::tank::TankSensor for Vsensor {
@@ -117,7 +111,6 @@ impl Vsensor {
         }
         Self {
             id,
-            // hub,
             level: Arc::new(RwLock::new(TankLevel::Red)), // get from save
             device,
             feedback_task: None,
@@ -459,8 +452,7 @@ impl zone::water::arm::Arm for BrickArm {
                 };
             }
         });
-        tokio::join!(calibration_task_x, calibration_task_y);
-        // println!("Calib tasks joined");
+        let _ = tokio::join!(calibration_task_x, calibration_task_y);
         let before = (*self.pos_x.read(), *self.pos_y.read(), 0);
         let _ = self.device_x.preset_encoder(0);
         let _ = self.device_y.preset_encoder(0);
@@ -602,7 +594,6 @@ impl BrickArm {
             .expect("Failed to get command feedback receiver");
         let mut state_x: BufferState = Default::default();
         let mut state_y: BufferState = Default::default();
-        // let state_arm = grow::zone::arm::ArmState::Idle;
 
         Ok(tokio::spawn(async move {
             // println!("Spawned arm feedback");
