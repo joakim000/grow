@@ -393,10 +393,10 @@ fn _show_raw_adc(adc: AdcMutex) {
                     &v0, &v1, &v2, &v3
                 );
 
-                let c0 = light_from_byte(v0.unwrap().into());
-                let c1 = celcius_from_byte(v1.unwrap().into());
-                let c2 = moist_from_byte(v2.unwrap().into());
-                let c3 = moist_from_byte(v3.unwrap().into());
+                let c0 = light_from_byte(v0.unwrap_or(0).into());
+                let c1 = celcius_from_byte(v1.unwrap_or(0).into());
+                let c2 = moist_from_byte(v2.unwrap_or(0).into());
+                let c3 = moist_from_byte(v3.unwrap_or(0).into());
                 println!(
                     "Light {:?}  Temp {:?}    Moist 1 {:?}     Moist 2 {:?} ",
                     c0, c1, c2, c3

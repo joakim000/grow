@@ -844,7 +844,7 @@ impl LpuHub {
 pub struct LpuTemp {
     id: u8,
     device: IoDevice,
-    temperature: Arc<RwLock<f32>>;
+    temperature: Arc<RwLock<f32>>,
     feedback_task: Option<JoinHandle<()>>,
 }
 impl zone::air::Thermometer for LpuTemp {
@@ -863,7 +863,7 @@ impl zone::air::Thermometer for LpuTemp {
         Ok(())
     }
     fn read(&self) -> Result<f64, Box<dyn Error + '_>> {
-        Ok(*self.temperature.read().into())
+        Ok((*self.temperature.read()).into())
     }
 }
 impl LpuTemp {
@@ -897,7 +897,7 @@ impl LpuTemp {
             println!("Spawned lpu temp feedback");
             while let Ok(data) = rx_temp.recv().await {
                 let reading = data[0] / 10;
-                let _ = tx.send(( id, reading.into()));
+                let _ = tx.send(( id, Some(reading.into())));
             }
         }))
     }

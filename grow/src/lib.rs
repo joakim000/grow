@@ -65,12 +65,15 @@ impl House {
                     runner,
                     ..
                 } => {
+                    let mut have_fan = false;
                     let channels = runner.fan_channels();
-                    let _ = interface
+                    let i = interface
                         .fan
-                        .as_mut()
-                        .unwrap()
-                        .init(channels.0, channels.1);
+                        .as_mut();
+                        if i.is_some() {
+                            let _ = i.unwrap().init(channels.0, channels.1);
+                            have_fan = true;
+                        } 
                     let _ = interface
                         .thermo
                         .as_mut()
@@ -80,6 +83,7 @@ impl House {
                         settings.clone(),
                         zone_channels.clone(),
                         ops_channels.clone(),
+                        have_fan,
                     );
                 }
                 Zone::Aux {

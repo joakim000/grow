@@ -155,7 +155,7 @@ impl Runner {
                     .send(ZoneDisplay::Light { id, info: ds });
             };
             set_and_send(DisplayStatus::new(
-                Indicator::Green,
+                Indicator::Blue,
                 Some(format!("Light running")),
             ));
             loop {

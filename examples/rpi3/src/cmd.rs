@@ -49,7 +49,7 @@ pub fn list_cmds() {
     for cmd in debug_list {
         println!("{:>10}\t{}", cmd.0, cmd.1);
     }
-    println!("\tAlso:\nupdate\nblink\nlamp1on\nlamp1off\narmupdate\n");
+    println!("\tAlso:\nupdate\nblink\nlamp1on\nlamp1off\narmupdate\nload\nsave\n");
 }
 
 #[rustfmt::skip]
@@ -149,6 +149,16 @@ pub fn manual_cmds(
                     }
                     tokio::task::yield_now().await;
                 }
+                _line if _line.contains("load") => {
+                    print!("Load settings...");
+                    tokio::task::yield_now().await;
+                }
+                _line if _line.contains("save") => {
+                    print!("Save settings...");
+                    
+                    tokio::task::yield_now().await;
+                }
+
 
 
                 // Sensor requests

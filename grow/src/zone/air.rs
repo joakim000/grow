@@ -64,14 +64,7 @@ pub struct Interface {
     pub fan: Option<Box<dyn Fan>>,
     pub thermo: Option<Box<dyn Thermometer>>,
 }
-impl Interface {
-    // pub fn set_fan(&mut self, fan: Box<dyn Fan>) -> () {
-    //     self.fan = Some(fan);
-    // }
-    // pub fn set_thermo(&mut self, thermo: Box<dyn Thermometer>) -> () {
-    //     self.thermo = Some(thermo);
-    // }
-}
+impl Interface {}
 
 #[async_trait]
 pub trait Fan: Send {
@@ -158,6 +151,7 @@ impl Runner {
         settings: Settings,
         zone_channels: ZoneChannelsTx,
         ops_channels: OpsChannelsTx,
+        have_fan: bool,
     ) {
         let id = self.id;
         let to_manager = zone_channels.zoneupdate;
@@ -186,9 +180,10 @@ impl Runner {
             // Workaround for temp and fan statuses overlappning in this zone. Not sure if zone should be refactored or DisplayStatus system?
             // This solutions displays comma-separated temp and fan msgs and the most severe indicator of the two.
             let mut buf_temp = String::from("No data");
-            let mut buf_fan = String::from("No data");
-            let mut buf_temp_ind = Indicator::Red;
-            let mut buf_fan_ind = Indicator::Red;
+            let mut buf_fan = String::from("No fan"); 
+            if have_fan { buf_fan = String::from("No data"); }
+            let mut buf_temp_ind = Indicator::Blue;
+            let mut buf_fan_ind = Indicator::Blue;
             loop {
                 tokio::select! {
                     Ok(data) = rx_rpm.recv() => {
@@ -257,15 +252,17 @@ impl Runner {
                             }
                         }
 
-                        let current_mode = status.read().fan_mode;
-                        if !(current_mode.is_some_and(|x|x == requested_fan_mode))  {
-                            match tx_fan.send(requested_fan_mode) {
-                                Ok(_) => {
-                                    to_syslog.send(SysLog::new(format!("Air {} fan set to {:?}", &id, &requested_fan_mode))).await;
-                                    status.write().fan_mode = Some(requested_fan_mode);
-                                },
-                                Err(e) => {
-                                    to_syslog.send(SysLog::new(format!("Air {} fan error: {:?}", &id, e))).await;
+                        if have_fan {
+                            let current_mode = status.read().fan_mode;
+                            if !(current_mode.is_some_and(|x|x == requested_fan_mode))  {
+                                match tx_fan.send(requested_fan_mode) {
+                                    Ok(_) => {
+                                        to_syslog.send(SysLog::new(format!("Air {} fan set to {:?}", &id, &requested_fan_mode))).await;
+                                        status.write().fan_mode = Some(requested_fan_mode);
+                                    },
+                                    Err(e) => {
+                                        to_syslog.send(SysLog::new(format!("Air {} fan error: {:?}", &id, e))).await;
+                                    }
                                 }
                             }
                         }

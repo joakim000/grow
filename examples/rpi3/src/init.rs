@@ -43,7 +43,7 @@ pub async fn hardware_init(
             Zone::Air {id, interface, ..} if id == &2 => {
                 interface.fan = None;
                 interface.thermo = Some(Box::new(
-                    hardware::bmp180::BoschSensor::new(*id),
+                    hardware::lpu::LpuTemp::new(*id, lpu_hub.clone()),
                 ));
             }
             Zone::Aux {id, interface, ..} => {

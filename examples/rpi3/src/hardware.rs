@@ -8,7 +8,7 @@ pub mod pcf8591;
 /// I2C -> OLED display
 pub mod ssd1306;
 /// I2C -> Thermo- and barometer
-pub mod bmp180;
+// pub mod bmp180;  
 
 /// PWM controlled case fan
 pub mod pwmfan;
@@ -51,7 +51,7 @@ pub mod conf {
     pub const MOIST_SENSOR: [Pin; 2] = [Pin::AIN2, Pin::AIN3];
 
     pub const BMP180_BUS: u8 = 1;
-    pub const BMP180_BUS: u16 = 0x77;
+    pub const BMP180_ADDR: u16 = 0x77;
 
     pub const SSD1306_BUS: u8 = 3;
     pub const SSD1306_ADDR: u16 = 0xc3;

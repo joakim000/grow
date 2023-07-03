@@ -110,14 +110,9 @@ impl Runner {
                 &to_status_subscribers.send(ZoneDisplay::Aux { id, info: ds });
             };
             set_and_send(DisplayStatus::new(
-                Indicator::Green,
+                Indicator::Blue,
                 Some(format!("Aux running")),
             ));
-            // set_and_send(DisplayStatus {
-            // indicator: Indicator::Green,
-            // msg: Some(format!("Aux running")),
-            // changed: OffsetDateTime::now_utc().to_offset(TIME_OFFSET),
-            // });
             loop {
                 tokio::select! {
                     Ok(data) = rx.recv() => {
