@@ -71,7 +71,7 @@
             "nanos": 0
           },
           "position": {
-            "arm_id": 2,
+            "arm_id": 1,
             "x": 231,
             "y": 1923,
             "z": 0
