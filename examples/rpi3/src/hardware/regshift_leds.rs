@@ -182,10 +182,9 @@ impl Board for Shiftreg {
     }
 
     fn blink_all(&mut self, on: Duration, off: Duration) -> () {
+        #[allow(unused_assignments)]
         let mut led_byte: u8 = 0;
         self.blink = true;
-        // while self.blink == true {
-
         let reg = self.reg.clone();
         tokio::spawn(async move {
             loop {

@@ -117,6 +117,7 @@ impl PwmFan {
         let mut fan_rpm: Option<f32> = Default::default();
 
         let id = self.id;
+        #[allow(unused_assignments)]
         let mut previous: Option<f32> = Default::default();
         Ok(tokio::spawn(async move {
             loop {
