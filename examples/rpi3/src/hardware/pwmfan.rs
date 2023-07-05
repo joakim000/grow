@@ -1,22 +1,22 @@
 use grow::zone;
 
 use core::time::Duration;
-use rppal::gpio::InputPin;
 use std::time::Instant;
 use tokio::sync::broadcast;
+use tokio_util::sync::CancellationToken;
 
 use tokio::task::JoinHandle;
 
 use core::error::Error;
 use core::result::Result;
 
-use rppal::gpio::{Gpio, Trigger};
+use rppal::gpio::{Gpio, Trigger, Level, InputPin};
 use rppal::pwm::Pwm;
-
 use grow::zone::air::FanSetting;
 use std::sync::Arc;
 // use tokio::sync::Mutex;
 use std::sync::Mutex;
+use parking_lot::RwLock;
 // pub type FanMutex = Arc<Mutex<Box<dyn Fan>>>;
 pub type PwmMutex = Arc<Mutex<Pwm>>;
 pub type RpmMutex = Arc<Mutex<InputPin>>;
@@ -26,14 +26,18 @@ pub struct PwmFan {
     id: u8,
     // pwm_channel: Pwm,
     pwm_channel: PwmMutex,
-    rpm_pin: RpmMutex,
+    // rpm_pin: RpmMutex,
+    rpm_pin: Arc<RwLock<InputPin>>,
     _fan_setting: FanSetting,
     feedback_task: Option<JoinHandle<()>>,
     control_task: Option<JoinHandle<()>>,
+    cancel: CancellationToken,
+    rpm: Arc<RwLock<Option<f32>>>,
 }
 impl zone::air::Fan for PwmFan {
     fn read(&mut self) -> Result<Option<f32>, Box<dyn Error + '_>> {
-        Ok(self.get_rpm())
+        // Ok(self.get_rpm())
+        Ok(*self.rpm.read())
     }
     fn to_high(&self) -> Result<(), Box<dyn Error + '_>> {
         println!("Fan set to high");
@@ -76,14 +80,14 @@ impl zone::air::Fan for PwmFan {
 }
 
 impl PwmFan {
-    pub fn new(id: u8) -> Self {
+    pub fn new(id: u8, cancel: CancellationToken) -> Self {
         let mut rpm_pin = Gpio::new()
             .expect("Error on new pin")
             .get(PIN_FAN_1_RPM)
             .expect("Error on get pin")
             .into_input_pullup();
         let _ = rpm_pin.set_interrupt(Trigger::Both);
-        let rpm_mutex = Arc::new(Mutex::new(rpm_pin));
+        let rpm_mutex = Arc::new(RwLock::new(rpm_pin));
         let pwm_channel = Pwm::with_frequency(
             PWM_FAN_1,
             PWM_FREQ_FAN_1,
@@ -100,12 +104,12 @@ impl PwmFan {
             _fan_setting: FanSetting::High, // Initial
             feedback_task: None,
             control_task: None,
+            cancel,
+            rpm: Arc::new(RwLock::new(None)),
         }
     }
-    // pub fn mutex(self) {
-    //     Arc::new(Mutex::new(Box::new(self)));
-    // }
-
+ 
+    // Uses poll interrupt
     fn fan_feedback(
         &mut self,
         tx: broadcast::Sender<(u8, Option<f32>)>,
@@ -115,15 +119,15 @@ impl PwmFan {
         let mut pulse_start: Instant = Instant::now();
         let mut pulse_duration: Duration = pulse_start.elapsed();
         let mut fan_rpm: Option<f32> = Default::default();
+        let mut current = self.rpm.clone();
 
         let id = self.id;
-        #[allow(unused_assignments)]
-        let mut previous: Option<f32> = Default::default();
+        // let mut previous: Option<f32> = Default::default();
         Ok(tokio::spawn(async move {
             loop {
                 let mut fan_pulse_detected = true;
                 {
-                    let mut pin = rpm_pin.lock().unwrap();
+                    let mut pin = rpm_pin.write();
                     let rpm_pulse = pin
                         .poll_interrupt(true, Some(Duration::from_millis(100)));
                     match rpm_pulse {
@@ -165,28 +169,72 @@ impl PwmFan {
 
                 match fan_rpm {
                     Some(rpm) => {
-                        // println!("Fanrpm {:?}   reading {:?}   previous {:?}   delta {:?}", &id, &rpm, &previous, (&rpm-&previous).abs());
-                        if previous.is_none() {
+                        if current.read().is_none() {
                             let _ = tx.send((id, fan_rpm));
-                        } else if (rpm - previous.unwrap()).abs() >= FAN_1_DELTA
-                        {
+                        } 
+                        else if (rpm - current.read().unwrap()).abs() >= FAN_1_DELTA {
                             let _ = tx.send((id, fan_rpm));
-                            // println!("sent rpm: {:?}", &fan_rpm);
                         }
                     }
                     None => {
-                        if previous.is_some() {
-                            // println!("sent rpm: {:?}", &fan_rpm);
+                        if current.read().is_some() {
                             let _ = tx.send((id, fan_rpm));
                         }
                     }
                 }
-                previous = fan_rpm;
-
+                // previous = fan_rpm;
+                *current.write() = fan_rpm;
                 tokio::time::sleep(Duration::from_secs(DELAY_FAN_1)).await;
             }
         }))
     }
+
+    // Uses async interrupt
+    fn fan_feedback2(
+        &mut self,
+        tx: broadcast::Sender<(u8, Option<f32>)>,
+    ) -> Result<JoinHandle<()>, Box<dyn Error>> {
+        let id = self.id;
+        let cancel = self.cancel.clone();
+        let rpm_pin = self.rpm_pin.clone();
+        let mut current = self.rpm.clone();
+
+        let mut pulse_start: Instant = Instant::now();
+        let mut pulse_duration: Duration = pulse_start.elapsed();
+        let mut fan_rpm: Option<f32> = Default::default();
+        Ok(tokio::spawn(async move {
+            let _ = rpm_pin.write().set_async_interrupt(Trigger::Both, move |l| { 
+                match l {
+                    Level::High => {
+                        pulse_start = Instant::now();
+                    }
+                    Level::Low => {
+                        pulse_duration = pulse_start.elapsed();
+                        fan_rpm = Some(
+                            (Duration::from_secs(60).as_micros() as f32
+                                / pulse_duration.as_micros() as f32
+                                / PULSES_PER_ROTATION)
+                                .round(),
+                        );
+                        if current.read().is_none() {
+                            let _ = tx.send((id, fan_rpm));
+                        } 
+                        else if (fan_rpm.unwrap() - current.read().unwrap()).abs() >= FAN_1_DELTA
+                        {
+                            let _ = tx.send((id, fan_rpm));
+                        
+                        }
+                        *current.write() = fan_rpm;
+                    }
+                }
+            });
+            
+            println!("Fan speed initialized");
+            cancel.cancelled().await;
+        }))
+    }
+   
+
 
     fn fan_control(
         &self,
@@ -215,42 +263,42 @@ impl PwmFan {
         }))
     }
 
-    fn get_rpm(&mut self) -> Option<f32> {
-        let mut pulse_start: Instant = Instant::now();
-        let mut pulse_duration: Duration = pulse_start.elapsed();
-        let mut fan_pulse_detected = true;
-        let mut pin = self.rpm_pin.lock().unwrap();
+    // fn get_rpm(&mut self) -> Option<f32> {
+    //     let mut pulse_start: Instant = Instant::now();
+    //     let mut pulse_duration: Duration = pulse_start.elapsed();
+    //     let mut fan_pulse_detected = true;
+    //     let mut pin = self.rpm_pin.lock().unwrap();
 
-        let rpm_pulse =
-            pin.poll_interrupt(true, Some(Duration::from_millis(100)));
-        match rpm_pulse {
-            Ok(level_opt) => match level_opt {
-                None => fan_pulse_detected = false,
-                Some(_level) => pulse_start = Instant::now(),
-            },
-            Err(err) => {
-                eprintln!("Error reading rpm: {}", err);
-            }
-        };
-        let rpm_pulse =
-            pin.poll_interrupt(true, Some(Duration::from_millis(100)));
-        match rpm_pulse {
-            Ok(level_opt) => match level_opt {
-                None => fan_pulse_detected = false,
-                Some(_level) => pulse_duration = pulse_start.elapsed(),
-            },
-            Err(err) => {
-                eprintln!("Error reading rpm: {}", err);
-            }
-        };
-        match fan_pulse_detected {
-            true => Some(
-                (Duration::from_secs(60).as_micros() as f32
-                    / pulse_duration.as_micros() as f32
-                    / PULSES_PER_ROTATION)
-                    .round(),
-            ),
-            false => None,
-        }
-    }
+    //     let rpm_pulse =
+    //         pin.poll_interrupt(true, Some(Duration::from_millis(100)));
+    //     match rpm_pulse {
+    //         Ok(level_opt) => match level_opt {
+    //             None => fan_pulse_detected = false,
+    //             Some(_level) => pulse_start = Instant::now(),
+    //         },
+    //         Err(err) => {
+    //             eprintln!("Error reading rpm: {}", err);
+    //         }
+    //     };
+    //     let rpm_pulse =
+    //         pin.poll_interrupt(true, Some(Duration::from_millis(100)));
+    //     match rpm_pulse {
+    //         Ok(level_opt) => match level_opt {
+    //             None => fan_pulse_detected = false,
+    //             Some(_level) => pulse_duration = pulse_start.elapsed(),
+    //         },
+    //         Err(err) => {
+    //             eprintln!("Error reading rpm: {}", err);
+    //         }
+    //     };
+    //     match fan_pulse_detected {
+    //         true => Some(
+    //             (Duration::from_secs(60).as_micros() as f32
+    //                 / pulse_duration.as_micros() as f32
+    //                 / PULSES_PER_ROTATION)
+    //                 .round(),
+    //         ),
+    //         false => None,
+    //     }
+    // }
 }

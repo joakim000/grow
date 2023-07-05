@@ -46,6 +46,7 @@ where
 
     /// starts the 74HC595
     pub fn begin(&mut self) {
+        println!("SR v2");
         self.oe.set_low();
         self.srclr.set_high();
     }
@@ -113,13 +114,15 @@ where
 
     fn pulse_srclk(&mut self) {
         self.srclk.set_high();
-        thread::sleep(Duration::from_micros(400));
+        thread::sleep(Duration::from_micros(1000));
+        // thread::sleep(Duration::from_nanos(400));
         self.srclk.set_low();
     }
 
     fn pulse_rclk(&mut self) {
         self.rclk.set_high();
-        thread::sleep(Duration::from_micros(400));
+        thread::sleep(Duration::from_micros(1000));
+        // thread::sleep(Duration::from_nanos(400));
         self.rclk.set_low();
     }
 }

@@ -247,3 +247,16 @@ pub fn format_time(dt: OffsetDateTime) -> String {
     let hms = dt.to_hms();
     format!("{} {:02}:{:02}:{:02}", dt.date(), hms.0, hms.1, hms.2)
 }
+
+// Tabled attempt to make general the set_and_send closure currently defined in each zone 
+// pub fn set_and_send(kind: ZoneKind) -> impl FnOnce(DisplayStatus) {
+//     match kind {
+//         ZoneKind::Air => {
+//             |ds: DisplayStatus| {
+//                 *&mut status.write().disp = ds.clone();
+//                 let _ = &to_status_subscribers.send(ZoneDisplay::Air { id, info: ds });
+//             }
+//         }
+//         _ => ()
+//     }
+// }

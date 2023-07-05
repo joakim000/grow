@@ -103,10 +103,10 @@ impl House {
                     ..
                 } => {
                     let _ = interface
-                        .aux_device
+                        .auxiliary_device
                         .as_mut()
                         .unwrap()
-                        .init(runner.aux_feedback_sender())
+                        .init(runner.auxiliary_feedback_sender())
                         .await;
                     runner.run(
                         settings.clone(),

@@ -1,10 +1,6 @@
 // #![allow(unused)]
 
 extern crate alloc;
-
-
-
-
 use core::result::Result;
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc};
@@ -13,23 +9,34 @@ use tokio::sync::{broadcast, mpsc};
 use crate::ops::display::DisplayStatus;
 use light::LampState;
 use parking_lot::RwLock;
-
 use serde::{Serialize, Deserialize};
+
+pub mod air;
+pub mod auxiliaryiliary;
+pub mod light;
+pub mod water;
+pub use water::{arm, pump, tank};
 
 pub type ZoneUpdateRx = tokio::sync::mpsc::Receiver<ZoneUpdate>;
 pub type ZoneUpdateTx = tokio::sync::mpsc::Sender<ZoneUpdate>;
-// pub type ZoneUpdateRx = tokio::sync::mpsc::Receiver<Arc<Zone>>;
-// pub type ZoneUpdateTx = tokio::sync::mpsc::Sender<Arc<Zone>>;
 pub type ZoneStatusRx = tokio::sync::broadcast::Receiver<ZoneDisplay>;
 pub type ZoneStatusTx = tokio::sync::broadcast::Sender<ZoneDisplay>;
 pub type ZoneLogRx = tokio::sync::mpsc::Receiver<ZoneLog>;
 pub type ZoneLogTx = tokio::sync::mpsc::Sender<ZoneLog>;
 
-pub mod air;
-pub mod auxiliary;
-pub mod light;
-pub mod water;
-pub use water::{arm, pump, tank};
+#[derive(Debug)]
+pub struct ZoneChannelsRx {
+    pub zoneupdate: ZoneUpdateRx,
+    pub zonestatus: ZoneStatusRx,
+    pub zonelog: ZoneLogRx,
+}
+#[derive(Clone, Debug)]
+pub struct ZoneChannelsTx {
+    pub zoneupdate: ZoneUpdateTx,
+    pub zonestatus: ZoneStatusTx,
+    pub zonelog: ZoneLogTx,
+}
+
 
 #[derive(Debug)]
 pub enum Zone {
@@ -232,18 +239,6 @@ pub fn zone_channels() -> (ZoneChannelsTx, ZoneChannelsRx) {
     (tx, rx)
 }
 
-#[derive(Debug)]
-pub struct ZoneChannelsRx {
-    pub zoneupdate: ZoneUpdateRx,
-    pub zonestatus: ZoneStatusRx,
-    pub zonelog: ZoneLogRx,
-}
-#[derive(Clone, Debug)]
-pub struct ZoneChannelsTx {
-    pub zoneupdate: ZoneUpdateTx,
-    pub zonestatus: ZoneStatusTx,
-    pub zonelog: ZoneLogTx,
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ZoneSave {

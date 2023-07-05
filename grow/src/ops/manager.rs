@@ -5,6 +5,7 @@ use crate::House;
 use crate::HouseMutex;
 use crate::Zone;
 use crate::TIME_OFFSET;
+use super::display::format_time;
 
 use super::display::Indicator;
 use core::error::Error;
@@ -108,13 +109,15 @@ impl Manager {
                     Some(data) = ops_rx.syslog.recv() => {
                         if true {
                             let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
-                            println!("{} {:?}", now.format(&Rfc2822).expect("Time formatting error"), &data);
+                            // println!("{} {:?}", now.format(&Rfc2822).expect("Time formatting error"), &data);
+                            println!("{} {:?}", format_time(now), &data);
                         }
                     }
                     Some(data) = from_zones.zonelog.recv() => {
                         if log_enabled {
                             let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
-                            println!("{} {}", now.format(&Rfc2822).expect("Time formatting error"), &data);
+                            // println!("{} {}", now.format(&Rfc2822).expect("Time formatting error"), &data);
+                            println!("{} {}", format_time(now), &data);
                         }
                     }
                     Ok(data) = from_zones.zonestatus.recv() => {

@@ -54,7 +54,7 @@ pub async fn house_hardware_init(
         match zone {
             Zone::Air {id, interface, ..} if id == &1 => {
                 interface.fan =
-                    Some(Box::new(hardware::pwmfan::PwmFan::new(*id)));
+                    Some(Box::new(hardware::pwmfan::PwmFan::new(*id, cancel.clone())));
                 interface.thermo = Some(Box::new(
                     hardware::pcf8591::Thermistor::new(*id, adc_1.new_mutex()),
                 ));
@@ -66,7 +66,7 @@ pub async fn house_hardware_init(
                 ));
             }
             Zone::Aux {id, interface, ..} => {
-                interface.aux_device =
+                interface.auxiliary_device =
                     Some(Box::new(hardware::lpu::LpuHub::new(
                         *id,
                         lpu_hub.clone(),

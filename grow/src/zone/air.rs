@@ -170,7 +170,8 @@ impl Runner {
                 .send(SysLog::new(format!("Spawned air runner id {}", &id)))
                 .await;
             let set_and_send = |ds: DisplayStatus| {
-                *&mut status.write().disp = ds.clone();
+                // *&mut status.write().disp = ds.clone();
+                status.write().disp = ds.clone();
                 let _ = &to_status_subscribers.send(ZoneDisplay::Air { id, info: ds });
             };
             set_and_send(DisplayStatus::new(
