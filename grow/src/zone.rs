@@ -12,7 +12,7 @@ use parking_lot::RwLock;
 use serde::{Serialize, Deserialize};
 
 pub mod air;
-pub mod auxiliaryiliary;
+pub mod auxiliary;
 pub mod light;
 pub mod water;
 pub use water::{arm, pump, tank};
