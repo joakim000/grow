@@ -248,6 +248,12 @@ pub fn format_time(dt: OffsetDateTime) -> String {
     format!("{} {:02}:{:02}:{:02}", dt.date(), hms.0, hms.1, hms.2)
 }
 
+impl fmt::Display for super::SysLog {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} SysLog: {}", format_time(self.dt), self.msg ) 
+    }
+}
+
 // Tabled attempt to make general the set_and_send closure currently defined in each zone 
 // pub fn set_and_send(kind: ZoneKind) -> impl FnOnce(DisplayStatus) {
 //     match kind {

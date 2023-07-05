@@ -6,8 +6,9 @@ use crate::HouseMutex;
 use crate::Zone;
 use crate::TIME_OFFSET;
 use super::display::format_time;
-
 use super::display::Indicator;
+use crate::error::*;
+
 use core::error::Error;
 use core::fmt::Debug;
 use core::time::Duration;
@@ -108,22 +109,20 @@ impl Manager {
                     }
                     Some(data) = ops_rx.syslog.recv() => {
                         if true {
-                            let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
+                            // let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
                             // println!("{} {:?}", now.format(&Rfc2822).expect("Time formatting error"), &data);
-                            println!("{} {:?}", format_time(now), &data);
+                            // println!("{} {:?}", format_time(now), &data);
+                            println!("{}",  &data);
                         }
                     }
                     Some(data) = from_zones.zonelog.recv() => {
                         if log_enabled {
                             let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
-                            // println!("{} {}", now.format(&Rfc2822).expect("Time formatting error"), &data);
                             println!("{} {}", format_time(now), &data);
                         }
                     }
                     Ok(data) = from_zones.zonestatus.recv() => {
                         if status_enabled {
-                            // let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
-                            // println!("{} {}", now.format(&Rfc2822).expect("Time formatting error"), &data);
                             println!("{}", &data);
                         }
                         {
@@ -144,11 +143,7 @@ impl Manager {
                 .send(SysLog::new(format!("Calibrated X Y from: {:?}", result)))
                 .await;
         }
-
-        // The 3 below are handled with different alternatives. 
-        // Handled by log messages handler that runs an update-method from here. In contrast TextDisplay (below)
-        // subscribes to zonestatus and handles updates there. Uncertain what is preferable. 
-
+        
         // Init buttons
         let (buttons_tx, mut from_buttons) =
             broadcast::channel(16);
@@ -181,8 +176,11 @@ impl Manager {
             }
         });
 
-        // Start indicator display
-        
+        // Indicators and textdisplay are handled with different alternatives, uncertain what is preferable.  
+        // Indicators: Log messages handler catches status-updates and runs an update-method. 
+        // TextDisplay: Subscribes to zonestatus and handles updates there. 
+
+        // Start indicator display (not here)
 
         // Start text display
         self.display.init(
@@ -195,142 +193,27 @@ impl Manager {
         let house = self.house.clone();
         let zoneupdate_handler = tokio::spawn(async move {
             to_log
-                .send(SysLog {
-                    msg: format!("Spawned zoneupdate handler"),
-                })
+                .send(SysLog::new(format!("Spawned zoneupdate handler")))
                 .await;
             while let Some(data) = from_zones.zoneupdate.recv().await {
-                let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
-                // println!("{:?}`Manager recv: {:?}", now, data);
-
-                // let mut lock = house.lock().await;
                 match data {
                     ZoneUpdate::Water {
                         id: water_id,
                         settings,
                         status,
                     } => {
-                        // Bryt ut nedan till funktion, task?
-                        let moisture = status.read().moisture_level;
-                        if moisture.is_none() {
-                            to_log
-                                .send(SysLog::new(format!(
-                                    "Moisture level not found for {}.",
-                                    water_id
-                                )))
-                                .await;
-                            continue;
+                        let mut log_msg: Option<String> = None;
+                        match watering(water_id, settings, status, to_log.clone(), house.clone()).await {
+                            Ok( (true, msg) ) => {
+                                log_msg = Some(msg);
+                            },
+                            Ok( (false, msg) ) => {},
+                            Err(e) => {
+                                log_msg = Some(format!("{}", e));
+                            }, 
                         }
-                        let moisture = moisture.unwrap();
-                        if moisture > settings.moisture_limit_water {
-                            // to_log.send(SysLog::new(format!("Water {}; moist {} above limit {}.", id, moisture, settings.moisture_limit_water))).await;
-                            continue;
-                        }
-                        to_log.send(SysLog::new(format!("Water {}; moist {} below limit {}. Init watering.", water_id, moisture, settings.moisture_limit_water))).await;
-
-                        // Check tank status
-                        let tank_status = house
-                            .lock()
-                            .await
-                            .get_displaystatus(ZoneKind::Tank, settings.tank_id)
-                            .expect(&format!(
-                                "Tank Zone {} not found",
-                                &settings.tank_id
-                            ));
-                        if tank_status.indicator == Indicator::Red {
-                            to_log
-                                .send(SysLog::new(format!(
-                                    "Water zone {} failed: Tank {} empty",
-                                    water_id, settings.tank_id
-                                )))
-                                .await;
-                            continue;
-                        }
-
-                        // Check pump status
-
-                        // Get Arm ststus and control_rx
-                        let movement = settings.position;
-                        let mut arm_status: Option<
-                            Arc<RwLock<crate::zone::arm::Status>>,
-                        > = None;
-                        let mut arm_control_rx: Option<
-                            broadcast::Receiver<ArmState>,
-                        > = None;
-                        for z in house.lock().await.zones() {
-                            match z {
-                                Zone::Arm {
-                                    id: arm_id , runner, status, ..
-                                } if arm_id == &movement.arm_id => {
-                                    arm_status = Some(status.clone());
-                                    arm_control_rx = Some(
-                                        runner
-                                            .control_feedback_sender()
-                                            .subscribe(),
-                                    );
-                                }
-                                _ => {}
-                            }
-                        }
-                        if arm_status.is_none() | arm_control_rx.is_none() {
-                            to_log.send(SysLog::new(format!(
-                                "Water zone {} failed: Arm Zone {} not found",
-                                &water_id, &movement.arm_id
-                            )));
-                            continue;
-                        }
-                        let arm_status = arm_status.unwrap();
-                        let mut arm_control_rx = arm_control_rx.unwrap();
-                        // Check arm status
-
-                        let mut tries = 0u8;
-                        while tries < 3 {
-                            let _ = house.lock().await.arm_goto(
-                                movement.arm_id,
-                                movement.x,
-                                movement.y,
-                                movement.z,
-                            ); // TODO check result
-                               // sleep(Duration::from_secs(2)).await; // TODO wait for arm position to be correct
-                            while let Ok(arm_data) = arm_control_rx.recv().await
-                            {
-                                match arm_data {
-                                    ArmState::Busy => {}
-                                    ArmState::Idle => {
-                                        break;
-                                    }
-                                }
-                            }
-                            let confirmed = house
-                                .lock()
-                                .await
-                                .confirm_arm_position(water_id, 5)
-                                .unwrap();
-                            to_log
-                                .send(SysLog::new(format!(
-                                    "Confirm position: {:?}",
-                                    confirmed
-                                )))
-                                .await;
-                            if confirmed.0 {
-                                break;
-                            }
-                            tries += 1;
-                        }
-                        if tries < 3 {
-                            let _ =
-                                house.lock().await.pump_run(settings.pump_id); // TODO check result
-                            sleep(settings.pump_time).await;
-                            let _ =
-                                house.lock().await.pump_stop(settings.pump_id); // TODO check result
-                            to_log
-                                .send(SysLog::new(format!(
-                                    "Water zone {} ok",
-                                    water_id
-                                )))
-                                .await;
-                        } else {
-                            to_log.send(SysLog::new(format!("Water zone {} failed, couldn't confirm position", water_id))).await;
+                        if log_msg.is_some() {
+                            to_log.send(SysLog::new(log_msg.unwrap())).await;
                         }
                     }
                     ZoneUpdate::Tank { .. } => {}
@@ -483,9 +366,8 @@ impl Manager {
         println!("RC mode exit kind: {:?}", &exit_kind);
         self.ops_tx
             .syslog
-            .send(SysLog {
-                msg: format!("Exit position finder"),
-            })
+            .send(SysLog::new(
+                format!("Exit position finder")))
             .await;
 
         // Get current position from house after exit:
@@ -502,9 +384,8 @@ impl Manager {
             Some(RcModeExit::Confirm) => {
                 self.ops_tx
                     .syslog
-                    .send(SysLog {
-                        msg: format!("Selected position: {:?}", &pos),
-                    })
+                    .send(SysLog::new(
+                        format!("Selected position: {:?}", &pos)))
                     .await;
                 // println!("Req house lock for set water pos");
                 self.house.lock().await.set_water_position(water_id, pos);
@@ -514,40 +395,32 @@ impl Manager {
             Some(RcModeExit::Cancel) => {
                 self.ops_tx
                     .syslog
-                    .send(SysLog {
-                        msg: format!("Position finder cancelled: {:?}", &pos),
-                    })
+                    .send(SysLog::new(
+                        format!("Position finder cancelled: {:?}", &pos)))
                     .await;
                 None
             }
             Some(RcModeExit::SwitchFromPositionMode) => {
                 self.ops_tx
                     .syslog
-                    .send(SysLog {
-                        msg: format!("Position finder mode switch"),
-                    })
+                    .send(SysLog::new(
+                        format!("Position finder mode switch")))
                     .await;
                 None
             }
             Some(RcModeExit::SwitchFromOpsMode) => {
                 self.ops_tx
                     .syslog
-                    .send(SysLog {
-                        msg: format!(
-                            "Position finder unexpected exit (wrong mode)"
-                        ),
-                    })
+                    .send(SysLog::new(
+                        format!("Position finder unexpected exit (wrong mode)")))
                     .await;
                 None
             }
             Some(RcModeExit::ElseExit) => {
                 self.ops_tx
                     .syslog
-                    .send(SysLog {
-                        msg: format!(
-                            "Position finder unexpected exit (select else)"
-                        ),
-                    })
+                    .send(SysLog::new(
+                        format!("Position finder unexpected exit (select else)")))
                     .await;
                 None
             }
@@ -594,5 +467,134 @@ impl Manager {
             .blink_all(Duration::from_millis(500), Duration::from_secs(1));
 
         Ok(())
+    }
+
+
+}
+
+/// Perform watering
+// SHould this be in zone::water module?
+async fn watering(
+    water_id: u8,
+    settings: crate::zone::water::Settings,
+    status: Arc<RwLock<crate::zone::water::Status>>,
+    to_syslog: super::SysLogTx,
+    house: HouseMutex,
+// ) -> Result<(), Box<dyn Error>> {
+) -> Result<( bool,String ), Box<dyn Error>> {
+    // println!("fn watering start");
+    let moisture = status.read().moisture_level;
+    if moisture.is_none() {
+        return Err(Box::new(WateringError::new(&format!("Moisture level not found for {}.", water_id))))
+    }
+    let moisture = moisture.unwrap();
+    if moisture > settings.moisture_limit_water {
+        return (Ok( (false, format!("Water {}; moist {} above limit {}.", water_id, moisture, settings.moisture_limit_water)) ))
+    }
+    to_syslog.send(SysLog::new(format!("Water {}; moist {} below limit {}. Init watering.", water_id, moisture, settings.moisture_limit_water))).await;
+
+    // Check tank status
+    let tank_status = house
+        .lock()
+        .await
+        .get_displaystatus(ZoneKind::Tank, settings.tank_id);
+    if tank_status.is_none() {
+        return Err(Box::new(ZoneError::new(&format!(
+            "Water zone {} failed: Tank {} not found",
+            &water_id, &settings.tank_id
+        ))))
+    }
+    let tank_status = tank_status.unwrap();
+    if tank_status.indicator == Indicator::Red {
+        return Err(Box::new(WateringError::new(&format!(
+            "Water zone {} failed: Tank {} empty",
+            water_id, settings.tank_id))))
+    }
+
+    // TODO: Check pump status
+
+    // Get Arm status and control_rx
+    let movement = settings.position;
+    let mut arm_status: Option<
+        Arc<RwLock<crate::zone::arm::Status>>,
+    > = None;
+    let mut arm_control_rx: Option<
+        broadcast::Receiver<ArmState>,
+    > = None;
+    for z in house.lock().await.zones() {
+        match z {
+            Zone::Arm {
+                id: arm_id , runner, status, ..
+            } if arm_id == &movement.arm_id => {
+                arm_status = Some(status.clone());
+                arm_control_rx = Some(
+                    runner
+                        .control_feedback_sender()
+                        .subscribe(),
+                );
+            }
+            _ => {}
+        }
+    }
+    if arm_status.is_none() | arm_control_rx.is_none() {
+        return Err(Box::new(ZoneError::new(&format!(
+            "Water zone {} failed: Arm {} not found",
+            &water_id, &movement.arm_id
+        ))))
+    }
+    let arm_status = arm_status.unwrap();
+    let mut arm_control_rx = arm_control_rx.unwrap();
+
+    // TODO: Check arm status        
+
+    /// Move arm, try 3 times to get within acceptable delta
+    let mut tries = 0u8;
+    while tries < 3 {
+        let _ = house.lock().await.arm_goto(
+            movement.arm_id,
+            movement.x,
+            movement.y,
+            movement.z,
+        ); // TODO check result
+        
+        // Wait until arm has moved
+        while let Ok(arm_data) = arm_control_rx.recv().await
+        {
+            match arm_data {
+                ArmState::Busy => {}
+                ArmState::Idle => { break; }
+            }
+        }
+        // Confirm arm position within acceptable delta
+        let confirmed = house
+            .lock()
+            .await
+            .confirm_arm_position(water_id, 5)
+            .unwrap();
+        to_syslog
+            .send(SysLog::new(format!(
+                "Confirm position: {:?}",
+                confirmed
+            )))
+            .await;
+
+        if confirmed.0 {
+            break;
+        }
+        tries += 1;
+    }
+    if tries < 3 {
+        let _ = // TODO check result
+            house.lock().await.pump_run(settings.pump_id); 
+        sleep(settings.pump_time).await;
+        let _ = // TODO check result
+            house.lock().await.pump_stop(settings.pump_id); 
+        return Ok( (true, format!(
+            "Water zone {} ok",
+            water_id)) )
+    } else {
+        return Err(Box::new(WateringError::new(&format!(
+            "Water zone {} failed, couldn't confirm position", water_id
+        ))))
     }
 }

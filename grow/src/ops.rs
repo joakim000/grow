@@ -13,26 +13,32 @@ use core::error::Error;
 use core::time::Duration;
 use tokio::sync::{broadcast, mpsc};
 pub mod conf;
+use core::fmt::Debug;
+use tokio::task::JoinHandle;
+use time::OffsetDateTime;
+
+pub mod display;
 pub mod io;
 pub mod manager;
 pub mod remote;
-// mod warning;
-use core::fmt::Debug;
-use tokio::task::JoinHandle;
 use zone::ZoneStatusRx;
-pub mod display;
-
+use crate::TIME_OFFSET;
 
 // }
 #[derive(Clone, Debug)]
 pub struct SysLog {
     msg: String,
+    dt: OffsetDateTime,
 }
 impl SysLog {
     pub fn new(msg: String) -> Self {
-        Self { msg }
+        Self { 
+            msg,
+            dt: OffsetDateTime::now_utc().to_offset(TIME_OFFSET),
+         }
     }
 }
+
 
 pub type SysLogRx = tokio::sync::mpsc::Receiver<SysLog>;
 pub type SysLogTx = tokio::sync::mpsc::Sender<SysLog>;

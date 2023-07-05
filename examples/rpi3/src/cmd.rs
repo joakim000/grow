@@ -85,9 +85,9 @@ pub fn manual_cmds(
     Ok(tokio::spawn(async move {
         tokio::time::sleep(Duration::from_millis(500)).await;
         loop {
-            print!("(l)ist cmds, or (q)uit\n> ");
+            print!("(l)ist cmds, or (q)uit >");
             let line: String = read!("{}\n");
-            // tokio::task::yield_now().await;
+            tokio::task::yield_now().await;
             if (line.len() == 0) | line.starts_with("\r") {
                 continue;
             }
@@ -98,7 +98,6 @@ pub fn manual_cmds(
                     board.sort();
                     for z in board {
                         println!("{}", &z);
-                        // println!("{} {:?}", z, z.info.changed);
                     }
                     tokio::task::yield_now().await;
                 }
