@@ -22,7 +22,6 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
-// use time::macros::offset;
 use super::io::{ButtonPanel, ButtonInput, TextDisplay, Board};
 use super::remote;
 use super::remote::*;
@@ -50,7 +49,6 @@ pub struct Manager {
     buttons: Box<dyn ButtonPanel>,
     zonelog_enable: Option<watch::Sender<bool>>,
     status_enable: Option<watch::Sender<bool>>,
-    // ops_tx: Option<OpsChannelsTx>,
     ops_tx: OpsChannelsTx,
     zone_tx: ZoneChannelsTx,
 }

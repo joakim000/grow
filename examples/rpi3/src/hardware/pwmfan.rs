@@ -17,16 +17,13 @@ use std::sync::Arc;
 // use tokio::sync::Mutex;
 use std::sync::Mutex;
 use parking_lot::RwLock;
-// pub type FanMutex = Arc<Mutex<Box<dyn Fan>>>;
-pub type PwmMutex = Arc<Mutex<Pwm>>;
-pub type RpmMutex = Arc<Mutex<InputPin>>;
 use super::conf::*;
 
+#[allow(unused)]
 pub struct PwmFan {
     id: u8,
     // pwm_channel: Pwm,
-    pwm_channel: PwmMutex,
-    // rpm_pin: RpmMutex,
+    pwm_channel: Arc<Mutex<Pwm>>,
     rpm_pin: Arc<RwLock<InputPin>>,
     _fan_setting: FanSetting,
     feedback_task: Option<JoinHandle<()>>,
@@ -40,12 +37,12 @@ impl zone::air::Fan for PwmFan {
         Ok(*self.rpm.read())
     }
     fn to_high(&self) -> Result<(), Box<dyn Error + '_>> {
-        println!("Fan set to high");
+        // println!("Fan set to high");
         let lock = self.pwm_channel.lock()?;
         Ok(lock.set_duty_cycle(1.0)?)
     }
     fn to_low(&self) -> Result<(), Box<dyn Error + '_>> {
-        println!("Fan set to low");
+        // println!("Fan set to low");
         let lock = self.pwm_channel.lock()?;
         Ok(lock.set_duty_cycle(0.5)?)
     }
@@ -53,7 +50,7 @@ impl zone::air::Fan for PwmFan {
         &self,
         duty_cycle: f64,
     ) -> Result<(), Box<dyn Error + '_>> {
-        println!("Fan set to {:?}", &duty_cycle);
+        // println!("Fan set to {:?}", &duty_cycle);
         let lock = self.pwm_channel.lock()?;
         Ok(lock.set_duty_cycle(duty_cycle)?)
     }
@@ -110,6 +107,7 @@ impl PwmFan {
     }
  
     // Uses poll interrupt
+    #[allow(unused)]
     fn fan_feedback(
         &mut self,
         tx: broadcast::Sender<(u8, Option<f32>)>,
@@ -120,9 +118,9 @@ impl PwmFan {
         let mut pulse_duration: Duration = pulse_start.elapsed();
         let mut fan_rpm: Option<f32> = Default::default();
         let mut current = self.rpm.clone();
+        let cancel = self.cancel.clone();
 
         let id = self.id;
-        // let mut previous: Option<f32> = Default::default();
         Ok(tokio::spawn(async move {
             loop {
                 let mut fan_pulse_detected = true;
@@ -182,14 +180,15 @@ impl PwmFan {
                         }
                     }
                 }
-                // previous = fan_rpm;
                 *current.write() = fan_rpm;
+                if cancel.is_cancelled() {break}
                 tokio::time::sleep(Duration::from_secs(DELAY_FAN_1)).await;
             }
         }))
     }
 
     // Uses async interrupt
+    #[allow(unused)]
     fn fan_feedback2(
         &mut self,
         tx: broadcast::Sender<(u8, Option<f32>)>,
@@ -197,7 +196,7 @@ impl PwmFan {
         let id = self.id;
         let cancel = self.cancel.clone();
         let rpm_pin = self.rpm_pin.clone();
-        let mut current = self.rpm.clone();
+        let current = self.rpm.clone();
 
         let mut pulse_start: Instant = Instant::now();
         let mut pulse_duration: Duration = pulse_start.elapsed();
