@@ -109,9 +109,6 @@ impl Manager {
                     }
                     Some(data) = ops_rx.syslog.recv() => {
                         if true {
-                            // let now = OffsetDateTime::now_utc().to_offset(TIME_OFFSET);
-                            // println!("{} {:?}", now.format(&Rfc2822).expect("Time formatting error"), &data);
-                            // println!("{} {:?}", format_time(now), &data);
                             println!("{}",  &data);
                         }
                     }
@@ -133,6 +130,16 @@ impl Manager {
                 };
             }
         });
+
+        // Indicators and textdisplay are handled with different alternatives, uncertain what is preferable.  
+        // Indicators: Log messages handler catches status-updates and runs an update-method. 
+        // TextDisplay: Subscribes to zonestatus and handles updates there. 
+
+        // Start text display
+        self.display.init(
+            self.zone_tx.zonestatus.subscribe(),
+            self.ops_tx.syslog.clone(),
+        );
 
         // Calibrate arm
         {
@@ -175,18 +182,6 @@ impl Manager {
                 };
             }
         });
-
-        // Indicators and textdisplay are handled with different alternatives, uncertain what is preferable.  
-        // Indicators: Log messages handler catches status-updates and runs an update-method. 
-        // TextDisplay: Subscribes to zonestatus and handles updates there. 
-
-        // Start indicator display (not here)
-
-        // Start text display
-        self.display.init(
-            self.zone_tx.zonestatus.subscribe(),
-            self.ops_tx.syslog.clone(),
-        );
 
         /// Start action messages handler
         let to_log = self.ops_tx.syslog.clone();
@@ -281,27 +276,9 @@ impl Manager {
             to_log
                 .send(SysLog::new(format!("Spawned position finder")))
                 .await;
-            // let mut arm_o: Option<Arc<&(dyn Arm + '_)>> = None;
-            // let arm: Arc<&(dyn Arm + '_)>;
             {
+                // Lock house during this to queue watering commands
                 let mut lock = house.lock().await;
-                // for z in lock.zones() {
-                //     match z {
-                //         Zone::Arm {
-                //             id,
-                //             interface,
-                //             ..
-                //         } if id == &arm_id => {
-                //         // } if id == &zid => {  // Calling Arm with non-existing id (like 2) leads to interesting panics, look to make that more resilient later
-                //             arm_o = Some(Arc::new(interface.arm.as_deref().expect(&format!("Arm Zone {} not found", &arm_id))));
-                //         }
-                //         _ => {}
-                //     }
-                // }
-                // if arm_o.is_none() { eprintln!("arm_o was none"); return RcModeExit::ElseExit }
-                // else {
-                //     arm = arm_o.unwrap();
-                // } //expect("Zone not found");
                 loop {
                     tokio::select! {
                         Some(data) = rc_rx.recv() => {
@@ -387,9 +364,7 @@ impl Manager {
                     .send(SysLog::new(
                         format!("Selected position: {:?}", &pos)))
                     .await;
-                // println!("Req house lock for set water pos");
                 self.house.lock().await.set_water_position(water_id, pos);
-                // println!("Water pos NOT set");
                 Some(pos)
             }
             Some(RcModeExit::Cancel) => {
@@ -473,7 +448,7 @@ impl Manager {
 }
 
 /// Perform watering
-// SHould this be in zone::water module?
+// Should this be in zone::water module?
 async fn watering(
     water_id: u8,
     settings: crate::zone::water::Settings,
