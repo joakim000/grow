@@ -14,15 +14,13 @@ use rppal::gpio::{Gpio, Trigger, Level, InputPin};
 use rppal::pwm::Pwm;
 use grow::zone::air::FanSetting;
 use std::sync::Arc;
-// use tokio::sync::Mutex;
-use std::sync::Mutex;
+use parking_lot::Mutex;
 use parking_lot::RwLock;
 use super::conf::*;
 
 #[allow(unused)]
 pub struct PwmFan {
     id: u8,
-    // pwm_channel: Pwm,
     pwm_channel: Arc<Mutex<Pwm>>,
     rpm_pin: Arc<RwLock<InputPin>>,
     _fan_setting: FanSetting,
@@ -38,12 +36,12 @@ impl zone::air::Fan for PwmFan {
     }
     fn to_high(&self) -> Result<(), Box<dyn Error + '_>> {
         // println!("Fan set to high");
-        let lock = self.pwm_channel.lock()?;
+        let lock = self.pwm_channel.lock();
         Ok(lock.set_duty_cycle(1.0)?)
     }
     fn to_low(&self) -> Result<(), Box<dyn Error + '_>> {
         // println!("Fan set to low");
-        let lock = self.pwm_channel.lock()?;
+        let lock = self.pwm_channel.lock();
         Ok(lock.set_duty_cycle(0.5)?)
     }
     fn set_duty_cycle(
@@ -51,7 +49,7 @@ impl zone::air::Fan for PwmFan {
         duty_cycle: f64,
     ) -> Result<(), Box<dyn Error + '_>> {
         // println!("Fan set to {:?}", &duty_cycle);
-        let lock = self.pwm_channel.lock()?;
+        let lock = self.pwm_channel.lock();
         Ok(lock.set_duty_cycle(duty_cycle)?)
     }
     // TODO: return result
@@ -245,16 +243,16 @@ impl PwmFan {
                 // println!("Received fansetting: {:?}", data);
                 match data {
                     FanSetting::Off => {
-                        let _ = pwm.lock().unwrap().set_duty_cycle(0.0);
+                        let _ = pwm.lock().set_duty_cycle(0.0);
                     }
                     FanSetting::Low => {
-                        let _ = pwm.lock().unwrap().set_duty_cycle(0.2);
+                        let _ = pwm.lock().set_duty_cycle(0.2);
                     }
                     FanSetting::Medium => {
-                        let _ = pwm.lock().unwrap().set_duty_cycle(0.5);
+                        let _ = pwm.lock().set_duty_cycle(0.5);
                     }
                     FanSetting::High => {
-                        let _ = pwm.lock().unwrap().set_duty_cycle(1.0);
+                        let _ = pwm.lock().set_duty_cycle(1.0);
                     }
                 }
                 // println!("Current duty cycle: {:?}", pwm.lock().unwrap().duty_cycle());
