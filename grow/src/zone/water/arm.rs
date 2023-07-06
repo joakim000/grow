@@ -178,18 +178,52 @@ impl Runner {
         let mut rx_axis_y = self.tx_axis_y.subscribe();
         let mut rx_axis_z = self.tx_axis_z.subscribe();
         let mut rx_control = self.tx_control.subscribe();
+        let to_arm = self.cmd_sender();
         let status = self.status.clone();
         self.task = tokio::spawn(async move {
-            println!("Spawned arm runner");
+            // println!("Spawned arm runner");
+            
+            // let mut started = Started::new();
+            let mut started = (false, false, false);      
+            println!("Hej hopp 5");
             loop {
                 tokio::select! {
+                    // Ok(data) = rx_axis_x.recv() => {
+                    //     if (data.0 == 0) & *started.x.read() { 
+                    //         to_arm.send(ArmCmd::StopX);
+                    //         *started.x.write() = false; 
+                    //         println!("Stopped X"); }
+                    //     if data.0 != 0 { 
+                    //         started.set_x(); 
+                    //         println!("Set X"); }
+                    //     status.write().pos_x = data.1;
+                    //     println!("\tX:{:?} ", data);
+                    // }
                     Ok(data) = rx_axis_x.recv() => {
+                        if (data.0 == 0) & started.0 { 
+                            let _ = to_arm.send(ArmCmd::StopX);
+                            started.0 = false; 
+                            // println!("Stopped X"); 
+                        }
+                        if (data.0 != 0) & !started.0 { 
+                            started.0 = true; 
+                            // println!("Set X"); 
+                        }
                         status.write().pos_x = data.1;
                         // println!("\tX:{:?} ", data);
                     }
                     Ok(data) = rx_axis_y.recv() => {
-                        status.write().pos_y = data.1;
-                        // println!("\tY:{:?} ", data);
+                        if (data.0 == 0) & started.1 { 
+                            let _ = to_arm.send(ArmCmd::StopY);
+                            started.1 = false; 
+                            // println!("Stopped Y"); 
+                        }
+                        if (data.0 != 0) & !started.1 { 
+                            started.1 = true; 
+                            // println!("Set Y"); 
+                        }
+                        status.write().pos_x = data.1;
+                        // println!("\tX:{:?} ", data);
                     }
                     Ok(data) = rx_axis_z.recv() => {
                         status.write().pos_z = data.1;
@@ -201,5 +235,35 @@ impl Runner {
                 };
             }
         });
+    }
+}
+
+struct Started {
+    x: Arc<RwLock<bool>>,
+    // xq: Arc<RwLock<bool>>,
+    xq: bool,
+    y: bool,
+}
+impl Started {
+    fn new() -> Self {
+        Self {
+            x: Arc::new(RwLock::new(false)),
+            xq: false,
+            y: false,
+        }
+    }
+    fn set_x(&mut self) {
+        println!("xq:{} x_set:{}", self.xq, *self.x.read());
+        if !(self.xq) & !(*self.x.read()) { 
+            self.xq = true;
+            let x = self.x.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                *x.write() = true;
+                println!("X is set");
+            });
+            self.xq = false;
+        }
+        else {println!("Set X skipped") }
     }
 }
