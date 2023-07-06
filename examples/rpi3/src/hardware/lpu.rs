@@ -6,7 +6,6 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 
 use tokio::task::JoinHandle;
-// use std::sync::Mutex;
 use core::error::Error;
 use parking_lot::RwLock;
 
@@ -470,7 +469,6 @@ impl BrickArm {
     pub async fn new(id: u8, hub: HubMutex) -> Self {
         let device_x: IoDevice;
         let device_y: IoDevice;
-        // let hub_channels: lego_powered_up::hubs::Channels;
         {
             let lock = hub.lock().await;
             device_x = lock
@@ -479,7 +477,6 @@ impl BrickArm {
             device_y = lock
                 .io_from_port(ARM_EXTENSION_ADDR)
                 .expect("Error accessing LPU device");
-            // hub_channels = lock.channels().clone();
         }
         Self {
             id,
@@ -490,7 +487,6 @@ impl BrickArm {
             feedback_task: None,
             cmd_task: None,
             cancel: CancellationToken::new(),
-            // hub_channels,
         }
     }
     async fn arm_cmd(
@@ -582,8 +578,6 @@ impl BrickArm {
             .motor_combined_sensor_enable(1, 2)
             .await
             .unwrap();
-        // let mut rx_cmdfb =
-        //     self.hub_channels.commandfeedback_sender.as_ref().unwrap().subscribe();
         let (mut rx_control_x, _control_x_task) = self
             .device_x
             .cmd_feedback_handler()
@@ -774,7 +768,6 @@ impl LpuHub {
                             } if payload == AlertPayload::Alert => {
                                 let _ = tx.send(( id, DisplayStatus::new(Indicator::Red, Some(alert_type.to_string())) ));
                             },
-
                             HubNotification {
                                 hub_property:
                                     Some(HubProperty {
@@ -785,12 +778,8 @@ impl LpuHub {
                                     ..
                             } if operation == HubPropertyOperation::UpdateUpstream => {
                                 match property {
-                                    HubPropertyValue::Button(_state) =>  {
-
-                                    }
-                                    HubPropertyValue::BatteryType(_t) => {
-
-                                    }
+                                    HubPropertyValue::Button(_state) =>  { }
+                                    HubPropertyValue::BatteryType(_t) => { }
                                     HubPropertyValue::BatteryVoltage(v) => {
                                         if v < 15 {
                                             let _ = tx.send(( id, DisplayStatus::new(Indicator::Red, Some( format!("Battery: {}%", v) )) ));
@@ -801,14 +790,10 @@ impl LpuHub {
                                         else {
                                             let _ = tx.send(( id, DisplayStatus::new(Indicator::Green, Some( format!("Battery: {}%", v) )) ));
                                         }
-
                                     }
-                                    HubPropertyValue::Rssi(_signal) => {
-
-                                    }
+                                    HubPropertyValue::Rssi(_signal) => { }
                                     _ => {}
                                 }
-
                             }
                             _ => {}
                         }
