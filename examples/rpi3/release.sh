@@ -16,6 +16,6 @@ readonly SOURCE_PATH=./target/${TARGET_ARCH}/release/${PACKAGE}
 
 # cargo build --target=${TARGET_ARCH} ${FEATURE_FLAG} ${FEATURES}
 cargo build --target=${TARGET_ARCH} --workspace --release
-scp ${SOURCE_PATH} ${TARGET_HOST}:${TARGET_PATH}
+scp ${SOURCE_PATH} ${TARGET_HOST}:${TARGET_PATH}/${PACKAGE}_rel
 
 
