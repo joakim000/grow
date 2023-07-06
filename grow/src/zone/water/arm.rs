@@ -240,7 +240,6 @@ impl Runner {
 
 struct Started {
     x: Arc<RwLock<bool>>,
-    // xq: Arc<RwLock<bool>>,
     xq: bool,
     y: bool,
 }

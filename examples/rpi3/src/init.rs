@@ -38,7 +38,6 @@ pub async fn init(cancel: CancellationToken)  -> (HouseMutex, ManagerMutex) {
 pub async fn house_hardware_init(
     mut house: House,
     cancel: CancellationToken,
-// ) -> (HouseMutex, ManagerMutex) {
 ) -> (House,  Arc<TokioMutex<PoweredUp>>) {
     let pu = Arc::new(TokioMutex::new(
         PoweredUp::init()
@@ -123,13 +122,13 @@ pub async fn manager_hardware_init(
     pu: Arc<TokioMutex<PoweredUp>>,
 ) -> Manager {
     let manager = Manager::new(
-        house, //_mutex.clone(),
+        house, 
         Box::new(hardware::regshift_leds::Shiftreg::new(cancel.clone())),
         Box::new(hardware::ssd1306::Oled::new(cancel.clone())),
         Box::new(hardware::lpu_remote::LpuRemote::new(pu, cancel.clone())),
         Box::new(hardware::pushbuttons::PushButtons::new(cancel.clone())),
-        ops_tx, //.clone(),
-        zone_tx, //.clone(),
+        ops_tx,
+        zone_tx,
     );
  
     manager

@@ -62,7 +62,7 @@ impl Oled {
         let mut i2c = I2c::with_bus(SSD1306_BUS).expect("I2C bus not found");
         let _ = i2c.set_slave_address(SSD1306_ADDR);
         println!("i2c bus: {:#?}", i2c.bus());
-        println!("i2c speed: {:#?}", i2c.clock_speed());
+        // println!("i2c speed: {:#?}", i2c.clock_speed());
 
         let interface = I2CDisplayInterface::new(i2c);
         let mut display = Ssd1306::new(

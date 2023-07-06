@@ -31,7 +31,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // .server_addr(([127, 0, 0, 1], 5555))
     // .server_addr(([192, 168, 0, 106], 9090))
     // .init();
-    // println!("Hej hopp!");
 
     let (shutdown_send, mut shutdown_recv) = mpsc::unbounded_channel::<bool>();
     let cancel_token = CancellationToken::new();

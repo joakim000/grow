@@ -13,7 +13,6 @@ pub struct PushButtons {
     button_handler: Option<JoinHandle<()>>,
     cancel: CancellationToken,
 }
-// #[async_trait]
 impl ButtonPanel for PushButtons {
     fn init(
         &mut self,

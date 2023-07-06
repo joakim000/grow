@@ -16,7 +16,7 @@ pub mod pwmfan;
 /// 74HC595 with 8 connected LEDs
 pub mod regshift_leds;
 
-// Some GPIO momentary buttons
+// Some momentary buttons (direct GPIO)
 pub mod pushbuttons;
 
 /// Hardware config
