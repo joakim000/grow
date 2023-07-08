@@ -269,6 +269,7 @@ impl Manager {
             Ok(_) => {},
             Err(e) => {
                 eprintln!("Remote init error: {}", e);
+                cancel.cancel();
                 // to_log
                 // .send(SysLog::new(format!(
                 //     "Remote init error: {}", e 
