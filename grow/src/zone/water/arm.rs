@@ -238,31 +238,31 @@ impl Runner {
     }
 }
 
-struct Started {
-    x: Arc<RwLock<bool>>,
-    xq: bool,
-    y: bool,
-}
-impl Started {
-    fn new() -> Self {
-        Self {
-            x: Arc::new(RwLock::new(false)),
-            xq: false,
-            y: false,
-        }
-    }
-    fn set_x(&mut self) {
-        println!("xq:{} x_set:{}", self.xq, *self.x.read());
-        if !(self.xq) & !(*self.x.read()) { 
-            self.xq = true;
-            let x = self.x.clone();
-            tokio::spawn(async move {
-                tokio::time::sleep(Duration::from_millis(500)).await;
-                *x.write() = true;
-                println!("X is set");
-            });
-            self.xq = false;
-        }
-        else {println!("Set X skipped") }
-    }
-}
+// struct Started {
+//     x: Arc<RwLock<bool>>,
+//     xq: bool,
+//     y: bool,
+// }
+// impl Started {
+//     fn new() -> Self {
+//         Self {
+//             x: Arc::new(RwLock::new(false)),
+//             xq: false,
+//             y: false,
+//         }
+//     }
+//     fn set_x(&mut self) {
+//         println!("xq:{} x_set:{}", self.xq, *self.x.read());
+//         if !(self.xq) & !(*self.x.read()) { 
+//             self.xq = true;
+//             let x = self.x.clone();
+//             tokio::spawn(async move {
+//                 tokio::time::sleep(Duration::from_millis(500)).await;
+//                 *x.write() = true;
+//                 println!("X is set");
+//             });
+//             self.xq = false;
+//         }
+//         else {println!("Set X skipped") }
+//     }
+// }
