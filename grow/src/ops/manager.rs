@@ -265,8 +265,17 @@ impl Manager {
         let (rc_tx, mut rc_rx) = mpsc::channel::<RcInput>(64);
         let cancel = CancellationToken::new();
         let guard = cancel.clone().drop_guard();
-        let _ = self.remote.init(rc_tx, cancel.clone()).await;
-
+        match self.remote.init(rc_tx, cancel.clone()).await {
+            Ok(_) => {},
+            Err(e) => {
+                eprintln!("Remote init error: {}", e);
+                // to_log
+                // .send(SysLog::new(format!(
+                //     "Remote init error: {}", e 
+                // )))
+                // .await;
+            }
+        }
         let house = self.house.clone();
 
         // Move: to_log, to_arm, rc_rx, house
