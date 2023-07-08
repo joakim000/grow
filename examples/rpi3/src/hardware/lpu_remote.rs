@@ -124,17 +124,10 @@ impl LpuRemote {
             loop {
                 tokio::select! {
                     _ = main_cancel.cancelled() => {
-                        match hub.lock().await.disconnect().await {
-                            Ok(_) => { println!("LPU remote disconnected"); }
-                            Err(e) => { println!("LPU remote disconnect error: {:?}", e); }
+                        match hub.lock().await.shutdown().await {
+                            Ok(_) => { println!("LPU remote off"); }
+                            Err(e) => { println!("LPU remote shutdown error: {:?}", e); }
                         }
-                        break;
-                    }
-                    _ = main_cancel.cancelled() => {
-                        // match hub.lock().await.shutdown().await {
-                        //     Ok(_) => { println!("LPU remote off"); }
-                        //     Err(e) => { println!("LPU remote shutdown error: {:?}", e); }
-                        // }
                         match hub.lock().await.disconnect().await {
                             Ok(_) => { println!("LPU remote disconnected"); }
                             Err(e) => { println!("LPU remote disconnect error: {:?}", e); }
@@ -143,15 +136,15 @@ impl LpuRemote {
                     }
                     _ = tx.closed() => {
                         // Managers' RC receiver dropped, shutdown RC hub and exit RC feedback task
-                        hub
-                        .lock()
-                        .await
                         // Note: bluez gets confused if we shutdown the peripheral (lpu hub) rather than disconnect from central side
-                        // .hub_action(HubAction::Shutdown)
-                        // .expect("Error on hub shutdown action");
-                        .disconnect().await
-                        .expect("Error on hub disconnect");
-                        println!("RC hub disconnected");
+                        match hub.lock().await.shutdown().await {
+                            Ok(_) => { println!("LPU remote off"); }
+                            Err(e) => { println!("LPU remote shutdown error: {:?}", e); }
+                        }
+                        match hub.lock().await.disconnect().await {
+                            Ok(_) => { println!("LPU remote disconnected"); }
+                            Err(e) => { println!("LPU remote disconnect error: {:?}", e); }
+                        }
                         break;
                     }
 
