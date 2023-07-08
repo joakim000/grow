@@ -88,7 +88,7 @@ impl House {
                         .thermo
                         .as_mut()
                         .unwrap()
-                        .init(runner.thermo_feedback_sender());
+                        .init(runner.thermo_feedback_sender()).await;
                     runner.run(
                         settings.clone(),
                         zone_channels.clone(),
@@ -509,7 +509,7 @@ impl House {
     }
 
     /// Pump commands
-    pub fn pump_run(&mut self, zid: u8) -> Result<(), Box<dyn Error + '_>> {
+    pub async fn pump_run(&mut self, zid: u8) -> Result<(), Box<dyn Error + '_>> {
         for z in self.zones() {
             match z {
                 Zone::Pump { id, interface, .. } if id == &zid => {
@@ -517,14 +517,14 @@ impl House {
                         .pump
                         .as_ref()
                         .expect("Interface not found")
-                        .run()
+                        .run().await
                 }
                 _ => continue,
             }
         }
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
-    pub fn pump_stop(&mut self, zid: u8) -> Result<(), Box<dyn Error + '_>> {
+    pub async fn pump_stop(&mut self, zid: u8) -> Result<(), Box<dyn Error + '_>> {
         for z in self.zones() {
             match z {
                 Zone::Pump { id, interface, .. } if id == &zid => {
@@ -532,7 +532,7 @@ impl House {
                         .pump
                         .as_ref()
                         .expect("Interface not found")
-                        .stop()
+                        .stop().await
                 }
                 _ => continue,
             }
@@ -561,7 +561,7 @@ impl House {
     }
 
     /// Arm commands
-    pub fn arm_goto(
+    pub async fn arm_goto(
         &mut self,
         zid: u8,
         x: i32,
@@ -575,14 +575,14 @@ impl House {
                         .arm
                         .as_ref()
                         .expect("Interface not found")
-                        .goto(x, y, z);
+                        .goto(x, y, z).await;
                 }
                 _ => continue,
             }
         }
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
-    pub fn arm_goto_x(
+    pub async fn arm_goto_x(
         &mut self,
         zid: u8,
         x: i32,
@@ -594,14 +594,14 @@ impl House {
                         .arm
                         .as_ref()
                         .expect("Interface not found")
-                        .goto_x(x)
+                        .goto_x(x).await
                 }
                 _ => continue,
             }
         }
         return Err(Box::new(ZoneError::new("Zone not found")));
     }
-    pub fn arm_goto_y(
+    pub async fn arm_goto_y(
         &mut self,
         zid: u8,
         y: i32,
@@ -613,7 +613,7 @@ impl House {
                         .arm
                         .as_ref()
                         .expect("Interface not found")
-                        .goto_y(y)
+                        .goto_y(y).await
                 }
                 _ => continue,
             }

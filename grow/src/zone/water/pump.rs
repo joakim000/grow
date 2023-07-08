@@ -65,9 +65,9 @@ pub trait Pump: Send + Sync {
         tx_pump: tokio::sync::broadcast::Sender<(u8, (i8, i32))>,
     ) -> Result<(), Box<dyn Error>>;
     async fn run_for_secs(&self, secs: u16) -> Result<(), Box<dyn Error>>;
-    fn run(&self) -> Result<(), Box<dyn Error>>;
-    fn stop(&self) -> Result<(), Box<dyn Error>>;
-    fn float(&self) -> Result<(), Box<dyn Error>>;
+    async fn run(&self) -> Result<(), Box<dyn Error>>;
+    async fn stop(&self) -> Result<(), Box<dyn Error>>;
+    async fn float(&self) -> Result<(), Box<dyn Error>>;
 }
 impl Debug for dyn Pump {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {

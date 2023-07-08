@@ -165,10 +165,10 @@ impl Manager {
                         println!("{:?}", &data);
                         match data {
                             ButtonInput::OneUp => {
-                                house.lock().await.pump_stop(1);
+                                house.lock().await.pump_stop(1).await;
                             }
                             ButtonInput::OneDown => {
-                                house.lock().await.pump_run(1);
+                                house.lock().await.pump_run(1).await;
                             }
                             ButtonInput::TwoUp => {
                             }
@@ -265,19 +265,7 @@ impl Manager {
         let (rc_tx, mut rc_rx) = mpsc::channel::<RcInput>(64);
         let cancel = CancellationToken::new();
         let guard = cancel.clone().drop_guard();
-        // let _ = self.remote.init(rc_tx, cancel.clone()).await;
-
-        match self.remote.init(rc_tx, cancel.clone()).await {
-            Ok(_) => {},
-            Err(e) => {
-                eprintln!("Remote init error: {}", e);
-                // to_log
-                // .send(SysLog::new(format!(
-                //     "Remote init error: {}", e 
-                // )))
-                // .await;
-            }
-        }
+        let _ = self.remote.init(rc_tx, cancel.clone()).await;
 
         let house = self.house.clone();
 
@@ -287,7 +275,7 @@ impl Manager {
                 .send(SysLog::new(format!("Spawned position finder")))
                 .await;
             {
-                // Lock house during this to queue watering commands
+                // Lock house during this to queue watering (and other future) commands
                 let mut lock = house.lock().await;
                 loop {
                     tokio::select! {

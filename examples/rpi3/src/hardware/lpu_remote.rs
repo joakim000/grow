@@ -22,7 +22,7 @@ pub struct LpuRemote {
     hub: Option<ConnectedHub>,
     pu: Arc<TokioMutex<PoweredUp>>,
     _feedback_task: Option<JoinHandle<()>>,
-    main_cancel: CancellationToken,
+    position_finder_cancel: CancellationToken,
 }
 #[async_trait]
 impl RemoteControl for LpuRemote {
@@ -63,7 +63,7 @@ impl RemoteControl for LpuRemote {
             // println!("RC device: {:?}", rc);
         }
         println!("Setting up device and channel");
-        let (rx_rc, _rc_task) = rc.remote_connect_with_green()?;
+        let (rx_rc, _rc_task) = rc.remote_connect_with_green().await?;
         println!("Starting feedback task");
 
         let hub_clone =
@@ -107,7 +107,7 @@ impl LpuRemote {
             pu,
             hub: None,
             _feedback_task: None,
-            main_cancel: cancel,
+            position_finder_cancel: cancel,
         }
     }
     fn rc_feedback(
@@ -118,7 +118,7 @@ impl LpuRemote {
         hub: HubMutex,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let mut red_down = (false, false);
-        let main_cancel = self.main_cancel.clone();
+        let main_cancel = self.position_finder_cancel.clone();
         Ok(tokio::spawn(async move {
             // println!("Spawned RC feedback");
             loop {

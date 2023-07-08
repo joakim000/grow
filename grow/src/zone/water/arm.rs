@@ -102,16 +102,16 @@ pub trait Arm: Send + Sync {
         tx_control: ControlFeedbackTx,
         rx_cmd: tokio::sync::broadcast::Receiver<ArmCmd>,
     ) -> Result<(), Box<dyn Error>>;
-    fn goto(&self, x: i32, y: i32, z: i32) -> Result<(), Box<dyn Error>>;
-    fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>>;
-    fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>>;
+    async fn goto(&self, x: i32, y: i32, z: i32) -> Result<(), Box<dyn Error>>;
+    async fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>>;
+    async fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>>;
     // async fn confirm(&self, x: i32, y: i32, z: i32, delta: u32) -> Result<bool, Box<dyn Error>>;
     // fn confirm(&self, x: i32, y: i32, z:i32, acceptable_delta: u32) -> Result<( bool, ( i32, i32, i32 ) ), Box<dyn Error>>;
-    fn stop(&self) -> Result<(), Box<dyn Error>>;
-    fn start_x(&self, speed: i8) -> Result<(), Box<dyn Error>>;
-    fn stop_x(&self) -> Result<(), Box<dyn Error>>;
-    fn start_y(&self, speed: i8) -> Result<(), Box<dyn Error>>;
-    fn stop_y(&self) -> Result<(), Box<dyn Error>>;
+    async fn stop(&self) -> Result<(), Box<dyn Error>>;
+    async fn start_x(&self, speed: i8) -> Result<(), Box<dyn Error>>;
+    async fn stop_x(&self) -> Result<(), Box<dyn Error>>;
+    async fn start_y(&self, speed: i8) -> Result<(), Box<dyn Error>>;
+    async fn stop_y(&self) -> Result<(), Box<dyn Error>>;
     async fn update_pos(&self) -> Result<(), Box<dyn Error>>;
     fn position(&self) -> Result<(i32, i32, i32), Box<dyn Error>>;
     async fn calibrate(&self) -> Result<(i32, i32, i32), Box<dyn Error>>;
