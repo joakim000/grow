@@ -88,9 +88,10 @@ impl Debug for dyn Fan {
         write!(f, "Fan: {{{}}}", self.id())
     }
 }
+#[async_trait]
 pub trait Thermometer: Send {
     fn id(&self) -> u8;
-    fn init(
+    async fn init(
         &mut self,
         tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f64>)>,
     ) -> Result<(), Box<dyn Error>>;

@@ -123,7 +123,7 @@ impl Vsensor {
         let id = self.id;
         let level = self.level.clone();
         let (mut rx_color, _color_task) =
-            self.device.visionsensor_color().unwrap();
+            self.device.visionsensor_color().await.unwrap();
         Ok(tokio::spawn(async move {
             // println!("Spawned tank feedback");
             while let Ok(data) = rx_color.recv().await {
@@ -172,23 +172,23 @@ impl zone::water::pump::Pump for BrickPump {
     }
     async fn run_for_secs(&self, secs: u16) -> Result<(), Box<dyn Error>> {
         // println!("LPU got cmd: run_for_secs({}", &secs);
-        self.device.start_speed(50, 100)?;
+        self.device.start_speed(50, 100).await?;
         sleep(Duration::from_secs(secs as u64)).await;
-        self.device.start_power(Power::Float)?;
+        self.device.start_power(Power::Float).await?;
         Ok(())
     }
-    fn run(&self) -> Result<(), Box<dyn Error>> {
+    async fn run(&self) -> Result<(), Box<dyn Error>> {
         // println!("LPU got cmd: RUN");
-        self.device.start_speed(50, 100)?;
+        self.device.start_speed(50, 100).await?;
         Ok(())
     }
-    fn stop(&self) -> Result<(), Box<dyn Error>> {
+    async fn stop(&self) -> Result<(), Box<dyn Error>> {
         // println!("LPU got cmd: STOP");
-        self.device.start_power(Power::Brake)?;
+        self.device.start_power(Power::Brake).await?;
         Ok(())
     }
-    fn float(&self) -> Result<(), Box<dyn Error>> {
-        self.device.start_power(Power::Float)?;
+    async fn float(&self) -> Result<(), Box<dyn Error>> {
+        self.device.start_power(Power::Float).await?;
         Ok(())
     }
     async fn init(
@@ -258,7 +258,7 @@ impl BrickPump {
         let (mut rx_motor, _motor_sensor_task) = self
             .device
             .enable_8bit_sensor(modes::InternalMotorTacho::SPEED, 1)
-            // .await
+            .await
             .unwrap();
         Ok(tokio::spawn(async move {
             // println!("Spawned pump feedback");
@@ -311,18 +311,18 @@ impl zone::water::arm::Arm for BrickArm {
         );
         Ok(())
     }
-    fn goto(&self, x: i32, y: i32, _z: i32) -> Result<(), Box<dyn Error>> {
+    async fn goto(&self, x: i32, y: i32, _z: i32) -> Result<(), Box<dyn Error>> {
         self.device_x
-            .goto_absolute_position(x, 20, 20, EndState::Brake)?;
+            .goto_absolute_position(x, 20, 20, EndState::Brake).await?;
         // .await?;
         self.device_y
-            .goto_absolute_position(y, 50, 20, EndState::Brake)?;
+            .goto_absolute_position(y, 50, 20, EndState::Brake).await?;
         // .await?;
         Ok(())
     }
-    fn stop(&self) -> Result<(), Box<dyn Error>> {
-        self.device_x.start_power(Power::Brake)?;
-        self.device_y.start_power(Power::Brake)?;
+    async fn stop(&self) -> Result<(), Box<dyn Error>> {
+        self.device_x.start_power(Power::Brake).await?;
+        self.device_y.start_power(Power::Brake).await?;
         Ok(())
     }
 
@@ -331,54 +331,54 @@ impl zone::water::arm::Arm for BrickArm {
             modes::TechnicLargeLinearMotorTechnicHub::SPEED,
             1,
             true,
-        )?;
+        ).await?;
         // sleep(Duration::from_millis(100)).await;
         self.device_y.device_mode(
             modes::TechnicLargeLinearMotorTechnicHub::SPEED,
             1,
             true,
-        )?;
+        ).await?;
         sleep(Duration::from_millis(100)).await;
         self.device_x.device_mode(
             modes::TechnicLargeLinearMotorTechnicHub::POS,
             1,
             true,
-        )?;
+        ).await?;
         // sleep(Duration::from_millis(100)).await;
         self.device_y.device_mode(
             modes::TechnicLargeLinearMotorTechnicHub::POS,
             1,
             true,
-        )?;
+        ).await?;
 
         Ok(())
     }
-    fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>> {
+    async fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>> {
         self.device_x
-            .goto_absolute_position(x, 50, 20, EndState::Brake)?;
+            .goto_absolute_position(x, 50, 20, EndState::Brake).await?;
         // .await?;
         Ok(())
     }
-    fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>> {
+    async fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>> {
         self.device_y
-            .goto_absolute_position(y, 100, 20, EndState::Brake)?;
+            .goto_absolute_position(y, 100, 20, EndState::Brake).await?;
         // .await?;
         Ok(())
     }
-    fn start_x(&self, speed: i8) -> Result<(), Box<dyn Error>> {
-        self.device_x.start_speed(-speed, 15)?;
+    async fn start_x(&self, speed: i8) -> Result<(), Box<dyn Error>> {
+        self.device_x.start_speed(-speed, 15).await?;
         Ok(())
     }
-    fn stop_x(&self) -> Result<(), Box<dyn Error>> {
-        self.device_x.start_power(Power::Brake)?;
+    async fn stop_x(&self) -> Result<(), Box<dyn Error>> {
+        self.device_x.start_power(Power::Brake).await?;
         Ok(())
     }
-    fn start_y(&self, speed: i8) -> Result<(), Box<dyn Error>> {
-        self.device_y.start_speed(speed, 60)?;
+    async fn start_y(&self, speed: i8) -> Result<(), Box<dyn Error>> {
+        self.device_y.start_speed(speed, 60).await?;
         Ok(())
     }
-    fn stop_y(&self) -> Result<(), Box<dyn Error>> {
-        self.device_y.start_power(Power::Brake)?;
+    async fn stop_y(&self) -> Result<(), Box<dyn Error>> {
+        self.device_y.start_power(Power::Brake).await?;
         Ok(())
     }
     fn position(&self) -> Result<(i32, i32, i32), Box<dyn Error>> {
@@ -401,19 +401,19 @@ impl zone::water::arm::Arm for BrickArm {
 
         let calibration_task_x = tokio::spawn(async move {
             let mut started = false;
-            let _ = device_x.start_speed(-20, 20);
+            let _ = device_x.start_speed(-20, 20).await;
             loop {
                 tokio::select! {
                     // If speed doesn't get over 0 in a reasonable timeframe then break. Probably already at zero-point.
                     _ = sleep(Duration::from_millis(500)) => {
                         if !started {
-                            let _ = device_x.start_power(Power::Float);
+                            let _ = device_x.start_power(Power::Float).await;
                             break;
                         }
                     }
                     Ok(data) = rx_axis_x.recv() => {
                         if started & (data.0 >= 0) {
-                            let _ = device_x.start_power(Power::Float);
+                            let _ = device_x.start_power(Power::Float).await;
                             // println!("Calib X stopped");
                             break;
                         }
@@ -427,19 +427,19 @@ impl zone::water::arm::Arm for BrickArm {
         });
         let calibration_task_y = tokio::spawn(async move {
             let mut started = false;
-            let _ = device_y.start_speed(-30, 20);
+            let _ = device_y.start_speed(-30, 20).await;
             loop {
                 tokio::select! {
                     // If speed doesn't get over 0 in a reasonable timeframe then break. Probably already at zero-point.
                     _ = sleep(Duration::from_millis(500)) => {
                         if !started {
-                            let _ = device_y.start_power(Power::Float);
+                            let _ = device_y.start_power(Power::Float).await;
                             break;
                         }
                     }
                     Ok(data) = rx_axis_y.recv() => {
                         if started & (data.0 >= 0) {
-                            let _ = device_y.start_power(Power::Float);
+                            let _ = device_y.start_power(Power::Float).await;
                             // println!("Calib Y stopped");
                             break;
                         }
@@ -502,22 +502,22 @@ impl BrickArm {
             while let Ok(data) = rx_cmd.recv().await {
                 match data {
                     ArmCmd::Stop => {
-                        let _ = device_x.start_power(Power::Brake);
-                        let _ = device_y.start_power(Power::Brake);
+                        let _ = device_x.start_power(Power::Brake).await;
+                        let _ = device_y.start_power(Power::Brake).await;
                     }
                     ArmCmd::StopX => {
-                        let _ = device_x.start_power(Power::Brake);
+                        let _ = device_x.start_power(Power::Brake).await;
                     }
                     ArmCmd::StopY => {
-                        let _ = device_y.start_power(Power::Brake);
+                        let _ = device_y.start_power(Power::Brake).await;
                     }
                     ArmCmd::Confirm => {}
                     ArmCmd::StartX { speed } => {
                         // Sign reversal on speed because gearing inverts expected movement direction
-                        let _ = device_x.start_speed(-speed, 20);
+                        let _ = device_x.start_speed(-speed, 20).await;
                     }
                     ArmCmd::StartY { speed } => {
-                        let _ = device_y.start_speed(speed, 20);
+                        let _ = device_y.start_speed(speed, 20).await;
                     }
                     ArmCmd::Goto { x, y } => {
                         let _ = device_x.goto_absolute_position(
@@ -525,15 +525,15 @@ impl BrickArm {
                             20,
                             20,
                             EndState::Brake,
-                        );
-                        // .await;
+                        )
+                        .await;
                         let _ = device_y.goto_absolute_position(
                             y,
                             20,
                             20,
                             EndState::Brake,
-                        );
-                        // .await;
+                        )
+                        .await;
                     }
                     ArmCmd::GotoX { x } => {
                         let _ = device_x.goto_absolute_position(
@@ -541,8 +541,8 @@ impl BrickArm {
                             20,
                             20,
                             EndState::Brake,
-                        );
-                        // .await;
+                        )
+                        .await;
                     }
                     ArmCmd::GotoY { y } => {
                         let _ = device_y.goto_absolute_position(
@@ -550,8 +550,8 @@ impl BrickArm {
                             20,
                             20,
                             EndState::Brake,
-                        );
-                        // .await;
+                        )
+                        .await;
                     }
                 }
             }
@@ -683,8 +683,8 @@ impl LpuHub {
 
             // Turn off hubled
             let hubled = lock.io_from_kind(IoTypeId::HubLed)?;
-            hubled.set_hubled_mode(HubLedMode::Rgb)?;
-            hubled.set_hubled_rgb(&[0u8; 3])?;
+            hubled.set_hubled_mode(HubLedMode::Rgb).await?;
+            hubled.set_hubled_rgb(&[0u8; 3]).await?;
 
             // Get channel 
             rx_hub = lock
@@ -697,56 +697,56 @@ impl LpuHub {
             let _ = lock.hub_props(
                 HubPropertyRef::Button,
                 HubPropertyOperation::EnableUpdatesDownstream,
-            )?;
+            ).await?;
             let _ = lock.hub_props(
                 HubPropertyRef::BatteryType,
                 HubPropertyOperation::EnableUpdatesDownstream,
-            )?;
+            ).await?;
             let _ = lock.hub_props(
                 HubPropertyRef::Rssi,
                 HubPropertyOperation::EnableUpdatesDownstream,
-            )?;
+            ).await?;
             let _ = lock.hub_props(
                 HubPropertyRef::BatteryVoltage,
                 HubPropertyOperation::EnableUpdatesDownstream,
-            )?;
+            ).await?;
 
             // These will not send current status when enabling updates; request single update first
             let _ = lock.hub_alerts(
                 AlertType::LowVoltage,
                 AlertOperation::RequestUpdate,
-            )?;
+            ).await?;
             let _ = lock.hub_alerts(
                 AlertType::LowVoltage,
                 AlertOperation::EnableUpdates,
-            )?;
+            ).await?;
 
             let _ = lock.hub_alerts(
                 AlertType::HighCurrent,
                 AlertOperation::RequestUpdate,
-            )?;
+            ).await?;
             let _ = lock.hub_alerts(
                 AlertType::HighCurrent,
                 AlertOperation::EnableUpdates,
-            )?;
+            ).await?;
 
             let _ = lock.hub_alerts(
                 AlertType::LowSignalStrength,
                 AlertOperation::RequestUpdate,
-            )?;
+            ).await?;
             let _ = lock.hub_alerts(
                 AlertType::LowSignalStrength,
                 AlertOperation::EnableUpdates,
-            )?;
+            ).await?;
 
             let _ = lock.hub_alerts(
                 AlertType::OverPowerCondition,
                 AlertOperation::RequestUpdate,
-            )?;
+            ).await?;
             let _ = lock.hub_alerts(
                 AlertType::OverPowerCondition,
                 AlertOperation::EnableUpdates,
-            )?;
+            ).await?;
         }
 
         let cancel_clone = self.cancel.clone();
@@ -823,16 +823,17 @@ pub struct LpuTemp {
     temperature: Arc<RwLock<f32>>,
     feedback_task: Option<JoinHandle<()>>,
 }
+#[async_trait]
 impl zone::air::Thermometer for LpuTemp {
     fn id(&self) -> u8 {
         self.id
     }
-    fn init(
+    async fn init(
         &mut self,
         tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f64>)>,
     ) -> Result<(), Box<dyn Error>> {
         self.feedback_task = Some(
-            self.temp_feedback(tx_temp)
+            self.temp_feedback(tx_temp).await
                 .expect("Error initializing feedback task"),
         );
 
@@ -862,13 +863,13 @@ impl LpuTemp {
         }
     }
 
-    fn temp_feedback(
+    async fn temp_feedback(
         &self,
         tx: broadcast::Sender<(u8, Option<f64>)>,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let id = self.id;
         let (mut rx_temp, _temp_task) =
-            self.device.enable_16bit_sensor(0x00, 5).unwrap();
+            self.device.enable_16bit_sensor(0x00, 5).await.unwrap();
         Ok(tokio::spawn(async move {
             // println!("Spawned lpu temp feedback");
             while let Ok(data) = rx_temp.recv().await {

@@ -63,7 +63,7 @@ impl RemoteControl for LpuRemote {
             // println!("RC device: {:?}", rc);
         }
         println!("Setting up device and channel");
-        let (rx_rc, _rc_task) = rc.remote_connect_with_green()?;
+        let (rx_rc, _rc_task) = rc.remote_connect_with_green().await?;
         println!("Starting feedback task");
 
         let hub_clone =

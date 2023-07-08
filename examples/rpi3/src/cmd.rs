@@ -230,7 +230,7 @@ pub fn manual_cmds(
                 _line if _line.contains("pump1run") => {
                     let m = house.clone();
                     tokio::spawn(async move {
-                        let _ = m.lock().await.pump_run(1u8);
+                        let _ = m.lock().await.pump_run(1u8).await;
                     });
                     tokio::task::yield_now().await;
                 }
@@ -238,18 +238,18 @@ pub fn manual_cmds(
                     let m = house.clone();
                     tokio::spawn(async move {
                         {
-                            let _ = m.lock().await.pump_run(1u8);
+                            let _ = m.lock().await.pump_run(1u8).await;
                         }
                         tokio::time::sleep(Duration::from_secs(3)).await;
                         {
-                            let _ = m.lock().await.pump_stop(1u8);
+                            let _ = m.lock().await.pump_stop(1u8).await;
                         }
                     });
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("ps") => {
                     {
-                        let _ = house.lock().await.pump_stop(1u8);
+                        let _ = house.lock().await.pump_stop(1u8).await;
                     }
                     tokio::task::yield_now().await;
                 }
@@ -259,14 +259,14 @@ pub fn manual_cmds(
                     print!("Arm 1 goto X > ");
                     let pos_x = getnum_i32();
                     if !pos_x.0 {continue;}
-                    let _ = house.lock().await.arm_goto_x(1u8, pos_x.1);
+                    let _ = house.lock().await.arm_goto_x(1u8, pos_x.1).await;
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("arm1y") => {
                     print!("Arm 1 goto Y > ");
                     let pos_y = getnum_i32();
                     if !pos_y.0 {continue;}
-                    let _ = house.lock().await.arm_goto_y(1u8, pos_y.1);
+                    let _ = house.lock().await.arm_goto_y(1u8, pos_y.1).await;
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("arm1") => {
@@ -276,7 +276,7 @@ pub fn manual_cmds(
                     print!("Arm 1 goto Y > ");
                     let pos_y = getnum_i32();
                     if !pos_y.0 {continue;}
-                    let _ = house.lock().await.arm_goto(1u8, pos_x.1, pos_y.1, 0);
+                    let _ = house.lock().await.arm_goto(1u8, pos_x.1, pos_y.1, 0).await;
                     tokio::task::yield_now().await;
                 }
                 _line if _line.contains("armupdate") => {

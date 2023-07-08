@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use std::sync::Arc;
 // use tokio::sync::Mutex;
 use core::error::Error;
@@ -58,6 +59,7 @@ impl zone::light::Lamp for Led {
         &self,
         state: zone::light::LampState,
     ) -> Result<(), Box<dyn Error + '_>> {
+        println!("Set lampstate called: {:?}", &state);
         match state {
             zone::light::LampState::On => {
                 let mut lock = self.adc.lock()?;
@@ -95,17 +97,20 @@ impl Led {
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let _id = self.id;
         let adc = self.adc.clone();
+        let state = self.state.clone();
         Ok(tokio::spawn(async move {
             while let Ok(data) = rx.recv().await {
-                // println!("Received lamp command: {:?}", data);
+                println!("Received lamp command: {:?}", data);
                 match data {
                     (_id, true) => {
                         let mut lock = adc.lock().unwrap();
                         let _ = lock.analog_write_byte(255);
+                        *state.write() = LampState::On;
                     }
                     (_id, false) => {
                         let mut lock = adc.lock().unwrap();
                         let _ = lock.analog_write_byte(0);
+                        *state.write() = LampState::Off;
                     }
                 }
             }
@@ -119,11 +124,12 @@ pub struct Thermistor {
     adc: AdcMutex,
     feedback_task: Option<JoinHandle<()>>,
 }
+#[async_trait]
 impl zone::air::Thermometer for Thermistor {
     fn id(&self) -> u8 {
         self.id
     }
-    fn init(
+    async fn init(
         &mut self,
         tx_temp: tokio::sync::broadcast::Sender<(u8, Option<f64>)>,
     ) -> Result<(), Box<dyn Error>> {
@@ -176,7 +182,7 @@ impl Thermistor {
                     let mut lock = adc.lock().unwrap();
                     read_result = lock.analog_read_byte(pin);
                 }
-                match read_result {
+                match read_result {    
                     Ok(raw_reading) => {
                         reading = celcius_from_byte(raw_reading.into());
                         // println!("Temp {:?}   reading {:?}   previous {:?}", &id, &reading, &previous);

@@ -165,10 +165,10 @@ impl Manager {
                         println!("{:?}", &data);
                         match data {
                             ButtonInput::OneUp => {
-                                house.lock().await.pump_stop(1);
+                                house.lock().await.pump_stop(1).await;
                             }
                             ButtonInput::OneDown => {
-                                house.lock().await.pump_run(1);
+                                house.lock().await.pump_run(1).await;
                             }
                             ButtonInput::TwoUp => {
                             }
@@ -275,7 +275,7 @@ impl Manager {
                 .send(SysLog::new(format!("Spawned position finder")))
                 .await;
             {
-                // Lock house during this to queue watering commands
+                // Lock house during this to queue watering (and other future) commands
                 let mut lock = house.lock().await;
                 loop {
                     tokio::select! {
