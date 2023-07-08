@@ -814,6 +814,7 @@ dependencies = [
  "lpu-macros",
  "num-derive",
  "num-traits",
+ "parking_lot",
  "thiserror",
  "tokio",
  "tokio-util",
