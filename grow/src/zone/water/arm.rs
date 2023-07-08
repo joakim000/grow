@@ -185,7 +185,6 @@ impl Runner {
             
             // let mut started = Started::new();
             let mut started = (false, false, false);      
-            println!("Hej hopp 5");
             loop {
                 tokio::select! {
                     // Ok(data) = rx_axis_x.recv() => {
