@@ -32,13 +32,24 @@ pub type ManagerMutex = Arc<Mutex<ops::manager::Manager>>;
 // pub const TIME_OFFSET: time::UtcOffset = time::macros::offset!(+1); // CET
 pub const TIME_OFFSET: time::UtcOffset = time::macros::offset!(+2); // CEST
 
+macro_rules! save_match {
+    ($x:ident, $y:ident, [$( $variant:tt ),+] ) => {
+       match $x {
+        $(
+        Zone::$variant {id, settings, ..} => {
+                   $y.push(ZoneSave::$variant { id:*id, settings:*settings });
+               }
+        )+
+       }
+   }
+}
+
 #[derive(Debug)]
 pub struct House {
     zones: Vec<Zone>,
     ops_tx: OpsChannelsTx,
     zone_tx: ZoneChannelsTx,
 }
-
 impl House {
     pub fn new(zone_tx: ZoneChannelsTx, ops_tx: OpsChannelsTx) -> Self {
         Self {
@@ -54,6 +65,7 @@ impl House {
             ops_tx,
         }
     }
+
     // pub fn zones(&self) -> &Vec<Zone> {
     //     &self.zones
     // }
@@ -63,7 +75,7 @@ impl House {
     pub fn zones_mut(&mut self) -> &mut Vec<Zone> {
         &mut self.zones
     }
-    // Macro candidate
+
     pub async fn init(&mut self) -> () {
         let zone_channels = self.zone_tx.clone();
         let ops_channels = self.ops_tx.clone();
@@ -205,7 +217,6 @@ impl House {
                         )
                         .await;
                     runner.run(settings.clone());
-                    // let _ = interface.arm.as_ref().unwrap().calibrate();
                     // runner.run(settings.clone(), zone_channels.clone(), ops_channels.clone() );
                 } // _ => ()
             }
@@ -233,32 +244,11 @@ impl House {
         
         Ok(())
     }
+
     pub fn save_settings(&self) -> Result<(), Box<dyn Error>> {
         let mut savedata: Vec<ZoneSave> = Vec::new();
         for zone in &self.zones {
-            match zone {
-                Zone::Water {id, settings, ..} => {
-                    savedata.push(ZoneSave::Water { id:*id, settings:*settings });
-                }
-                Zone::Air {id, settings, ..} => {
-                    savedata.push(ZoneSave::Air { id:*id, settings:*settings });
-                }
-                Zone::Light {id, settings, ..} => {
-                    savedata.push(ZoneSave::Light { id:*id, settings:*settings });
-                }
-                Zone::Aux {id, settings, ..} => {
-                    savedata.push(ZoneSave::Aux { id:*id, settings:*settings });
-                }
-                Zone::Tank {id, settings, ..} => {
-                    savedata.push(ZoneSave::Tank { id:*id, settings:*settings });
-                }
-                Zone::Pump {id, settings, ..} => {
-                    savedata.push(ZoneSave::Pump { id:*id, settings:*settings });
-                }
-                Zone::Arm {id, settings, ..} => {
-                    savedata.push(ZoneSave::Arm { id:*id, settings:*settings });
-                }
-            }
+            save_match!(zone, savedata, [Water, Air, Light, Aux, Tank, Pump, Arm]);
         }
         let writestring = serde_json::to_string_pretty(&savedata)?;
         let mut f = File::create("grow-conf.js")?;
@@ -267,7 +257,6 @@ impl House {
 
         Ok(())
     }
-
 
     pub fn get_water_settings(
         &mut self,
@@ -365,13 +354,7 @@ impl House {
     ) -> Result<f32, Box<dyn Error + '_>> {
         for z in self.zones() {
             match z {
-                Zone::Water {
-                    id,
-                    settings: _,
-                    status: _,
-                    interface,
-                    runner: _,
-                } if id == &zid => {
+                Zone::Water {id, interface, ..} if id == &zid => {
                     return Ok(interface
                         .moist
                         .as_ref()
@@ -389,13 +372,7 @@ impl House {
     ) -> Result<f32, Box<dyn Error + '_>> {
         for z in self.zones() {
             match z {
-                Zone::Light {
-                    id,
-                    settings: _,
-                    status: _,
-                    interface,
-                    runner: _,
-                } if id == &zid => {
+                Zone::Light {id, interface, ..} if id == &zid => {
                     return Ok(interface
                         .lightmeter
                         .as_ref()
