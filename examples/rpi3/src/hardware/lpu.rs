@@ -33,6 +33,7 @@ use lego_powered_up::HubMutex;
 use lego_powered_up::{ConnectedHub, IoDevice, IoTypeId, PoweredUp};
 use lego_powered_up::{HubFilter};
 use lego_powered_up::iodevice::hubled::{HubLed, HubLedMode};
+use lego_powered_up::notifications::{StartupInfo, CompletionInfo};
 
 use grow::ops::display::Indicator;
 use grow::zone;
@@ -313,11 +314,9 @@ impl zone::water::arm::Arm for BrickArm {
     }
     async fn goto(&self, x: i32, y: i32, _z: i32) -> Result<(), Box<dyn Error>> {
         self.device_x
-            .goto_absolute_position(x, 20, 20, EndState::Brake).await?;
-        // .await?;
+            .goto_absolute_position_soc(x, 20, 20, EndState::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await?;
         self.device_y
-            .goto_absolute_position(y, 50, 20, EndState::Brake).await?;
-        // .await?;
+            .goto_absolute_position_soc(y, 20, 20, EndState::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await?;
         Ok(())
     }
     async fn stop(&self) -> Result<(), Box<dyn Error>> {
@@ -355,14 +354,14 @@ impl zone::water::arm::Arm for BrickArm {
     }
     async fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>> {
         self.device_x
-            .goto_absolute_position(x, 50, 20, EndState::Brake).await?;
-        // .await?;
+            // .goto_absolute_position(x, 50, 20, EndState::Brake).await?;
+            .goto_absolute_position_soc(x, 50, 20, EndState::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await?;
         Ok(())
     }
     async fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>> {
         self.device_y
-            .goto_absolute_position(y, 100, 20, EndState::Brake).await?;
-        // .await?;
+            // .goto_absolute_position(y, 100, 20, EndState::Brake).await?;
+            .goto_absolute_position_soc(y, 100, 20, EndState::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await?;
         Ok(())
     }
     async fn start_x(&self, speed: i8) -> Result<(), Box<dyn Error>> {
@@ -520,36 +519,44 @@ impl BrickArm {
                         let _ = device_y.start_speed(speed, 20).await;
                     }
                     ArmCmd::Goto { x, y } => {
-                        let _ = device_x.goto_absolute_position(
+                        let _ = device_x.goto_absolute_position_soc(
                             x,
                             20,
                             20,
                             EndState::Brake,
+                            StartupInfo::ExecuteImmediately,
+                            CompletionInfo::CommandFeedback,
                         )
                         .await;
-                        let _ = device_y.goto_absolute_position(
+                        let _ = device_y.goto_absolute_position_soc(
                             y,
                             20,
                             20,
                             EndState::Brake,
+                            StartupInfo::ExecuteImmediately,
+                            CompletionInfo::CommandFeedback,
                         )
                         .await;
                     }
                     ArmCmd::GotoX { x } => {
-                        let _ = device_x.goto_absolute_position(
+                        let _ = device_x.goto_absolute_position_soc(
                             x,
                             20,
                             20,
                             EndState::Brake,
+                            StartupInfo::ExecuteImmediately,
+                            CompletionInfo::CommandFeedback,
                         )
                         .await;
                     }
                     ArmCmd::GotoY { y } => {
-                        let _ = device_y.goto_absolute_position(
+                        let _ = device_y.goto_absolute_position_soc(
                             y,
                             20,
                             20,
                             EndState::Brake,
+                            StartupInfo::ExecuteImmediately,
+                            CompletionInfo::CommandFeedback,
                         )
                         .await;
                     }
