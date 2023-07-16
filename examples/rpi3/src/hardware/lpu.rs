@@ -335,7 +335,7 @@ impl zone::water::arm::Arm for BrickArm {
         self.device_x
             .goto_absolute_position_soc(x, 40, 20, EndState::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await?;
         self.device_y
-            .goto_absolute_position_soc(y, 100, 20, EndState::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await?;
+            .goto_absolute_position_soc(y, 100, 60, EndState::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await?;
         Ok(())
     }
     async fn stop(&self) -> Result<(), Box<dyn Error>> {
@@ -380,7 +380,7 @@ impl zone::water::arm::Arm for BrickArm {
     async fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>> {
         self.device_y
             // .goto_absolute_position(y, 100, 20, EndState::Brake).await?;
-            .goto_absolute_position_soc(y, 100, 20, EndState::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await?;
+            .goto_absolute_position_soc(y, 100, 60, EndState::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await?;
         Ok(())
     }
     async fn start_x(&self, speed: i8) -> Result<(), Box<dyn Error>> {
@@ -520,14 +520,14 @@ impl BrickArm {
             while let Ok(data) = rx_cmd.recv().await {
                 match data {
                     ArmCmd::Stop => {
-                        let _ = device_x.start_power(Power::Brake).await;
-                        let _ = device_y.start_power(Power::Brake).await;
+                        let _ = device_x.start_power_soc(Power::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await;
+                        let _ = device_y.start_power_soc(Power::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await;
                     }
                     ArmCmd::StopX => {
-                        let _ = device_x.start_power(Power::Brake).await;
+                        let _ = device_x.start_power_soc(Power::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await;
                     }
                     ArmCmd::StopY => {
-                        let _ = device_y.start_power(Power::Brake).await;
+                        let _ = device_y.start_power_soc(Power::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await;
                     }
                     ArmCmd::Confirm => {}
                     ArmCmd::StartX { speed } => {
