@@ -27,13 +27,14 @@ pub mod conf {
 
     // GPIO
     // pub const ACTIVITY_LED_PIN: u8 = 4; //BCM 17 phys 11
-    pub const BUTTON_1_PIN: u8 = 24; // 24p18
-    pub const BUTTON_2_PIN: u8 = 25; // 25p22
+    pub const BUTTON_1_PIN: u8 = 25; // 24p18
+    pub const BUTTON_2_PIN: u8 = 24; // 25p22
     pub const INDICATORS_SR_DATA: u8 = 26; // 5p29
     pub const INDICATORS_SR_ENABLE: u8 = 19; // 6p31
     pub const INDICATORS_SR_CLK: u8 = 6; // 13p33
     pub const INDICATORS_SR_LATCH: u8 = 13; // 19p35
     pub const INDICATORS_SR_RESET: u8 = 5; // 26p37
+    pub const HELPER_PUMP_PIN: u8 = 4; //4p7
 
     // Fan
     pub const PIN_FAN_1_RPM: u8 = 23; //BCM 26 phys 16
@@ -45,7 +46,7 @@ pub mod conf {
     // I2C
     pub const YL40_BUS: &str = "/dev/i2c-1";
     pub const YL40_ADDR: u16 = 0x48;
-    pub const YL40_VREF: f64 = 5.0;
+    pub const YL40_VREF: f64 = 3.5;
     pub const LIGHT_SENSOR: [Pin; 1] = [Pin::AIN0];
     pub const TEMP_SENSOR: [Pin; 1] = [Pin::AIN1];
     pub const MOIST_SENSOR: [Pin; 2] = [Pin::AIN2, Pin::AIN3];

@@ -209,7 +209,7 @@ impl Runner {
                             // println!("Set X"); 
                         }
                         status.write().pos_x = data.1;
-                        // println!("\tX:{:?} ", data);
+                        // println!("\tX:{:?} ", &data);
                     }
                     Ok(data) = rx_axis_y.recv() => {
                         if (data.0 == 0) & started.1 { 
@@ -222,13 +222,13 @@ impl Runner {
                             // println!("Set Y"); 
                         }
                         status.write().pos_x = data.1;
-                        // println!("\tX:{:?} ", data);
+                        // println!("\tY:{:?} ", &data);
                     }
                     Ok(data) = rx_axis_z.recv() => {
                         status.write().pos_z = data.1;
                     }
                     Ok(_data) = rx_control.recv() => {
-                        // println!("\tControl:{:?} ", data);
+                        println!("\tControl:{:?} ", &_data);
                     }
                     else => { break }
                 };

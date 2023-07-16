@@ -61,7 +61,7 @@ impl Oled {
     fn get_display(&self) -> OledDisplay {
         let mut i2c = I2c::with_bus(SSD1306_BUS).expect("I2C bus not found");
         let _ = i2c.set_slave_address(SSD1306_ADDR);
-        println!("i2c bus: {:#?}", i2c.bus());
+        println!("Display on I2C bus: {:#?}", i2c.bus());
         // println!("i2c speed: {:#?}", i2c.clock_speed());
 
         let interface = I2CDisplayInterface::new(i2c);
@@ -87,6 +87,7 @@ impl Oled {
         let style_msg = MonoTextStyle::new(&FONT_7X14_BOLD, BinaryColor::On);
         let style_dt = MonoTextStyle::new(&FONT_6X13_ITALIC, BinaryColor::On);
         let mut interval = interval(Duration::from_millis(3000));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         Ok(tokio::spawn(async move {
             let mut pagemap: BTreeMap<
@@ -102,6 +103,7 @@ impl Oled {
                 String::from("No time"),
             );
             loop {
+                // println!("=== Display loop start === ");
                 tokio::select! {
                     _ = cancel.cancelled() => {
                         let _ = display.set_display_on(false);
@@ -109,6 +111,7 @@ impl Oled {
                         break;
                     }
                     _ = interval.tick()  => {
+                        // println!("=== Display: interval.tick() === ");
                         let mut pages: Vec<( String, String, String, String )> = pagemap.values().map(|x|x.clone()).collect();
                         // dbg!(&pages); dbg!(&next_page);
                         if pages.len() > 0 {
@@ -129,7 +132,8 @@ impl Oled {
                         display.flush().unwrap();
                     }
                     Ok(data) = from_zones.recv() => {
-                        match data {
+                        // println!("=== Display: from_zones.recv() === ");
+                       match data {
                             ZoneDisplay::Air {id, info} => {
                                 let text = Self::format_zonedisplay(id, info, "Luft");
                                 pagemap.insert(( ZoneKind::Air, id), text );

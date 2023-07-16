@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use core::error::Error;
 use core::fmt::Debug;
 use core::time::Duration;
+use std::time::Instant;
 use parking_lot::RwLock;
 use std::sync::Arc;
 use time::OffsetDateTime;
@@ -156,9 +157,11 @@ impl Runner {
                 Indicator::Blue,
                 Some(format!("Water running")),
             ));
+
+            let mut previous_watering = Instant::now();
             loop {
                 tokio::select! {
-                    Ok(data) = rx.recv() => {
+                    Ok(data) = rx.recv() => {                        
                         let mut o_ds: Option<DisplayStatus> = None;
                         status.write().moisture_level = data.1;
                         match data {
@@ -166,6 +169,8 @@ impl Runner {
                                 o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("No data from moisture sensor") )) );
                             },
                             (_id, Some(moisture)) => {
+                                // println!("CHANGE Water {} moist:{} limit:{} elapsed:{:?} settling:{:?}", id, moisture, settings.moisture_limit_water, previous_watering.elapsed(), settings.settling_time);
+                                
                                 // Status update
                                 if moisture < settings.moisture_low_red_alert { //& (status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::AlertLow)) {
                                     o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Moisture LOW {}", moisture) )) );
@@ -187,6 +192,12 @@ impl Runner {
                                     o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Moisture {}", moisture) )) );
                                     status.write().kind = Some(WaterStatusKind::Ok);
                                 }
+
+                                // Init watering if moisture changed to below limit & settling time expired
+                                if (moisture < settings.moisture_limit_water) & (previous_watering.elapsed() > settings.settling_time) {
+                                    let _ = to_manager.send(ZoneUpdate::Water{id, settings, status: status.clone()}).await;
+                                    previous_watering = Instant::now();
+                                }
                             },
                             _ => ()
                         }
@@ -197,8 +208,14 @@ impl Runner {
                         }
 
                     }
+                    // Check periodically in case moisture has not changed but is still below limit
                     _ = interval.tick() => {
-                        let _ = to_manager.send(ZoneUpdate::Water{id, settings, status: status.clone()}).await;
+                        // println!("TICK Water {} moist:{:?} limit:{} elapsed:{:?} settling:{:?}", id, status.read().moisture_level, settings.moisture_limit_water, previous_watering.elapsed(), settings.settling_time);
+                        
+                        if (previous_watering.elapsed() > settings.settling_time) & (status.read().moisture_level.is_some_and(|m| m < settings.moisture_limit_water)) {
+                            let _ = to_manager.send(ZoneUpdate::Water{id, settings, status: status.clone()}).await;
+                            previous_watering = Instant::now();
+                        }
                     }
                     else => { break }
                 };

@@ -46,7 +46,7 @@ where
 
     /// starts the 74HC595
     pub fn begin(&mut self) {
-        println!("SR v2");
+        // println!("SR v2");
         self.oe.set_low();
         self.srclr.set_high();
     }

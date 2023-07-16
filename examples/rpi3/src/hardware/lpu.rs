@@ -159,12 +159,15 @@ impl Vsensor {
     }
 }
 
+
+use rppal::gpio::{Gpio, OutputPin};
 pub struct BrickPump {
     id: u8,
     device: IoDevice,
     // hub: HubMutex,
     control_task: Option<JoinHandle<()>>,
     feedback_task: Option<JoinHandle<()>>,
+    helper_pump: Arc<RwLock<OutputPin>>,
 }
 #[async_trait]
 impl zone::water::pump::Pump for BrickPump {
@@ -174,21 +177,26 @@ impl zone::water::pump::Pump for BrickPump {
     async fn run_for_secs(&self, secs: u16) -> Result<(), Box<dyn Error>> {
         // println!("LPU got cmd: run_for_secs({}", &secs);
         self.device.start_speed(50, 100).await?;
+        self.helper_pump.write().set_high();
         sleep(Duration::from_secs(secs as u64)).await;
+        self.helper_pump.write().set_low();
         self.device.start_power(Power::Float).await?;
         Ok(())
     }
     async fn run(&self) -> Result<(), Box<dyn Error>> {
         // println!("LPU got cmd: RUN");
         self.device.start_speed(50, 100).await?;
+        self.helper_pump.write().set_high();
         Ok(())
     }
     async fn stop(&self) -> Result<(), Box<dyn Error>> {
         // println!("LPU got cmd: STOP");
+        self.helper_pump.write().set_low();
         self.device.start_power(Power::Brake).await?;
         Ok(())
     }
     async fn float(&self) -> Result<(), Box<dyn Error>> {
+        self.helper_pump.write().set_low();
         self.device.start_power(Power::Float).await?;
         Ok(())
     }
@@ -219,12 +227,19 @@ impl BrickPump {
                 .io_from_port(PUMP_ADDR)
                 .expect("Error accessing LPU device");
         }
+        let helper_pump = Gpio::new()
+        .expect("New gpio error")
+        .get(HELPER_PUMP_PIN)
+        .expect("Get pin error")
+        .into_output_low();
+        let helper_pump = Arc::new(RwLock::new(helper_pump));
         Self {
             id,
             // hub,
             device,
             control_task: None,
             feedback_task: None,
+            helper_pump,
         }
     }
 
@@ -234,6 +249,7 @@ impl BrickPump {
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
         let _id = self.id;
         let device = self.device.clone();
+        let helper_pump = self.helper_pump.clone();
         Ok(tokio::spawn(async move {
             // println!("Spawned pump control");
             while let Ok(data) = rx_cmd.recv().await {
@@ -241,10 +257,13 @@ impl BrickPump {
                 match data {
                     (_id, PumpCmd::RunForSec(secs)) => {
                         let _ = device.start_speed(50, 100);
+                        helper_pump.write().set_high();
                         sleep(Duration::from_secs(secs as u64)).await;
+                        helper_pump.write().set_low();
                         let _ = device.start_power(Power::Float);
                     }
                     (_id, PumpCmd::Stop) => {
+                        helper_pump.write().set_low();
                         let _ = device.start_power(Power::Brake);
                     }
                 }
@@ -314,9 +333,9 @@ impl zone::water::arm::Arm for BrickArm {
     }
     async fn goto(&self, x: i32, y: i32, _z: i32) -> Result<(), Box<dyn Error>> {
         self.device_x
-            .goto_absolute_position_soc(x, 20, 20, EndState::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await?;
+            .goto_absolute_position_soc(x, 40, 20, EndState::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await?;
         self.device_y
-            .goto_absolute_position_soc(y, 20, 20, EndState::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await?;
+            .goto_absolute_position_soc(y, 100, 20, EndState::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await?;
         Ok(())
     }
     async fn stop(&self) -> Result<(), Box<dyn Error>> {
@@ -355,7 +374,7 @@ impl zone::water::arm::Arm for BrickArm {
     async fn goto_x(&self, x: i32) -> Result<(), Box<dyn Error>> {
         self.device_x
             // .goto_absolute_position(x, 50, 20, EndState::Brake).await?;
-            .goto_absolute_position_soc(x, 50, 20, EndState::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await?;
+            .goto_absolute_position_soc(x, 40, 20, EndState::Brake, StartupInfo::ExecuteImmediately, CompletionInfo::CommandFeedback).await?;
         Ok(())
     }
     async fn goto_y(&self, y: i32) -> Result<(), Box<dyn Error>> {
@@ -452,8 +471,8 @@ impl zone::water::arm::Arm for BrickArm {
         });
         let _ = tokio::join!(calibration_task_x, calibration_task_y);
         let before = (*self.pos_x.read(), *self.pos_y.read(), 0);
-        let _ = self.device_x.preset_encoder(0);
-        let _ = self.device_y.preset_encoder(0);
+        let _ = self.device_x.preset_encoder(0).await;
+        let _ = self.device_y.preset_encoder(0).await;
         // println!("Calibrated X Y from: {:?}", &before);
         Ok(before)
     }
@@ -521,7 +540,7 @@ impl BrickArm {
                     ArmCmd::Goto { x, y } => {
                         let _ = device_x.goto_absolute_position_soc(
                             x,
-                            20,
+                            40,
                             20,
                             EndState::Brake,
                             StartupInfo::ExecuteImmediately,
@@ -530,7 +549,7 @@ impl BrickArm {
                         .await;
                         let _ = device_y.goto_absolute_position_soc(
                             y,
-                            20,
+                            100,
                             20,
                             EndState::Brake,
                             StartupInfo::ExecuteImmediately,
@@ -541,7 +560,7 @@ impl BrickArm {
                     ArmCmd::GotoX { x } => {
                         let _ = device_x.goto_absolute_position_soc(
                             x,
-                            20,
+                            40,
                             20,
                             EndState::Brake,
                             StartupInfo::ExecuteImmediately,
@@ -552,7 +571,7 @@ impl BrickArm {
                     ArmCmd::GotoY { y } => {
                         let _ = device_y.goto_absolute_position_soc(
                             y,
-                            20,
+                            80,
                             20,
                             EndState::Brake,
                             StartupInfo::ExecuteImmediately,

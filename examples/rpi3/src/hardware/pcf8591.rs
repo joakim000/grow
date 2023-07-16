@@ -25,7 +25,7 @@ impl Adc {
     pub fn new(_cancel: CancellationToken) -> Self {
         let control = PCF8591::new(YL40_BUS, YL40_ADDR, YL40_VREF).unwrap();
         let adc = Arc::new(Mutex::new(control));
-        // _show_raw_adc(adc.clone());  // Dev use
+        // _show_raw_adc(adc.clone());  // Dev use  
 
         Self { mutex: adc }
     }
@@ -373,7 +373,10 @@ fn moist_from_byte(value: u8) -> f32 {
     // moist at 4v: 41-174                                  255-41=214  255-174=81
     // (0f32 - value as f32 + 215f32)
     // value as f32
-    (255f32 - value as f32) - 75f32 // Värden från ca 5 - 140
+    // (255f32 - value as f32) - 75f32 // Värden från ca 5 - 140
+
+    // Sensorer 5V, ADC 4.2V:  195-255
+    (value as f32 - 255f32).abs() * 2f32  // Värden från 0 - ca 120   
 }
 fn light_from_byte(value: u8) -> f32 {
     // 15(240) = dark, 40 = 5v LED up close, 208(47) = very light,
@@ -385,10 +388,10 @@ fn _show_raw_adc(adc: AdcMutex) {
         loop {
             let _reading: f32;
             {
-                println!("ADC lock req");
+                // println!("ADC lock req");
                 // let mut lock = adc.lock().await;
                 let mut lock = adc.lock().unwrap();
-                println!("ADC lock acquired");
+                // println!("ADC lock acquired");
 
                 let v0 = lock.analog_read_byte(Pin::AIN0); // photoresistor
                 let v1 = lock.analog_read_byte(Pin::AIN1); // thermistor
@@ -408,7 +411,7 @@ fn _show_raw_adc(adc: AdcMutex) {
                     c0, c1, c2, c3
                 );
             }
-            println!("ADC lock drop");
+            // println!("ADC lock drop");
             tokio::time::sleep(Duration::from_millis(10000)).await;
         }
     });

@@ -20,7 +20,7 @@ use tokio::sync::broadcast;
 use tokio::sync::mpsc;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 use tokio_util::sync::CancellationToken;
 use super::io::{ButtonPanel, ButtonInput, TextDisplay, Board};
 use super::remote;
@@ -196,14 +196,23 @@ impl Manager {
                         status,
                     } => {
                         let mut log_msg: Option<String> = None;
-                        match watering(water_id, settings, status, to_log.clone(), house.clone()).await {
-                            Ok( (true, msg) ) => {
-                                log_msg = Some(msg);
+                        match timeout(Duration::from_secs(45), watering(water_id, settings, status, to_log.clone(), house.clone())).await {
+                            Ok(res) => {
+                                match res {
+                                    Ok( (true, msg) ) => {
+                                        log_msg = Some(msg);
+                                    },
+                                    Ok( (false, msg) ) => {
+                                        log_msg = Some(msg);
+                                    },
+                                    Err(e) => {
+                                        log_msg = Some(format!("{}", e));
+                                    }, 
+                                }
                             },
-                            Ok( (false, msg) ) => {},
-                            Err(e) => {
-                                log_msg = Some(format!("{}", e));
-                            }, 
+                            Err(_) => {
+                                log_msg = Some(format!("Water zone {} failed: Timed out", &water_id));
+                            }
                         }
                         if log_msg.is_some() {
                             to_log.send(SysLog::new(log_msg.unwrap())).await;
@@ -291,27 +300,21 @@ impl Manager {
                         Some(data) = rc_rx.recv() => {
                             match data {
                                 RcInput::LeftUp | RcInput::RightUp => {
-                                    // arm.stop_x();
                                     to_arm.send(ArmCmd::StopX);
                                 }
                                 RcInput::DownUp | RcInput::UpUp => {
-                                    // arm.stop_y();
                                     to_arm.send(ArmCmd::StopY);
                                 }
                                 RcInput::Left => {
                                     to_arm.send(ArmCmd::StartX { speed: -20 });
-                                    // arm.start_x(-20);
                                 }
                                 RcInput::Right => {
-                                    // arm.start_x(20);
                                     to_arm.send(ArmCmd::StartX { speed: 20 });
                                 }
                                 RcInput::Up => {
-                                    // arm.start_y(80);
                                     to_arm.send(ArmCmd::StartY { speed: 80 });
                                 }
                                 RcInput::Down => {
-                                    // arm.start_y(-80);
                                     to_arm.send(ArmCmd::StartY { speed: -80 });
                                 }
                                 RcInput::Confirm => {
@@ -490,7 +493,7 @@ async fn watering(
     if tank_status.indicator == Indicator::Red {
         return Err(Box::new(WateringError::new(&format!(
             "Water zone {} failed: Tank {} empty",
-            water_id, settings.tank_id))))
+            &water_id, &settings.tank_id))))
     }
 
     // TODO: Check pump status
@@ -532,12 +535,13 @@ async fn watering(
     /// Move arm, try 3 times to get within acceptable delta
     let mut tries = 0u8;
     while tries < 3 {
+        println!("Watering: moving arm - try {}", &tries);
         let _ = house.lock().await.arm_goto(
             movement.arm_id,
             movement.x,
             movement.y,
             movement.z,
-        ); // TODO check result
+        ).await; // TODO check result
         
         // Wait until arm has moved
         while let Ok(arm_data) = arm_control_rx.recv().await
@@ -567,10 +571,10 @@ async fn watering(
     }
     if tries < 3 {
         let _ = // TODO check result
-            house.lock().await.pump_run(settings.pump_id); 
+            house.lock().await.pump_run(settings.pump_id).await; 
         sleep(settings.pump_time).await;
         let _ = // TODO check result
-            house.lock().await.pump_stop(settings.pump_id); 
+            house.lock().await.pump_stop(settings.pump_id).await; 
         return Ok( (true, format!(
             "Water zone {} ok",
             water_id)) )

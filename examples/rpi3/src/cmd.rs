@@ -84,6 +84,7 @@ pub fn manual_cmds(
     };
     Ok(tokio::spawn(async move {
         tokio::time::sleep(Duration::from_millis(500)).await;
+        tokio::task::yield_now().await;
         loop {
             print!("(l)ist cmds, or (q)uit >");
             let line: String = read!("{}\n");
@@ -219,7 +220,7 @@ pub fn manual_cmds(
                 _line if _line.contains("lamp1off") => {
                     let _ = house.lock().await.set_lamp_state(1u8, LampState::Off);
                 }
-                _line if _line.contains("fan1dc") => {
+                _line if _line.contains("fandc") => {
                     print!("Fan 1 duty cycle > ");
                     let _line: String = read!("{}\n");
                     let input = _line.trim().parse::<f64>().unwrap();
@@ -301,6 +302,14 @@ pub fn manual_cmds(
                 }
 
                 // Special commands
+                _line if _line.contains("b") => {
+                    let mut board = house.lock().await.collect_display_status();
+                    board.sort();
+                    for z in board {
+                        println!("{}", &z);
+                    }
+                    tokio::task::yield_now().await;
+                }
                 _line if _line.contains("l") => {
                     list_cmds();
                 }

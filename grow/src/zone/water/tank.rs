@@ -83,7 +83,7 @@ impl Runner {
         Self {
             id,
             status,
-            tx_tank: broadcast::channel(16).0,
+            tx_tank: broadcast::channel(64).0,
             task: tokio::spawn(async move {}),
         }
     }

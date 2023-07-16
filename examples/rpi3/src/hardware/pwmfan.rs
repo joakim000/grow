@@ -48,7 +48,7 @@ impl zone::air::Fan for PwmFan {
         &self,
         duty_cycle: f64,
     ) -> Result<(), Box<dyn Error + '_>> {
-        // println!("Fan set to {:?}", &duty_cycle);
+        println!("Fan set to {:?}", &duty_cycle);
         let lock = self.pwm_channel.lock();
         Ok(lock.set_duty_cycle(duty_cycle)?)
     }
@@ -86,7 +86,7 @@ impl PwmFan {
         let pwm_channel = Pwm::with_frequency(
             PWM_FAN_1,
             PWM_FREQ_FAN_1,
-            0.2,
+            1.0,
             PWM_POLARITY_FAN_1,
             true,
         )
@@ -117,6 +117,7 @@ impl PwmFan {
         let mut fan_rpm: Option<f32> = Default::default();
         let mut current = self.rpm.clone();
         let cancel = self.cancel.clone();
+        let pwm = self.pwm_channel.clone();
 
         let id = self.id;
         Ok(tokio::spawn(async move {
@@ -159,7 +160,7 @@ impl PwmFan {
                 } else {
                     fan_rpm = None;
                 }
-                // print!("Fan 1 duty cycle: {:?}   ", pwm.duty_cycle().unwrap());
+                // print!("Fan 1 duty cycle: {:?}   ", pwm.lock().duty_cycle().unwrap());
                 // print!("RPM pulse duration: {:?}   ", pulse_duration);
                 // println!("Fan 1 RPM: {:?}", fan_rpm);
 
@@ -246,10 +247,10 @@ impl PwmFan {
                         let _ = pwm.lock().set_duty_cycle(0.0);
                     }
                     FanSetting::Low => {
-                        let _ = pwm.lock().set_duty_cycle(0.2);
+                        let _ = pwm.lock().set_duty_cycle(0.3);
                     }
                     FanSetting::Medium => {
-                        let _ = pwm.lock().set_duty_cycle(0.5);
+                        let _ = pwm.lock().set_duty_cycle(0.6);
                     }
                     FanSetting::High => {
                         let _ = pwm.lock().set_duty_cycle(1.0);

@@ -196,6 +196,7 @@ impl Runner {
                         match data {
                             (_id, None) => {
                                 // if { (status.read().fan_rpm.is_some()) {
+                                    println!("Fan {} {}: {:?}", &id, &_id, &data );
                                     buf_fan = format!("No rpm data");
                                     buf_fan_ind = Indicator::Red;
                                     o_ds = Some(DisplayStatus::new(cmp::max(buf_fan_ind, buf_temp_ind), Some( format!("{},  {}", buf_temp, buf_fan) )) );
@@ -255,6 +256,7 @@ impl Runner {
                             }
                         }
 
+                        // Set fan speed
                         if have_fan {
                             let current_mode = status.read().fan_mode;
                             if !(current_mode.is_some_and(|x|x == requested_fan_mode))  {
