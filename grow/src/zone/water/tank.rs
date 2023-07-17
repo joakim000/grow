@@ -19,10 +19,11 @@ use crate::ops::SysLog;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Ord, PartialOrd, Hash)]
 pub enum TankLevel {
-    Blue,
-    Green,
-    Yellow,
-    Red,
+    Ok,
+    Low,
+    Empty,
+    Overfill,
+    NoData
 }
 
 pub fn new(id: u8, settings: Settings) -> super::Zone {
@@ -128,14 +129,17 @@ impl Runner {
                             (_id, None) => {
                                 o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("No data from tank sensor") )) );
                             },
-                            (_id, Some(TankLevel::Green)) => {
+                            (_id, Some(TankLevel::Ok)) => {
                                 o_ds = Some(DisplayStatus::new(Indicator::Green, Some( format!("Tank ok") )) );
                             },
-                            (_id, Some(TankLevel::Yellow)) => {
+                            (_id, Some(TankLevel::Low)) => {
                                 o_ds = Some(DisplayStatus::new(Indicator::Yellow, Some( format!("Tank low") )) );
                             },
-                            (_id, Some(TankLevel::Red)) => {
+                            (_id, Some(TankLevel::Empty)) => {
                                 o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Tank empty") )) );
+                            },
+                            (_id, Some(TankLevel::Overfill)) => {
+                                o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("Tank overfill") )) );
                             },
                             _ => ()
                         }

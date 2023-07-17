@@ -24,7 +24,7 @@ use lego_powered_up::iodevice::modes;
 
 use lego_powered_up::iodevice::motor::BufferState;
 use lego_powered_up::iodevice::visionsensor::DetectedColor;
-use lego_powered_up::iodevice::visionsensor::VisionSensor;
+use lego_powered_up::iodevice::visionsensor::VisionSensor as LegoVisionSensor;
 use lego_powered_up::iodevice::{motor::*, sensor::*};
 use lego_powered_up::notifications::HubPropertyValue;
 use lego_powered_up::notifications::Power;
@@ -69,18 +69,17 @@ pub async fn init(
     Ok(hub.unwrap().mutex.clone())
 }
 
-pub struct Vsensor {
+pub struct VisionSensor {
     id: u8,
     device: IoDevice,
     level: Arc<RwLock<TankLevel>>,
     feedback_task: Option<JoinHandle<()>>,
 }
 #[async_trait]
-impl zone::water::tank::TankSensor for Vsensor {
+impl zone::water::tank::TankSensor for VisionSensor {
     fn id(&self) -> u8 {
         self.id
     }
-
     async fn init(
         &mut self,
         tx_tanklevel: tokio::sync::broadcast::Sender<(u8, Option<TankLevel>)>,
@@ -96,27 +95,20 @@ impl zone::water::tank::TankSensor for Vsensor {
         Ok(*self.level.read())
     }
 }
-impl Vsensor {
+impl VisionSensor {
     pub fn new(id: u8, hub: HubMutex) -> Self {
-        let device: IoDevice;
-        {
-            // let lock = hub.lock().await;
-            let lock = tokio::task::block_in_place(move || {
-                // let lock = hub.blocking_lock();
-                hub.blocking_lock_owned()
-            });
-            device = lock
-                .io_from_kind(IoTypeId::VisionSensor)
-                .expect("Error accessing LPU device");
-        }
+        let device = tokio::task::block_in_place(move || {
+            hub.blocking_lock_owned()
+            .io_from_kind(IoTypeId::VisionSensor)
+            .expect("Error accessing LPU device")
+        });
         Self {
             id,
-            level: Arc::new(RwLock::new(TankLevel::Red)), // get from save
+            level: Arc::new(RwLock::new(TankLevel::Empty)), // get from save
             device,
             feedback_task: None,
         }
     }
-
     async fn tank_feedback(
         &self,
         tx: broadcast::Sender<(u8, Option<TankLevel>)>,
@@ -126,32 +118,31 @@ impl Vsensor {
         let (mut rx_color, _color_task) =
             self.device.visionsensor_color().await.unwrap();
         Ok(tokio::spawn(async move {
-            // println!("Spawned tank feedback");
             while let Ok(data) = rx_color.recv().await {
                 // println!("Tank color: {:?} ", data,);
                 match data {
                     DetectedColor::NoObject => {
-                        let _ = tx.send((id, Some(TankLevel::Blue)));
-                        *level.write() = TankLevel::Blue;
+                        let _ = tx.send((id, None));
+                        // *level.write() = None;
                     }
                     DetectedColor::Blue => {
-                        let _ = tx.send((id, Some(TankLevel::Green)));
-                        *level.write() = TankLevel::Green;
+                        let _ = tx.send((id, Some(TankLevel::Overfill)));
+                        *level.write() = TankLevel::Overfill;
                     }
                     DetectedColor::Green => {
-                        let _ = tx.send((id, Some(TankLevel::Green)));
-                        *level.write() = TankLevel::Green;
+                        let _ = tx.send((id, Some(TankLevel::Ok)));
+                        *level.write() = TankLevel::Ok;
                     }
                     DetectedColor::Yellow => {
-                        let _ = tx.send((id, Some(TankLevel::Yellow)));
-                        *level.write() = TankLevel::Yellow;
+                        let _ = tx.send((id, Some(TankLevel::Low)));
+                        *level.write() = TankLevel::Low;
                     }
                     DetectedColor::Red => {
-                        let _ = tx.send((id, Some(TankLevel::Red)));
-                        *level.write() = TankLevel::Red;
+                        let _ = tx.send((id, Some(TankLevel::Empty)));
+                        *level.write() = TankLevel::Empty;
                     }
                     _ => {
-                        let _ = tx.send((id, None));
+                        // let _ = tx.send((id, None));
                     }
                 }
             }
@@ -220,26 +211,21 @@ impl zone::water::pump::Pump for BrickPump {
 }
 impl BrickPump {
     pub async fn new(id: u8, hub: HubMutex) -> Self {
-        let device: IoDevice;
-        {
-            let lock = hub.lock().await;
-            device = lock
-                .io_from_port(PUMP_ADDR)
-                .expect("Error accessing LPU device");
-        }
+        let device = hub.lock().await
+        .io_from_port(PUMP_ADDR)
+        .expect("Error accessing LPU device");
         let helper_pump = Gpio::new()
         .expect("New gpio error")
         .get(HELPER_PUMP_PIN)
         .expect("Get pin error")
         .into_output_low();
-        let helper_pump = Arc::new(RwLock::new(helper_pump));
         Self {
             id,
             // hub,
             device,
             control_task: None,
             feedback_task: None,
-            helper_pump,
+            helper_pump: Arc::new(RwLock::new(helper_pump)),
         }
     }
 
@@ -350,19 +336,17 @@ impl zone::water::arm::Arm for BrickArm {
             1,
             true,
         ).await?;
-        // sleep(Duration::from_millis(100)).await;
         self.device_y.device_mode(
             modes::TechnicLargeLinearMotorTechnicHub::SPEED,
             1,
             true,
         ).await?;
-        sleep(Duration::from_millis(100)).await;
+        // sleep(Duration::from_millis(100)).await;
         self.device_x.device_mode(
             modes::TechnicLargeLinearMotorTechnicHub::POS,
             1,
             true,
         ).await?;
-        // sleep(Duration::from_millis(100)).await;
         self.device_y.device_mode(
             modes::TechnicLargeLinearMotorTechnicHub::POS,
             1,

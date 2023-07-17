@@ -93,7 +93,7 @@ pub async fn house_hardware_init(
             }
             Zone::Tank {id, interface, ..} => {
                 interface.tank_sensor = Some(Box::new(
-                    hardware::lpu::Vsensor::new(*id, lpu_hub.clone()),
+                    hardware::lpu::VisionSensor::new(*id, lpu_hub.clone()),
                 ));
             }
             Zone::Pump {id, interface, ..} => {
