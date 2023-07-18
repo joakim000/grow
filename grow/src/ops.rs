@@ -21,7 +21,7 @@ pub mod display;
 pub mod io;
 pub mod manager;
 pub mod remote;
-mod xymon;
+pub mod xymon;
 use zone::ZoneStatusRx;
 use crate::TIME_OFFSET;
 

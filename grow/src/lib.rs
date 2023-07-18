@@ -254,6 +254,14 @@ impl House {
         let mut f = File::create("grow-conf.js")?;
         f.write_all(writestring.as_bytes())?;
 
+        let x = ops::xymon::XymonSettings {
+            port: 1984,
+            host: String::from( "192.168.1.81"),
+            client: String::from( "greenhouse"),
+        };
+        let writestring = serde_json::to_string_pretty(&x)?;
+        let mut f = File::create("grow-xymon.js")?;
+        f.write_all(writestring.as_bytes())?;
 
         Ok(())
     }

@@ -7,6 +7,7 @@ use crate::Zone;
 use crate::TIME_OFFSET;
 use super::display::format_time;
 use super::display::Indicator;
+use super::xymon::XymonSettings;
 use crate::error::*;
 
 use core::error::Error;
@@ -91,13 +92,30 @@ impl Manager {
         /// Start log messages handler
         let manager_mutex = selfmutex.clone();
         let to_log = self.ops_tx.syslog.clone();
+
+        // Get Xymon settings
+        let mut xymon_enabled = true;
+        let x: Arc<XymonSettings>;
+        let readdata = std::fs::read_to_string("grow-xymon.js");
+        if readdata.is_ok() {
+             x = Arc::new(serde_json::from_str(&readdata.unwrap())
+            .expect("Deserialization error"));
+        } else {
+            x = Arc::new(super::xymon::XymonSettings {
+                port: 1984,
+                host: String::from("192.168.1.81"),
+                client: String::from("greenhouse"),
+            });
+        }
+        println!("Xymon: {:?}", *x);
+
         let log_handler = tokio::spawn(async move {
             let mut log_enabled = *log_enable_rx.borrow();
             let mut status_enabled = *status_enable_rx.borrow();
             to_log
                 .send(SysLog::new(format!("Spawned log handler")))
                 .await;
-            let mut xymon_enabled = true;
+           
             loop {
                 tokio::select! {
                     Ok(()) = log_enable_rx.changed() => {
@@ -126,7 +144,8 @@ impl Manager {
                         }
                         
                         if xymon_enabled {
-                            let send = super::xymon::send_status(&data).await;
+                            // let y = x.clone()
+                            let send = super::xymon::send_status(&data, x.clone()).await;
                         }
                         // xymon_enabled = false;
 
