@@ -31,33 +31,6 @@ macro_rules! xymon_match {
    }
 }
 
-// pub async fn send_status(data: &ZoneDisplay) -> Result<(), Box<dyn Error>> {
-//     // status[+LIFETIME][/group:GROUP] HOSTNAME.TESTNAME COLOR <additional text>
-//     const XYMON_PORT: u16 = 1984;
-//     const XYMON_HOST: &str = "192.168.1.81";
-//     const XYMON_CLIENT: &str = "greenhouse";
-//     // const XYMON_HOST: &str = "172.168.1.81";
-//     // const XYMON_CLIENT: &str = "greenhouse.iris";
-
-//     let xymon = format!("{}:{}", XYMON_HOST, XYMON_PORT);
-//     let mut stream = match TcpStream::connect(&xymon).await {
-//         Ok(stream) =>  stream,
-//         Err(e) => return Err(Box::new(e))
-//     };
-//     // let mut xymon_status = format!("status+1h/group::gardeners {}.", XYMON_CLIENT);
-//     let mut xymon_status = format!("status+1h {}.", XYMON_CLIENT);
-//     xymon_match!(data, xymon_status, [Water, Air, Light, Aux, Tank, Pump, Arm]);
-//     match stream.write_all(xymon_status.as_bytes()).await {
-//         Ok(_) => {println!("====== Sent to Xymon: {:?}", &xymon_status);},
-//         // Ok(_) => (),
-//         Err(e) => return Err(Box::new(e))
-//     }
-//     let _shut = stream.shutdown();
-//     thread::sleep(Duration::from_millis(100));
-    
-//     Ok(())
-// }
-
 pub async fn send_status(data: &ZoneDisplay, x: Arc<XymonSettings>) -> Result<(), Box<dyn Error>> {
     // status[+LIFETIME][/group:GROUP] HOSTNAME.TESTNAME COLOR <additional text>
 
@@ -70,8 +43,8 @@ pub async fn send_status(data: &ZoneDisplay, x: Arc<XymonSettings>) -> Result<()
     let mut xymon_status = format!("status+1h {}.", x.client);
     xymon_match!(data, xymon_status, [Water, Air, Light, Aux, Tank, Pump, Arm]);
     match stream.write_all(xymon_status.as_bytes()).await {
-        Ok(_) => {println!("====== Sent to Xymon: {:?}", &xymon_status);},
-        // Ok(_) => (),
+        // Ok(_) => {println!("====== Sent to Xymon: {:?}", &xymon_status);},
+        Ok(_) => (),
         Err(e) => return Err(Box::new(e))
     }
     let _shut = stream.shutdown();
@@ -79,7 +52,6 @@ pub async fn send_status(data: &ZoneDisplay, x: Arc<XymonSettings>) -> Result<()
     
     Ok(())
 }
-
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct XymonSettings {
