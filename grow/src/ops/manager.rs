@@ -97,6 +97,7 @@ impl Manager {
             to_log
                 .send(SysLog::new(format!("Spawned log handler")))
                 .await;
+            let mut xymon_enabled = true;
             loop {
                 tokio::select! {
                     Ok(()) = log_enable_rx.changed() => {
@@ -123,6 +124,12 @@ impl Manager {
                         {
                             manager_mutex.lock().await.update_board().await;
                         }
+                        
+                        if xymon_enabled {
+                            let send = super::xymon::send_status(&data).await;
+                        }
+                        // xymon_enabled = false;
+
                     }
                     else => { break }
                 };

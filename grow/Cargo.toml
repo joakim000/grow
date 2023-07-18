@@ -10,7 +10,7 @@ async-trait = "0.1"
 #postcard = "1.0.0"
 time = { version = "0.3.*", default-features = false, features = ["macros", "parsing", "alloc", "serde", "local-offset", "formatting"]  }
 anyhow = { version = "1.0", default-features = false }
-tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time"]}
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time", "io-util"]}
 tokio-util = "0.7.8"
 text_io = "0.1.12"
 parking_lot = "0.12.1"
