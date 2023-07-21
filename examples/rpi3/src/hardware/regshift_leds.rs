@@ -62,7 +62,7 @@ impl Board for Shiftreg {
     ) -> Result<(), Box<dyn Error>> {
         let mut led_byte = 0;
         let mut water_lit = false;
-        let mut blue_lit = false;
+        let mut blue_lit = true;    // Keep unlit
         for z in zones {
             match z {
                 ZoneDisplay::Air {

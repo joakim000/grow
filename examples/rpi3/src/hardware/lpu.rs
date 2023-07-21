@@ -792,13 +792,13 @@ impl LpuHub {
                                     HubPropertyValue::BatteryType(_t) => { }
                                     HubPropertyValue::BatteryVoltage(v) => {
                                         if v < 15 {
-                                            let _ = tx.send(( id, DisplayStatus::new(Indicator::Red, Some( format!("Lego PoweredUp battery: {}%", v) )) ));
+                                            let _ = tx.send(( id, DisplayStatus::new(Indicator::Red, Some( format!("LPU battery: {}%", v) )) ));
                                         }
                                         else if v < 30 {
-                                            let _ = tx.send(( id, DisplayStatus::new(Indicator::Yellow, Some( format!("Lego PoweredUp battery: {}%", v) )) ));
+                                            let _ = tx.send(( id, DisplayStatus::new(Indicator::Yellow, Some( format!("LPU battery: {}%", v) )) ));
                                         }
                                         else {
-                                            let _ = tx.send(( id, DisplayStatus::new(Indicator::Green, Some( format!("Lego PoweredUp battery: {}%", v) )) ));
+                                            let _ = tx.send(( id, DisplayStatus::new(Indicator::Green, Some( format!("LPU battery: {}%", v) )) ));
                                         }
                                     }
                                     HubPropertyValue::Rssi(_signal) => { }

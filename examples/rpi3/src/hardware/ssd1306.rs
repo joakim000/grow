@@ -135,27 +135,28 @@ impl Oled {
                         // println!("=== Display: from_zones.recv() === ");
                        match data {
                             ZoneDisplay::Air {id, info} => {
-                                let text = Self::format_zonedisplay(id, info, "Luft");
+                                let text = Self::format_zonedisplay(id, info, "Air");
                                 pagemap.insert(( ZoneKind::Air, id), text );
                             }
                             ZoneDisplay::Light {id, info} => {
-                                let text = Self::format_zonedisplay(id, info, "Ljus");
+                                let text = Self::format_zonedisplay(id, info, "Light");
                                 pagemap.insert(( ZoneKind::Light, id), text.clone() );
                             }
                             ZoneDisplay::Tank {id, info} => {
-                                let text = Self::format_zonedisplay(id, info, "Tunna");
+                                let text = Self::format_zonedisplay(id, info, "Tank");
                                 pagemap.insert(( ZoneKind::Tank, id), text.clone() );
                             }
                             ZoneDisplay::Water {id, info} if id == 1 => {
-                                let text = Self::format_zonedisplay(id, info, "Planta");
+                                let text = Self::format_zonedisplay(id, info, "Plant");
                                 pagemap.insert(( ZoneKind::Water, id), text.clone() );
                             }
                             ZoneDisplay::Water {id, info} if id == 2 => {
-                                let text = Self::format_zonedisplay(id, info, "Planta");
+                                let text = Self::format_zonedisplay(id, info, "Plant");
                                 pagemap.insert(( ZoneKind::Water, id), text.clone() );
                             }
                             ZoneDisplay::Aux {id, info} => {
-                                let text = ( format!("Lego"),  Self::format_indicator(&info.indicator), Self::format_msg(info.msg), Self::format_time(info.changed) );
+                                // let text = ( format!("Lego"),  Self::format_indicator(&info.indicator), Self::format_msg(info.msg), Self::format_time(info.changed) );
+                                let text = Self::format_zonedisplay(id, info, "Aux");
                                 pagemap.insert(( ZoneKind::Aux, id), text.clone() );
                             }
                             ZoneDisplay::Arm {id, info} => {

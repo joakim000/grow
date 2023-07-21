@@ -166,7 +166,7 @@ impl Runner {
                         status.write().moisture_level = data.1;
                         match data {
                             (_id, None) if status.read().kind.as_ref().is_some_and(|k| k != &WaterStatusKind::NoData) => {
-                                o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("No data from moisture sensor") )) );
+                                o_ds = Some(DisplayStatus::new(Indicator::Red, Some( format!("No sensor data") )) );
                             },
                             (_id, Some(moisture)) => {
                                 // println!("CHANGE Water {} moist:{} limit:{} elapsed:{:?} settling:{:?}", id, moisture, settings.moisture_limit_water, previous_watering.elapsed(), settings.settling_time);
