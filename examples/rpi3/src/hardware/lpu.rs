@@ -30,8 +30,7 @@ use lego_powered_up::notifications::HubPropertyValue;
 use lego_powered_up::notifications::Power;
 use lego_powered_up::notifications::*;
 use lego_powered_up::HubMutex;
-use lego_powered_up::{ConnectedHub, IoDevice, IoTypeId, PoweredUp};
-use lego_powered_up::{HubFilter};
+use lego_powered_up::{ConnectedHub, IoDevice, IoTypeId, PoweredUp, HubFilter};
 use lego_powered_up::iodevice::hubled::{HubLed, HubLedMode};
 use lego_powered_up::notifications::{StartupInfo, CompletionInfo};
 
