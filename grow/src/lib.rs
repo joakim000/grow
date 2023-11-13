@@ -29,8 +29,8 @@ use zone::{arm::ArmCmd, pump::PumpCmd, Zone};
 pub type HouseMutex = Arc<Mutex<House>>;
 pub type ManagerMutex = Arc<Mutex<ops::manager::Manager>>;
 
-// pub const TIME_OFFSET: time::UtcOffset = time::macros::offset!(+1); // CET
-pub const TIME_OFFSET: time::UtcOffset = time::macros::offset!(+2); // CEST
+pub const TIME_OFFSET: time::UtcOffset = time::macros::offset!(+1); // CET
+// pub const TIME_OFFSET: time::UtcOffset = time::macros::offset!(+2); // CEST
 
 macro_rules! save_match {
     ($x:ident, $y:ident, [$( $variant:tt ),+] ) => {

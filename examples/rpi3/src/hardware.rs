@@ -19,6 +19,9 @@ pub mod regshift_leds;
 // Some momentary buttons (direct GPIO)
 pub mod pushbuttons;
 
+// Dummy sensors
+pub mod dummy;
+
 /// Hardware config
 pub use conf::*;
 pub mod conf {
@@ -49,7 +52,7 @@ pub mod conf {
     pub const YL40_VREF: f64 = 3.5;
     pub const LIGHT_SENSOR: [Pin; 1] = [Pin::AIN0];
     pub const TEMP_SENSOR: [Pin; 1] = [Pin::AIN1];
-    pub const MOIST_SENSOR: [Pin; 2] = [Pin::AIN2, Pin::AIN3];
+    pub const MOIST_SENSOR: [Pin; 3] = [Pin::AIN2, Pin::AIN3, Pin::AIN3];
 
     pub const BMP180_BUS: u8 = 1;
     pub const BMP180_ADDR: u16 = 0x77;
@@ -79,5 +82,8 @@ pub mod conf {
     pub const FAN_1_DELTA: f32 = 20f32;
     pub const LIGHT_1_DELTA: f32 = 5f32;
     pub const MOIST_1_AND_2_DELTA: f32 = 5f32;
+
+    // Dummy
+    pub const MOIST_DUMMY_VALUE: f32 = 40f32;
 
 }

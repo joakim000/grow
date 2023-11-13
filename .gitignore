@@ -5,3 +5,7 @@ target/.rustc_info.json
 /Cargo.lock
 Cargo.lock
 Cargo.lock
+.vs/grow/v16/.suo
+.vs/VSWorkspaceState.json
+.vs/ProjectSettings.json
+.vs/slnx.sqlite

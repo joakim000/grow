@@ -146,14 +146,14 @@ impl Oled {
                                 let text = Self::format_zonedisplay(id, info, "Tank");
                                 pagemap.insert(( ZoneKind::Tank, id), text.clone() );
                             }
-                            ZoneDisplay::Water {id, info} if id == 1 => {
+                            ZoneDisplay::Water {id, info} => { 
                                 let text = Self::format_zonedisplay(id, info, "Plant");
                                 pagemap.insert(( ZoneKind::Water, id), text.clone() );
                             }
-                            ZoneDisplay::Water {id, info} if id == 2 => {
-                                let text = Self::format_zonedisplay(id, info, "Plant");
-                                pagemap.insert(( ZoneKind::Water, id), text.clone() );
-                            }
+                            // ZoneDisplay::Water {id, info} if id == 2 => {
+                            //     let text = Self::format_zonedisplay(id, info, "Plant");
+                            //     pagemap.insert(( ZoneKind::Water, id), text.clone() );
+                            // }
                             ZoneDisplay::Aux {id, info} => {
                                 // let text = ( format!("Lego"),  Self::format_indicator(&info.indicator), Self::format_msg(info.msg), Self::format_time(info.changed) );
                                 let text = Self::format_zonedisplay(id, info, "Aux");
@@ -167,7 +167,7 @@ impl Oled {
                                 let text = Self::format_zonedisplay(id, info, "Pump");
                                 pagemap.insert(( ZoneKind::Pump, id), text.clone() );
                             }
-                            _ => {}
+                            // _ => {}
                         }
                     }
                     else => { break }

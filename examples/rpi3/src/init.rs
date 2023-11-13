@@ -84,12 +84,25 @@ pub async fn house_hardware_init(
                 )));
             }
             Zone::Water {id, interface, ..} => {
-                interface.moist = Some(Box::new(
-                    hardware::pcf8591::CapacitiveMoistureSensor::new(
-                        *id,
-                        adc_1.new_mutex(),
-                    ),
-                ));
+                match id {
+                    1..=2 => {
+                        interface.moist = Some(Box::new(
+                            hardware::pcf8591::CapacitiveMoistureSensor::new(
+                                *id,
+                                adc_1.new_mutex(),
+                            ),
+                        ));        
+                    }
+                    _ => {
+                        interface.moist = Some(Box::new(
+                            hardware::dummy::DummyMoistureSensor::new(
+                                *id,
+                                hardware::conf::MOIST_DUMMY_VALUE
+                            ),
+                        ));
+                    }
+                }
+      
             }
             Zone::Tank {id, interface, ..} => {
                 interface.tank_sensor = Some(Box::new(

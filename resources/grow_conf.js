@@ -80,6 +80,34 @@
       }
     },
     {
+      "Water": {
+        "id": 3,
+        "settings": {
+          "moisture_low_red_alert": 20.0,
+          "moisture_low_yellow_warning": 30.0,
+          "moisture_limit_water": 50.0,
+          "moisture_high_yellow_warning": 90.0,
+          "moisture_high_red_alert": 100.0,
+          "tank_id": 1,
+          "pump_id": 1,
+          "pump_time": {
+            "secs": 2,
+            "nanos": 0
+          },
+          "settling_time": {
+            "secs": 3600,
+            "nanos": 0
+          },
+          "position": {
+            "arm_id": 1,
+            "x": 87,
+            "y": 4254,
+            "z": 0
+          }
+        }
+      }
+    },
+    {
       "Light": {
         "id": 1,
         "settings": {
